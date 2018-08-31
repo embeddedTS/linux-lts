@@ -663,6 +663,25 @@ config STMP3XXX_RTC_WATCHDOG
 	  To compile this driver as a module, choose M here: the
 	  module will be called stmp3xxx_rtc_wdt.
 
+config TS_WDT_MICRO
+	tristate "embeddedTS Microcontroller Watchdog"
+	depends on ARM
+	select WATCHDOG_CORE
+	help
+	  embeddedTS supervisory microcontroller watchdog implemented
+	  over I2C. Say Y here if you want support for the watchdog
+	  timer on compatible platforms.
+
+	  If WATCHDOG_HANDLE_BOOT_ENABLED is set, then this driver will
+	  start the WDT as soon as possible (if not already started by
+	  the bootloader) and do an automatic feed until userspace takes
+	  over and starts feeding the WDT. Note that a quirk of this
+	  is if userspace does not start feeding, a system halt will
+	  not stop the WDT and the WDT will reset after its timeout.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called ts_wdt.
+
 config TS4800_WATCHDOG
 	tristate "TS-4800 Watchdog"
 	depends on HAS_IOMEM && OF
