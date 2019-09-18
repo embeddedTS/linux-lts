@@ -689,6 +689,14 @@ config TS_WDT_MICRO
 	  To compile this driver as a module, choose M here: the module
 	  will be called ts_wdt.
 
+config TS7100_WATCHDOG
+	tristate "TS-7100 (and compatible) Microcontroller Watchdog"
+	depends on ARM
+	select WATCHDOG_CORE
+	help
+	  Hardware driver for the embeddedTS TS-7100, TS-7180 and
+	  other TS-71XX-compatible microcontroller watchdogs.
+
 config TS4800_WATCHDOG
 	tristate "TS-4800 Watchdog"
 	depends on HAS_IOMEM && OF
