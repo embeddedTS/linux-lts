@@ -290,6 +290,14 @@ static int wl1271_probe(struct sdio_func *func,
 	if (ret)
 		goto out;
 
+	/* Enable PM runtime for the card. This is needed for the call to
+	 * pm_runtime_get_sync in power control. Without enabling PM runtime,
+	 * those calls will fail. There is a proposed patch that might address
+	 * this, see https://lore.kernel.org/linux-arm-kernel/641a41bc-68ea-c0e9-9430-faf3803e12d5@ti.com/T/ However this has not been upstreamed at all and this is a tested
+	 * workaround that doesn't change core PM functionality.
+	 */
+	pm_runtime_enable(&func->card->dev);
+
 	/* if sdio can keep power while host is suspended, enable wow */
 	mmcflags = sdio_get_host_pm_caps(func);
 	dev_dbg(glue->dev, "sdio PM caps = 0x%x\n", mmcflags);
