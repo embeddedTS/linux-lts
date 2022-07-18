@@ -371,10 +371,8 @@
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
 	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
-	keep-power-in-suspend;
 	disable-wp;
 	broken-cd;
-	bus-width = <4>;
 	vmmc-supply = <&reg_sd1_vmmc>;
 	status = "okay";
 };
@@ -384,8 +382,7 @@
 	pinctrl-0 = <&pinctrl_usdhc2>;
 	no-1-8-v;
 	disable-wp;
-	broken-cd;
-	bus-width = <4>;
+	non-removable;
 	status = "okay";
 };
 
