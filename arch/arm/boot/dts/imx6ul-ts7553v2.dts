@@ -382,7 +382,7 @@
 	pinctrl-0 = <&pinctrl_usdhc2>;
 	no-1-8-v;
 	disable-wp;
-	non-removable;
+	broken-cd;
 	status = "okay";
 };
 
