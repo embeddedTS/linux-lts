@@ -1,130 +1,104 @@
+// SPDX-License-Identifier: GPL-2.0 OR X11
 /*
- * Copyright 2015 Technologic Systems
+ * Copyright 2015-2022 Technologic Systems Inc., dba embeddedTS
  * Copyright 2017 Savoir-Faire Linux
- *
- * This file is dual-licensed: you can use it either under the terms
- * of the GPL or the X11 license, at your option. Note that this dual
- * licensing only applies to this file, and not this project as a
- * whole.
- *
- *  a) This file is free software; you can redistribute it and/or
- *     modify it under the terms of the GNU General Public License
- *     version 2 as published by the Free Software Foundation.
- *
- *     This file is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     GNU General Public License for more details.
- *
- * Or, alternatively,
- *
- *  b) Permission is hereby granted, free of charge, to any person
- *     obtaining a copy of this software and associated documentation
- *     files (the "Software"), to deal in the Software without
- *     restriction, including without limitation the rights to use,
- *     copy, modify, merge, publish, distribute, sublicense, and/or
- *     sell copies of the Software, and to permit persons to whom the
- *     Software is furnished to do so, subject to the following
- *     conditions:
- *
- *     The above copyright notice and this permission notice shall be
- *     included in all copies or substantial portions of the Software.
- *
- *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
- *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- *     OTHER DEALINGS IN THE SOFTWARE.
  */
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	leds {
+	chosen {
+		stdout-path = &uart1;
+	};
+
+	aliases {
+		ethernet0 = &fec;
+	};
+
+	led-controller {
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_leds1>;
+		pinctrl-0 = <&pinctrl_gpio_leds>;
 		compatible = "gpio-leds";
 
-		green-led {
-			label = "green-led";
+		led-0 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_POWER;
 			gpios = <&gpio3 27 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
-		red-led {
-			label = "red-led";
+		led-1 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_STATUS;
 			gpios = <&gpio1 2 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
-		yel-led {
-			label = "yellow-led";
+		led-2 {
+			color = <LED_COLOR_ID_YELLOW>;
+			function = LED_FUNCTION_INDICATOR;
 			gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
-		blue-led {
-			label = "blue-led";
-			gpios = <&gpio4 25 GPIO_ACTIVE_LOW>;
+		led-3 {
+			color = <LED_COLOR_ID_BLUE>;
+			function = LED_FUNCTION_INDICATOR;
+			gpios = <&gpio4 25 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
-
-		en-usb-5v-led {
-			label = "en-usb-5v";
-			gpios = <&gpio2 22 GPIO_ACTIVE_HIGH>;
-			default-state = "on";
-		};
-
-		sel-dc-usb-led {
-			label = "sel_dc_usb";
-			gpios = <&gpio5 17 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
-
 	};
 
-	reg_3p3v: regulator-3p3v {
+	reg_1v5: regulator-1v5 {
 		compatible = "regulator-fixed";
-		regulator-name = "3p3v";
+		regulator-name = "AUDIO_1V5";
+		regulator-min-microvolt = <1500000>;
+		regulator-max-microvolt = <1500000>;
+		regulator-always-on;
+	};
+
+	reg_3v3: regulator-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "3V3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 	};
 
-	reg_can1_3v3: reg_can1_3v3 {
+	reg_can1_3v3: regulator-can1-en {
 		compatible = "regulator-fixed";
-		regulator-name = "reg_can1_3v3";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_flexcan1_en>;
+		regulator-name = "CAN1_EN";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&gpio4 21 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
+		gpio = <&gpio4 21 GPIO_ACTIVE_LOW>;
 	};
 
-	reg_can2_3v3: en-reg_can2_3v3 {
+	reg_can2_3v3: regulator-can2-en {
 		compatible = "regulator-fixed";
-		regulator-name = "reg_can2_3v3";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_flexcan2_en>;
+		regulator-name = "CAN2_EN";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&gpio6 31 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
+		gpio = <&gpio6 31 GPIO_ACTIVE_LOW>;
 	};
 
 	reg_usb_otg_vbus: regulator-usb-otg-vbus {
 		compatible = "regulator-fixed";
-		regulator-name = "usb_otg_vbus";
+		regulator-name = "USB_OTG_VBUS";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		gpio = <&gpio3 22 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
 
-	reg_wlan_vmmc: regulator_wlan_vmmc {
+	reg_wlan_vqmmc: regulator-wlan-vqmmc {
 		compatible = "regulator-fixed";
-		regulator-name = "wlan_vmmc";
+		regulator-name = "WLAN_1V8";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		gpio = <&gpio8 14 GPIO_ACTIVE_HIGH>;
@@ -132,7 +106,7 @@
 		enable-active-high;
 	};
 
-	sound-sgtl5000 {
+	sound {
 		audio-codec = <&sgtl5000>;
 		audio-routing =
 			"MIC_IN", "Mic Jack",
@@ -165,6 +139,7 @@
 };
 
 &ecspi1 {
+	num-cs = <1>;
 	cs-gpios = <&gpio3 19 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi1>;
@@ -178,6 +153,7 @@
 };
 
 &ecspi2 {
+	num-cs = <3>;
 	cs-gpios = <
 		&gpio5 31 GPIO_ACTIVE_LOW
 		&gpio7 12 GPIO_ACTIVE_LOW
@@ -186,6 +162,19 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi2>;
 	status = "okay";
+
+	/* CS0# is FPGA emulated MAX3100 UARTs, not compatible with the
+	 * standard kernel drive since multiple UARTs are implemented in the
+	 * single FPGA IP instance.
+	 */
+
+	/* CS1# is generic FPGA SPI access, normally unused */
+
+	spidevhd1: spi@2 {
+		compatible = "spidev";
+		reg = <2>;
+		spi-max-frequency = <1000000>;
+	};
 };
 
 &fec {
@@ -199,7 +188,42 @@
 	status = "okay";
 };
 
+&gpio2 {
+	gpio-line-names = "", "", "", "", "", "", "", "", "", "", "",
+		"USB_HUB_RESET#", "", "", "", "", "", "", "",
+		"EN_MODBUS_24V", "", "I210_RESET#", "EN_USB_5V", "BUS_CS",
+		"", "MODBUS_FAULT", "BUS_DIR", "BUS_ALE#", "", "BUS_BHE#", "", "";
+};
+
+&gpio3 {
+	gpio-line-names = "MUX_AD_00", "MUX_AD_01", "MUX_AD_02", "MUX_AD_03",
+		"MUX_AD_04", "MUX_AD_05", "MUX_AD_06", "MUX_AD_07", "MUX_AD_08",
+		"MUX_AD_09", "MUX_AD_10", "MUX_AD_11", "MUX_AD_12", "MUX_AD_13",
+		"MUX_AD_14", "MUX_AD_15", "", "", "", "", "", "", "",
+		"EN_RTC_PWR#", "", "", "", "", "", "", "", "";
+
+	en-rtc-hog {
+		gpio-hog;
+		gpios = <23 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+};
+
+&gpio4 {
+	gpio-line-names = "", "", "", "", "", "", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "", "", "", "", "", "",
+		"EN_MODBUS_3V#", "", "LCD_D09", "", "HD1_IRQ", "LCD_D10";
+};
+
+&gpio5 {
+	gpio-line-names = "BUS_WAIT#", "", "", "", "DIO_20", "LCD_D11", "", "",
+		"", "JTAG_FPGA_TMS", "", "", "JTAG_FPGA_TCK", "JTAG_FPGA_TDO",
+		"", "GYRO_INT", "", "", "SEL_DC_USB#", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "";
+};
+
 &hdmi {
+	ddc-i2c-bus = <&i2c2>;
 	status = "okay";
 };
 
@@ -208,17 +232,17 @@
 	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&pinctrl_i2c1>;
 	pinctrl-1 = <&pinctrl_i2c1_gpio>;
-	scl-gpios = <&gpio3 21 GPIO_ACTIVE_HIGH>;
-	sda-gpios = <&gpio3 28 GPIO_ACTIVE_HIGH>;
+	scl-gpios = <&gpio3 21 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio3 28 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
 
 	m41t00s: rtc@68 {
-		compatible = "m41t00";
+		compatible = "st,m41t00";
 		reg = <0x68>;
 	};
 
 	isl12022: rtc@6f {
-		compatible = "isl,isl12022";
+		compatible = "isil,isl12022";
 		reg = <0x6f>;
 	};
 
@@ -228,17 +252,23 @@
 		#gpio-cells = <2>;
 		gpio-controller;
 		ngpios = <62>;
+		base = <224>;
+		gpio-line-names = "", "", "", "", "", "", "", "", "", "", "",
+			"", "",	"BT_EN", "WL_EN", "", "", "", "", "HD1_DIO_1",
+			"HD1_DIO_2", "HD1_DIO_3", "HD1_DIO_4", "HD1_DIO_5",
+			"HD1_DIO_6", "EN_OUT_1", "EN_OUT_2";
 	};
 
-	sgtl5000: codec@a {
+	sgtl5000: audio-codec@a {
 		compatible = "fsl,sgtl5000";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_sgtl5000>;
 		reg = <0x0a>;
 		#sound-dai-cells = <0>;
 		clocks = <&clks IMX6QDL_CLK_CKO>;
-		VDDA-supply = <&reg_3p3v>;
-		VDDIO-supply = <&reg_3p3v>;
+		VDDA-supply = <&reg_3v3>;
+		VDDIO-supply = <&reg_3v3>;
+		VDDD-supply = <&reg_1v5>;
 	};
 };
 
@@ -247,8 +277,8 @@
 	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&pinctrl_i2c2>;
 	pinctrl-1 = <&pinctrl_i2c2_gpio>;
-	scl-gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;
-	sda-gpios = <&gpio4 13 GPIO_ACTIVE_HIGH>;
+	scl-gpios = <&gpio4 12 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio4 13 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
 };
 
@@ -265,7 +295,7 @@
 		>;
 	};
 
-	pinctrl_ecspi2: ecspi2 {
+	pinctrl_ecspi2: ecspi2grp {
 		fsl,pins = <
 			MX6QDL_PAD_CSI0_DAT8__ECSPI2_SCLK      0x100b1
 			MX6QDL_PAD_CSI0_DAT9__ECSPI2_MOSI      0x100b1
@@ -280,7 +310,7 @@
 		>;
 	};
 
-	pinctrl_enet: enet {
+	pinctrl_enet: enetgrp {
 		fsl,pins = <
 			MX6QDL_PAD_ENET_MDIO__ENET_MDIO		0x1b0b0
 			MX6QDL_PAD_ENET_MDC__ENET_MDC		0x1b0b0
@@ -307,6 +337,11 @@
 		fsl,pins = <
 			MX6QDL_PAD_KEY_ROW2__FLEXCAN1_RX	0x1b088
 			MX6QDL_PAD_KEY_COL2__FLEXCAN1_TX	0x1b088
+		>;
+	};
+
+	pinctrl_flexcan1_en: flexcan1engrp {
+		fsl,pins = <
 			MX6QDL_PAD_DISP0_DAT0__GPIO4_IO21	0x1b088 /* EN_CAN_1 */
 		>;
 	};
@@ -315,7 +350,18 @@
 		fsl,pins = <
 			MX6QDL_PAD_KEY_COL4__FLEXCAN2_TX	0x1b088
 			MX6QDL_PAD_KEY_ROW4__FLEXCAN2_RX	0x1b088
+		>;
+	};
+
+	pinctrl_flexcan2_en: flexcan2engrp {
+		fsl,pins = <
 			MX6QDL_PAD_EIM_BCLK__GPIO6_IO31		0x1b088 /* EN_CAN_2 */
+		>;
+	};
+
+	pinctrl_pcie: pciegrp {
+		fsl,pins = <
+			MX6QDL_PAD_EIM_A17__GPIO2_IO21		0x1b088 /* I210_RESET */
 		>;
 	};
 
@@ -334,9 +380,7 @@
 			MX6QDL_PAD_EIM_RW__GPIO2_IO26		0x1b088 /* BUS_DIR/JP_SD_BOOT */
 			MX6QDL_PAD_EIM_A19__GPIO2_IO19		0x1b088 /* EN_MODBUS_24V */
 			MX6QDL_PAD_DISP0_DAT5__GPIO4_IO26	0x1b088 /* EN_MODBUS_3V */
-			MX6QDL_PAD_EIM_A17__GPIO2_IO21		0x1b088 /* I210_RESET */
 			MX6QDL_PAD_EIM_D23__GPIO3_IO23		0x1b088 /* EN_RTC_PWR */
-			MX6QDL_PAD_SD3_DAT4__GPIO7_IO01		0x1b088 /* REVSTRAP1 */
 
 			/* Offboard */
 			MX6QDL_PAD_DISP0_DAT7__GPIO4_IO28	0x1b088 /* LCD_D09 */
@@ -368,6 +412,9 @@
 			/* Strapping only */
 			MX6QDL_PAD_EIM_A18__GPIO2_IO20		0x1b088
 			MX6QDL_PAD_EIM_A21__GPIO2_IO17		0x1b088
+			MX6QDL_PAD_SD3_DAT4__GPIO7_IO01		0x1b088 /* REV STRAP B */
+			MX6QDL_PAD_SD3_DAT5__GPIO7_IO00		0x1b088 /* REV STRAP C */
+			MX6QDL_PAD_NANDF_D3__GPIO2_IO03		0x1b088 /* Rev STRAP H */
 		>;
 	};
 
@@ -399,7 +446,7 @@
 		>;
 	};
 
-	pinctrl_leds1: leds1grp {
+	pinctrl_gpio_leds: leds1grp {
 		fsl,pins = <
 			MX6QDL_PAD_EIM_D27__GPIO3_IO27		0x1b088 /* GREEN_LED */
 			MX6QDL_PAD_GPIO_2__GPIO1_IO02		0x1b088 /* RED_LED */
@@ -475,6 +522,28 @@
 		>;
 	};
 
+	pinctrl_usdhc1_100mhz: usdhc1grp-100mhz {
+		fsl,pins = <
+			MX6QDL_PAD_SD1_CMD__SD1_CMD             0x170B9
+			MX6QDL_PAD_SD1_CLK__SD1_CLK             0x100B9
+			MX6QDL_PAD_SD1_DAT0__SD1_DATA0          0x170B9
+			MX6QDL_PAD_SD1_DAT1__SD1_DATA1          0x170B9
+			MX6QDL_PAD_SD1_DAT2__SD1_DATA2          0x170B9
+			MX6QDL_PAD_SD1_DAT3__SD1_DATA3          0x170B9
+		>;
+	};
+
+	pinctrl_usdhc1_200mhz: usdhc1grp-200mhz {
+		fsl,pins = <
+			MX6QDL_PAD_SD1_CMD__SD1_CMD             0x170F9
+			MX6QDL_PAD_SD1_CLK__SD1_CLK             0x100F9
+			MX6QDL_PAD_SD1_DAT0__SD1_DATA0          0x170F9
+			MX6QDL_PAD_SD1_DAT1__SD1_DATA1          0x170F9
+			MX6QDL_PAD_SD1_DAT2__SD1_DATA2          0x170F9
+			MX6QDL_PAD_SD1_DAT3__SD1_DATA3          0x170F9
+		>;
+	};
+
 	pinctrl_usdhc2: usdhc2grp {
 		fsl,pins = <
 			MX6QDL_PAD_SD2_CMD__SD2_CMD		0x17059
@@ -500,6 +569,9 @@
 };
 
 &pcie {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcie>;
+	reset-gpio = <&gpio2 21 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 };
 
@@ -556,16 +628,22 @@
 
 /* WIFI */
 &usdhc1 {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&pinctrl_usdhc1>;
-	vmmc-supply = <&reg_wlan_vmmc>;
+	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
+	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
+	vmmc-supply = <&reg_3v3>;
+	vqmmc-supply = <&reg_wlan_vqmmc>;
 	bus-width = <4>;
+	fsl,tuning-step = <2>;
+	cap-sdio-irq;
 	non-removable;
+	keep-power-in-suspend;
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
 
-	wlcore: wlcore@2 {
+	wlcore: wifi@2 {
 		compatible = "ti,wl1271";
 		reg = <2>;
 		interrupt-parent = <&gpio1>;
@@ -578,9 +656,11 @@
 &usdhc2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usdhc2>;
-	vmmc-supply = <&reg_3p3v>;
+	vmmc-supply = <&reg_3v3>;
+	vqmmc-supply = <&reg_3v3>;
 	bus-width = <4>;
 	fsl,wp-controller;
+	no-1-8-v;
 	status = "okay";
 };
 
@@ -588,8 +668,10 @@
 &usdhc3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usdhc3>;
-	vmmc-supply = <&reg_3p3v>;
+	vmmc-supply = <&reg_3v3>;
+	vqmmc-supply = <&reg_3v3>;
 	bus-width = <4>;
 	non-removable;
+	no-1-8-v;
 	status = "okay";
 };
