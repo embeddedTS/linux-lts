@@ -163,10 +163,17 @@
 	pinctrl-0 = <&pinctrl_ecspi2>;
 	status = "okay";
 
-	/* CS0# is FPGA emulated MAX3100 UARTs, not compatible with the
-	 * standard kernel drive since multiple UARTs are implemented in the
-	 * single FPGA IP instance.
-	 */
+	max3100ts: serial@0 {
+		compatible = "technologic,max3100-ts";
+		reg = <0>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <4 IRQ_TYPE_LEVEL_LOW>;
+		spi-max-frequency = <1000000>;
+		loopback = <0>;
+		crystal = <1>;
+		poll-time = <100>;
+		fifo-size = <16>;
+	};
 
 	/* CS1# is generic FPGA SPI access, normally unused */
 
