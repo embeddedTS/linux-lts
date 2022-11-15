@@ -30,6 +30,7 @@
 
 #define ISL12022_REG_SR		0x07
 #define ISL12022_REG_INT	0x08
+#define ISL12022_REG_VBAT	0x0a
 #define ISL12022_REG_BETA	0x0d
 #define ISL12022_REG_TEMP	0x28
 
@@ -45,6 +46,10 @@
 #define ISL12022_BETA_TSE	(1 << 7) /* Enable temp sensor compensation */
 #define ISL12022_BETA_BTSE	(1 << 6) /* Temp sensor enabled on VBAT */
 #define ISL12022_BETA_BTSR	(1 << 5) /* Sample Frequency (1=1min,0=10min) */
+#define ISL12022_VBAT_VB85_MASK 0x38
+#define ISL12022_VBAT_VB85_SHFT	3
+#define ISL12022_VBAT_VB75_MASK 0x7
+#define ISL12022_VBAT_VB75_SHFT	0
 
 static struct i2c_driver isl12022_driver;
 
@@ -53,6 +58,9 @@ struct isl12022 {
 	struct regmap *regmap;
 	bool enable_btse;
 	uint32_t btse_minutes;
+	bool set_trip_thresh;
+	uint32_t vb75_threshold;
+	uint32_t vb85_threshold;
 };
 
 /*
@@ -70,16 +78,27 @@ static int isl12022_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	if (ret)
 		return ret;
 
-	if (buf[ISL12022_REG_SR] & (ISL12022_SR_LBAT85 | ISL12022_SR_LBAT75)) {
-		dev_warn(dev,
-			 "voltage dropped below %u%%, "
-			 "date and time is not reliable.\n",
-			 buf[ISL12022_REG_SR] & ISL12022_SR_LBAT85 ? 85 : 75);
-	}
-
 	if (buf[ISL12022_REG_SR] & ISL12022_SR_RTCF) {
 		dev_err(dev, "Total power failure, RTC data is invalid.\n");
 		return -EINVAL;
+	}
+
+	/*
+	 * Check battery voltage trip points.
+	 * These have default settings but may also be set by isl12022_setup()
+	 * which also cycles TSE and forces a re-read of the temperature and
+	 * battery voltages. Temperature conversions take 22 ms, battery voltage
+	 * conversions do not have a listed time.
+	 *
+	 * Warn only once if the battery voltage is found to be under the set
+	 * thresholds to prevent spamming on every RTC read.
+	 */
+	if (buf[ISL12022_REG_SR] & ISL12022_SR_LBAT75) {
+		dev_warn_once(dev,
+			"battery voltage dropped below 75%%, date and time may not be reliable.\n");
+	} else if (buf[ISL12022_REG_SR] & ISL12022_SR_LBAT85) {
+		dev_warn_once(dev,
+			"battery voltage dropped below 85%%.\n");
 	}
 
 	dev_dbg(dev,
@@ -261,7 +280,8 @@ static void isl12022_hwmon_register(struct device *dev)
 int isl12022_setup(struct i2c_client *client, struct isl12022 *isl12022)
 {
 	struct regmap *regmap = isl12022->regmap;
-	uint8_t data = 0;
+	struct device *dev = &client->dev;
+	uint32_t data = 0;
 	int ret = 0;
 
 	/*
@@ -296,8 +316,19 @@ int isl12022_setup(struct i2c_client *client, struct isl12022 *isl12022)
 			return ret;
 	}
 
+	/* Set battery voltage trip thresholds */
+	if (isl12022->set_trip_thresh) {
+		ret = regmap_update_bits(regmap,
+					 ISL12022_REG_VBAT,
+					 ISL12022_VBAT_VB85_MASK | ISL12022_VBAT_VB75_MASK,
+					 isl12022->vb75_threshold << ISL12022_VBAT_VB75_SHFT |
+					 isl12022->vb85_threshold << ISL12022_VBAT_VB85_SHFT);
+		if (ret)
+			return ret;
+	}
+
 	/*
-	 * (Re)Enable TSE after BETA was potentially modified.
+	 * (Re)Enable TSE after BETA and VB75/85T were potentially modified.
 	 * Setting TSE will also force a manual battery voltage and temperature
 	 * read.
 	 */
@@ -344,6 +375,19 @@ static int isl12022_probe(struct i2c_client *client,
 					&isl12022->btse_minutes);
 		if (!ret)
 			isl12022->enable_btse = 1;
+
+		/* Both vb75t and vb85t must be passed simultaneously. */
+		ret = of_property_read_u32(dev->of_node,
+					"vb75t",
+					&isl12022->vb75_threshold);
+		if (!ret)
+			isl12022->set_trip_thresh = 1;
+
+		ret = of_property_read_u32(dev->of_node,
+					"vb85t",
+					&isl12022->vb85_threshold);
+		if (ret || !isl12022->set_trip_thresh)
+			isl12022->set_trip_thresh = 0;
 	}
 
 	ret = isl12022_setup(client, isl12022);
