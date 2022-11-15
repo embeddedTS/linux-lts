@@ -36,6 +36,7 @@
 
 #define ISL12022_SR_LBAT85	(1 << 2)
 #define ISL12022_SR_LBAT75	(1 << 1)
+#define ISL12022_SR_RTCF	(1 << 0)
 
 #define ISL12022_INT_WRTC	(1 << 6)
 
@@ -72,6 +73,11 @@ static int isl12022_rtc_read_time(struct device *dev, struct rtc_time *tm)
 			 "voltage dropped below %u%%, "
 			 "date and time is not reliable.\n",
 			 buf[ISL12022_REG_SR] & ISL12022_SR_LBAT85 ? 85 : 75);
+	}
+
+	if (buf[ISL12022_REG_SR] & ISL12022_SR_RTCF) {
+		dev_err(dev, "Total power failure, RTC data is invalid.\n");
+		return -EINVAL;
 	}
 
 	dev_dbg(dev,
