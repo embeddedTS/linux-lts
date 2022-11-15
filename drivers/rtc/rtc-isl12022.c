@@ -29,6 +29,7 @@
 
 #define ISL12022_REG_SR		0x07
 #define ISL12022_REG_INT	0x08
+#define ISL12022_REG_BETA	0x0d
 
 /* ISL register bits */
 #define ISL12022_HR_MIL		(1 << 7)	/* military or 24 hour time */
@@ -38,12 +39,17 @@
 
 #define ISL12022_INT_WRTC	(1 << 6)
 
+#define ISL12022_BETA_TSE	(1 << 7) /* Enable temp sensor compensation */
+#define ISL12022_BETA_BTSE	(1 << 6) /* Temp sensor enabled on VBAT */
+#define ISL12022_BETA_BTSR	(1 << 5) /* Sample Frequency (1=1min,0=10min) */
 
 static struct i2c_driver isl12022_driver;
 
 struct isl12022 {
 	struct rtc_device *rtc;
 	struct regmap *regmap;
+	bool enable_btse;
+	uint32_t btse_minutes;
 };
 
 /*
@@ -141,9 +147,62 @@ static const struct regmap_config regmap_config = {
 	.use_single_write = true,
 };
 
+int isl12022_setup(struct i2c_client *client, struct isl12022 *isl12022)
+{
+	struct regmap *regmap = isl12022->regmap;
+	uint8_t data = 0;
+	int ret = 0;
+
+	/*
+	 * All changes to ALPHA, BETA, IDTR, and IATR registers must
+	 * be done with TSE disabled according to the datasheet.
+	 * It's possible for BTSE settings to be touched one way or another
+	 * below, so disable TSE for now and re-enable later just in case.
+	 */
+	ret = regmap_update_bits(regmap, ISL12022_REG_BETA,
+				ISL12022_BETA_TSE,
+				0);
+	if (ret)
+		return ret;
+
+	/* Setup temperature sensing on battery power. */
+	if (isl12022->enable_btse) {
+		if (isl12022->btse_minutes != 10)
+			data = ISL12022_BETA_BTSR;
+
+		data |= ISL12022_BETA_BTSE;
+
+		ret = regmap_update_bits(regmap, ISL12022_REG_BETA,
+					ISL12022_BETA_BTSE | ISL12022_BETA_BTSR,
+					data);
+		if (ret)
+			return ret;
+	} else {
+		ret = regmap_update_bits(regmap, ISL12022_REG_BETA,
+					ISL12022_BETA_BTSE,
+					0);
+		if (ret)
+			return ret;
+	}
+
+	/*
+	 * (Re)Enable TSE after BETA was potentially modified.
+	 * Setting TSE will also force a manual battery voltage and temperature
+	 * read.
+	 */
+	ret = regmap_update_bits(regmap, ISL12022_REG_BETA, ISL12022_BETA_TSE,
+				ISL12022_BETA_TSE);
+	if (ret)
+		return ret;
+
+	return ret;
+}
+
 static int isl12022_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id) {
 	struct isl12022 *isl12022;
+	struct device *dev = &client->dev;
+	int ret;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
 		return -ENODEV;
@@ -165,6 +224,18 @@ static int isl12022_probe(struct i2c_client *client,
 		return PTR_ERR(isl12022->rtc);
 
 	isl12022->rtc->ops = &isl12022_rtc_ops;
+
+	if (dev->of_node) {
+		ret = of_property_read_u32(dev->of_node,
+					"btse-minutes",
+					&isl12022->btse_minutes);
+		if (!ret)
+			isl12022->enable_btse = 1;
+	}
+
+	ret = isl12022_setup(client, isl12022);
+	if (ret)
+		return ret;
 
 	return rtc_register_device(isl12022->rtc);
 }
