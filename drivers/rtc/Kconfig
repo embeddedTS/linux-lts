@@ -412,6 +412,14 @@ config RTC_DRV_ISL12022
 	  This driver can also be built as a module. If so, the module
 	  will be called rtc-isl12022.
 
+config RTC_DRV_ISL12022_HWMON
+	bool "HWMON support for Intersil ISL12022"
+	depends on RTC_DRV_ISL12022 && HWMON && !(RTC_DRV_ISL12022=y && HWMON=m)
+	default y
+	help
+	  Say Y here if you want to expose temperature sensor data on
+	  rtc-isl12022
+
 config RTC_DRV_ISL12026
 	tristate "Intersil ISL12026"
 	depends on OF || COMPILE_TEST
