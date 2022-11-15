@@ -10,6 +10,7 @@
 
 #include <linux/i2c.h>
 #include <linux/bcd.h>
+#include <linux/hwmon.h>
 #include <linux/rtc.h>
 #include <linux/slab.h>
 #include <linux/module.h>
@@ -30,6 +31,7 @@
 #define ISL12022_REG_SR		0x07
 #define ISL12022_REG_INT	0x08
 #define ISL12022_REG_BETA	0x0d
+#define ISL12022_REG_TEMP	0x28
 
 /* ISL register bits */
 #define ISL12022_HR_MIL		(1 << 7)	/* military or 24 hour time */
@@ -142,6 +144,56 @@ static int isl12022_rtc_set_time(struct device *dev, struct rtc_time *tm)
 				 buf, sizeof(buf));
 }
 
+static int isl12022_hwmon_read_temp(struct device *dev, long *mC)
+{
+	struct isl12022 *isl12022 = dev_get_drvdata(dev);
+	u8 data[2];
+	int ret;
+
+	ret = regmap_bulk_read(isl12022->regmap, ISL12022_REG_TEMP, data,
+			       sizeof(data));
+	if (ret < 0)
+		return ret;
+
+	/* Convert from Kelvin */
+	*mC = ((data[0]|(data[1]<<8))*500)-273150;
+
+	return 0;
+}
+
+static int isl12022_hwmon_read(struct device *dev,
+			     enum hwmon_sensor_types type,
+			     u32 attr, int channel, long *temp)
+{
+	int err;
+
+	switch (attr) {
+	case hwmon_temp_input:
+		err = isl12022_hwmon_read_temp(dev, temp);
+		break;
+	default:
+		err = -EOPNOTSUPP;
+		break;
+	}
+
+	return err;
+}
+
+static umode_t isl12022_hwmon_is_visible(const void *data,
+				       enum hwmon_sensor_types type,
+				       u32 attr, int channel)
+{
+	if (type != hwmon_temp)
+		return 0;
+
+	switch (attr) {
+	case hwmon_temp_input:
+		return 0444;
+	default:
+		return 0;
+	}
+}
+
 static const struct rtc_class_ops isl12022_rtc_ops = {
 	.read_time	= isl12022_rtc_read_time,
 	.set_time	= isl12022_rtc_set_time,
@@ -152,6 +204,59 @@ static const struct regmap_config regmap_config = {
 	.val_bits = 8,
 	.use_single_write = true,
 };
+
+static u32 isl12022_hwmon_chip_config[] = {
+	HWMON_C_REGISTER_TZ,
+	0
+};
+
+static const struct hwmon_channel_info isl12022_hwmon_chip = {
+	.type = hwmon_chip,
+	.config = isl12022_hwmon_chip_config,
+};
+
+static u32 isl12022_hwmon_temp_config[] = {
+	HWMON_T_INPUT,
+	0
+};
+
+static const struct hwmon_channel_info isl12022_hwmon_temp = {
+	.type = hwmon_temp,
+	.config = isl12022_hwmon_temp_config,
+};
+
+static const struct hwmon_channel_info *isl12022_hwmon_info[] = {
+	&isl12022_hwmon_chip,
+	&isl12022_hwmon_temp,
+	NULL
+};
+
+static const struct hwmon_ops isl12022_hwmon_hwmon_ops = {
+	.is_visible = isl12022_hwmon_is_visible,
+	.read = isl12022_hwmon_read,
+};
+
+static const struct hwmon_chip_info isl12022_hwmon_chip_info = {
+	.ops = &isl12022_hwmon_hwmon_ops,
+	.info = isl12022_hwmon_info,
+};
+
+static void isl12022_hwmon_register(struct device *dev)
+{
+	struct isl12022 *isl12022 = dev_get_drvdata(dev);
+	struct device *hwmon_dev;
+
+	if (!IS_ENABLED(CONFIG_RTC_DRV_ISL12022_HWMON))
+		return;
+
+	hwmon_dev = devm_hwmon_device_register_with_info(dev, "isl12022", isl12022,
+							&isl12022_hwmon_chip_info,
+							NULL);
+	if (IS_ERR(hwmon_dev)) {
+		dev_err(dev, "unable to register hwmon device %ld\n",
+			PTR_ERR(hwmon_dev));
+	}
+}
 
 int isl12022_setup(struct i2c_client *client, struct isl12022 *isl12022)
 {
@@ -200,6 +305,8 @@ int isl12022_setup(struct i2c_client *client, struct isl12022 *isl12022)
 				ISL12022_BETA_TSE);
 	if (ret)
 		return ret;
+
+	isl12022_hwmon_register(dev);
 
 	return ret;
 }
