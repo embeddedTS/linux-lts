@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0 OR X11
+/*
+ * Copyright 2017-2022 Technologic Systems, Inc. dba embeddedTS
+ */
+
+/dts-v1/;
+#include "imx6q.dtsi"
+#include "imx6qdl-ts4900.dtsi"
+#include "imx6qdl-ts4900-ts8390.dtsi"
+
+/ {
+	model = "embeddedTS i.MX6 Quad TS-4900 (TS-TPC-8390)";
+	compatible = "fsl,imx6q-ts4900", "fsl,imx6q";
+};
