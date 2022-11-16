@@ -1,0 +1,309 @@
+// SPDX-License-Identifier: GPL-2.0 OR X11
+/*
+ * Copyright 2017-2022 Technologic Systems, Inc. dba embeddedTS
+ */
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+	chosen {
+		stdout-path = &uart1;
+	};
+
+	aliases {
+		ethernet0 = &fec;
+		i2c3 = &i2c3_gpio;
+	};
+
+	adc_ansel_mux: mux-controller {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+		mux-gpios = <&gpio3 10 GPIO_ACTIVE_HIGH>;
+	};
+
+	adc_chan23: chan23-mux {
+		compatible = "io-channel-mux";
+		io-channels = <&muxed_adc 2>;
+		io-channel-names = "parent";
+		#io-channel-cells = <1>;
+		mux-controls = <&adc_ansel_mux>;
+		settle-time-us = <10000>;
+
+		channels = "channel2", "channel3";
+	};
+
+	adc_chan45: chan45-mux {
+		compatible = "io-channel-mux";
+		io-channels = <&muxed_adc 3>;
+		io-channel-names = "parent";
+		#io-channel-cells = <1>;
+		mux-controls = <&adc_ansel_mux>;
+		settle-time-us = <10000>;
+
+		channels = "channel4", "channel5";
+	};
+
+	backlight_lcd: backlight-lcd {
+		compatible = "pwm-backlight";
+		pwms = <&pwm3 0 500000 0>;
+		/*
+		 * Backlight doesn't register anything until about half of max
+		 * brightness. So start the first real step at something that
+		 * makes the display visible. From there, make each step
+		 * meaningful along the scale.
+		 */
+		brightness-levels = < 0 48 49 50 51 52 53 54 55 56
+				     57 58 59 60 61 62 63 64 65 66
+				     67 68 69 70 71 72 73 74 75 76
+				     77 78 78 80 81 82 83 84 85 86
+				     87 88 89 90 91 92 93 94 95 96
+				     97 98 99 100>;
+		default-brightness-level = <53>;
+		power-supply = <&reg_5v>;
+	};
+
+	/* The TS-4900 pinctrl hog provides these as GPIO */
+	i2c3_gpio: i2c {
+		compatible = "i2c-gpio";
+		scl-gpios = <&gpio6 31 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		sda-gpios = <&gpio2 20 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		muxed_adc: adc@68 {
+			compatible = "mcp3428", "mcp3422";
+			#io-channel-cells = <1>;
+			reg = <0x68>;
+		};
+	};
+
+	lcd_display: disp0 {
+		compatible = "fsl,imx-parallel-display";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interface-pix-fmt = "rgb24";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_lcd>;
+
+		display-timings {
+			OKAYA-WVGA {
+				clock-frequency = <30066000>;
+				hactive = <800>;
+				vactive = <480>;
+				hfront-porch = <50>;
+				hback-porch = <70>;
+				hsync-len = <50>;
+				vback-porch = <2>;
+				vfront-porch = <2>;
+				vsync-len = <50>;
+
+				de-active = <1>;
+				pixelclk-active = <1>;
+			};
+		};
+
+		port@0 {
+			lcd_display_in: endpoint {
+				remote-endpoint = <&ipu1_di0_disp0>;
+			};
+		};
+	};
+
+	reg_5v: regulator-5v {
+		compatible = "regulator-fixed";
+		regulator-name = "5V";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	reg_lcd3v3: regulator-lcd {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_lcd3v3>;
+		regulator-name = "LCD_3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio2 19 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-boot-on;
+		regulator-always-on;
+		startup-delay-us = <60000>;
+	};
+
+	sound {
+		compatible = "fsl,imx-audio-sgtl5000";
+		audio-codec = <&sgtl5000>;
+		audio-routing =
+			"Ext Spk", "LINE_OUT",
+			"Headphone Jack", "HP_OUT";
+		model = "On-board Codec";
+		/* These describe the connection of SSI source (int) to audio out (ext) */
+		mux-int-port = <1>;
+		mux-ext-port = <3>;
+		ssi-controller = <&ssi1>;
+	};
+
+	/* The TS-4900 pinctrl hog provides these as GPIO */
+	spi_gpio: spi {
+		compatible = "spi-gpio";
+		num-chipselects = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sck-gpios = <&gpio3 15 GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <&gpio3 14 GPIO_ACTIVE_HIGH>;
+		miso-gpios = <&gpio3 13 GPIO_ACTIVE_HIGH>;
+		cs-gpios = <&gpio3 12 GPIO_ACTIVE_LOW>;
+
+		ads7843: touchscreen@0 {
+			compatible = "ti,ads7843";
+			reg = <0>;
+			interrupt-parent = <&gpio3>;
+			interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
+			vcc-supply = <&reg_3v3>;
+			spi-max-frequency = <100000>;
+			pendown-gpio = <&gpio3 11 GPIO_ACTIVE_HIGH>;
+			touchscreen-swapped-x-y;
+			ti,vref-mv = /bits/ 16 <3300>;
+			ti,keep-vref-on;
+			ti,settle-delay-usec = /bits/ 16 <500>;
+			ti,debounce-rep = /bits/ 16 <1>;
+			ti,debounce-tol = /bits/ 16 <30>;
+			ti,debounce-max = /bits/ 16 <255>;
+			ti,penirq-recheck-delay-usecs = /bits/ 16 <500>;
+			ti,pressure-max = /bits/ 16 <255>;
+			wakeup-source;
+		};
+	};
+};
+
+&audmux {
+	status = "okay";
+};
+
+&ecspi2 {
+	num-cs = <2>;
+	cs-gpios = <
+		&gpio6 2 GPIO_ACTIVE_LOW
+		&gpio5 29 GPIO_ACTIVE_LOW
+	>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi2>;
+	status = "okay";
+
+	offbdspi: spi@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+	};
+};
+
+&gpio2 {
+	gpio-line-names = "", "", "", "", "", "", "", "", "", "", "", "", "",
+		"", "", "IN_11", "OUT_2", "IN_0", "IN_4", "", "", "", "",
+		"OUT_4", "", "", "", "OUT_5", "", "OUT_3", "";
+};
+&gpio3 {
+	gpio-line-names = "", "", "", "", "", "", "", "", "OUT_6", "OUT_7", "",
+		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+		"", "", "", "";
+};
+&gpio4 {
+	gpio-line-names = "", "", "", "", "", "IN_5", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+		"", "", "";
+};
+
+&gpio5 {
+	gpio-line-names = "IN_2", "", "", "", "OUT_0", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "IN_7", "OUT_8", "", "", "", "", "",
+		"", "", "", "", "", "";
+
+	en-line-amp-hog {
+		gpio-hog;
+		gpios = <30 GPIO_ACTIVE_HIGH>;
+		line-name = "LINE_AMP_EN";
+		output-high;
+	};
+};
+
+&gpio6 {
+	gpio-line-names = "", "", "", "IN_6", "", "", "OUT_1", "", "", "", "",
+		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+		"", "", "", "";
+};
+
+&gpio7 {
+	gpio-line-names = "", "", "", "", "", "", "", "", "IN_9", "", "",
+		"IN_10", "IN_8", "", "", "", "", "", "", "", "", "", "", "", "",
+		"", "", "", "", "", "";
+};
+
+&gpio8 {
+	gpio-line-names = "", "", "IN_3", "", "", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+		"", "", "", "IN_1";
+};
+
+&i2c2 {
+	sgtl5000: sgtl5000@a {
+		compatible = "fsl,sgtl5000";
+		reg = <0x0a>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2s>;
+		#sound-dai-cells = <0>;
+		clocks = <&clks IMX6QDL_CLK_CKO>;
+		VDDA-supply = <&reg_3v3>;
+		VDDIO-supply = <&reg_3v3>;
+		VDDD-supply = <&reg_1v8>;
+	};
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog &pinctrl_muxbus_gpio>;
+
+	pinctrl_pwm3: pwm3grp {
+		fsl,pins = <
+			MX6QDL_PAD_SD4_DAT1__PWM3_OUT		0x1b088
+		>;
+	};
+
+	pinctrl_lcd3v3: lcdreggrp {
+		fsl,pins = <
+			MX6QDL_PAD_EIM_A19__GPIO2_IO19		0x1b088 /* EN_LCD_3.3V */
+		>;
+	};
+
+	/*
+	 * These are normally GPIO per hog and muxbus_gpio, but kept separate
+	 * in case either of those need to be broken up.
+	 */
+	pinctrl_i2c3adc: i2c3adcgrp {
+		fsl,pins = <
+			MX6QDL_PAD_EIM_DA10__GPIO3_IO10		0x1b088 /* AN_SEL */
+			MX6QDL_PAD_EIM_BCLK__GPIO6_IO31		0x1b088 /* ADC_CLK */
+			MX6QDL_PAD_EIM_A18__GPIO2_IO20		0x1b088 /* ADC_DAT */
+		>;
+	};
+};
+
+&ipu1_di0_disp0 {
+	remote-endpoint = <&lcd_display_in>;
+};
+
+&pcie {
+	status = "disabled";
+};
+
+&pwm3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm3>;
+	status = "okay";
+};
+
+&ssi1 {
+	status = "okay";
+};

@@ -469,6 +469,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6dl-sabresd.dtb \
 	imx6dl-savageboard.dtb \
 	imx6dl-ts4900.dtb \
+	imx6dl-ts4900-2.dtb \
 	imx6dl-ts4900-14.dtb \
 	imx6dl-ts7970.dtb \
 	imx6dl-tx6dl-comtft.dtb \
@@ -563,6 +564,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6q-sbc6x.dtb \
 	imx6q-tbs2910.dtb \
 	imx6q-ts4900.dtb \
+	imx6q-ts4900-2.dtb \
 	imx6q-ts4900-14.dtb \
 	imx6q-ts7970.dtb \
 	imx6q-tx6q-1010.dtb \
