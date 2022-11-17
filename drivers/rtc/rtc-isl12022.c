@@ -32,7 +32,16 @@
 #define ISL12022_REG_INT	0x08
 #define ISL12022_REG_VBAT	0x0a
 #define ISL12022_REG_BETA	0x0d
+#define ISL12022_REG_FATR	0x0e
+#define ISL12022_REG_FDTR	0x0f
 #define ISL12022_REG_TEMP	0x28
+
+/*
+ * These 3 registers only exist in the emulated device, they are unused dst
+ * registers on the real RTC.
+ */
+#define ISL12022_REG_OFF_VAL	0x21
+#define ISL12022_REG_OFF_CTL	0x25
 
 /* ISL register bits */
 #define ISL12022_HR_MIL		(1 << 7)	/* military or 24 hour time */
@@ -50,6 +59,12 @@
 #define ISL12022_VBAT_VB85_SHFT	3
 #define ISL12022_VBAT_VB75_MASK 0x7
 #define ISL12022_VBAT_VB75_SHFT	0
+#define ISL12022_OFF_CTL_APPLY	(1 << 0) /* Make value take affect now */
+#define ISL12022_OFF_CTL_ADD	(1 << 1) /* 1 if the value is add, 0 if subtract */
+#define ISL12022_OFF_CTL_FLASH	(1 << 2) /* 1 to commit to flash, 0 to just ram */
+
+/* Detect embeddedTS emulated ISL12022.  This is always 0 on the real RTC. */
+#define ISL12022_FDTR_EMULATED	(1 << 7)
 
 static struct i2c_driver isl12022_driver;
 
@@ -163,6 +178,49 @@ static int isl12022_rtc_set_time(struct device *dev, struct rtc_time *tm)
 				 buf, sizeof(buf));
 }
 
+static int isl12022_set_offset(struct device *dev, long offset)
+{
+	struct isl12022 *isl12022 = dev_get_drvdata(dev);
+	uint32_t ppb = abs(offset);
+	uint8_t data;
+	int ret;
+
+	ret = regmap_bulk_write(isl12022->regmap, ISL12022_REG_OFF_VAL, &ppb, sizeof(ppb));
+	if (ret)
+		return ret;
+	data = ISL12022_OFF_CTL_APPLY |
+	       ((offset > 0) ? ISL12022_OFF_CTL_ADD : 0) |
+	       ISL12022_OFF_CTL_FLASH;
+	ret = regmap_bulk_write(isl12022->regmap, ISL12022_REG_OFF_CTL, &data, 1);
+	if (ret)
+		return ret;
+
+	return ret;
+}
+
+static int isl12022_read_offset(struct device *dev, long *offset)
+{
+	struct isl12022 *isl12022 = dev_get_drvdata(dev);
+	int ret;
+	uint32_t ppb;
+	uint8_t data;
+
+	ret = regmap_bulk_read(isl12022->regmap, ISL12022_REG_OFF_VAL, &ppb, sizeof(ppb));
+	if (ret)
+		return ret;
+
+	ret = regmap_bulk_read(isl12022->regmap, ISL12022_REG_OFF_CTL, &data, 1);
+	if (ret)
+		return -EIO;
+
+	*offset = ppb;
+
+	if ((data & ISL12022_OFF_CTL_ADD) == 0)
+		*offset *= -1;
+
+	return ret;
+}
+
 static int isl12022_hwmon_read_temp(struct device *dev, long *mC)
 {
 	struct isl12022 *isl12022 = dev_get_drvdata(dev);
@@ -216,6 +274,13 @@ static umode_t isl12022_hwmon_is_visible(const void *data,
 static const struct rtc_class_ops isl12022_rtc_ops = {
 	.read_time	= isl12022_rtc_read_time,
 	.set_time	= isl12022_rtc_set_time,
+};
+
+static const struct rtc_class_ops isl12022_emulated_rtc_ops = {
+	.read_time	= isl12022_rtc_read_time,
+	.set_time	= isl12022_rtc_set_time,
+	.set_offset	= isl12022_set_offset,
+	.read_offset	= isl12022_read_offset,
 };
 
 static const struct regmap_config regmap_config = {
@@ -346,6 +411,7 @@ static int isl12022_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id) {
 	struct isl12022 *isl12022;
 	struct device *dev = &client->dev;
+	uint32_t data;
 	int ret;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
@@ -367,7 +433,17 @@ static int isl12022_probe(struct i2c_client *client,
 	if (IS_ERR(isl12022->rtc))
 		return PTR_ERR(isl12022->rtc);
 
-	isl12022->rtc->ops = &isl12022_rtc_ops;
+	/* Detect emulated isl12022 */
+	ret = regmap_bulk_read(isl12022->regmap, ISL12022_REG_FDTR, &data, 1);
+	if (ret)
+		return ret;
+
+	if (data & ISL12022_FDTR_EMULATED) {
+		dev_info(dev, "Emulated isl12022 detected");
+		isl12022->rtc->ops = &isl12022_emulated_rtc_ops;
+	} else {
+		isl12022->rtc->ops = &isl12022_rtc_ops;
+	}
 
 	if (dev->of_node) {
 		ret = of_property_read_u32(dev->of_node,
