@@ -251,6 +251,8 @@
 	isl12022: rtc@6f {
 		compatible = "isil,isl12022";
 		reg = <0x6f>;
+		btse-minutes = <1>;
+		isil,battery-trip-levels-microvolt = <2550000>, <2250000>;
 	};
 
 	gpio8: gpio@28 {
