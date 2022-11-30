@@ -255,6 +255,15 @@
 		vb85t = <2>; /* 2.55 V */
 	};
 
+	isl12022_sram: eeprom@57 {
+		compatible = "atmel,24c01";
+		reg = <0x57>;
+		label = "isl12022-SRAM";
+		pagesize = <128>;
+		size = <128>;
+		address-width = <8>;
+	};
+
 	gpio8: gpio@28 {
 		compatible = "technologic,ts7970-gpio";
 		reg = <0x28>;
