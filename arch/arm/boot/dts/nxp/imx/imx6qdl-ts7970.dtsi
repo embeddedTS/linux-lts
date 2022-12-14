@@ -145,8 +145,8 @@
 	pinctrl-0 = <&pinctrl_ecspi1>;
 	status = "okay";
 
-	n25q064: flash@0 {
-		compatible = "micron,n25q064", "jedec,spi-nor";
+	spiboot: flash@0 {
+		compatible = "jedec,spi-nor";
 		reg = <0>;
 		spi-max-frequency = <20000000>;
 	};
