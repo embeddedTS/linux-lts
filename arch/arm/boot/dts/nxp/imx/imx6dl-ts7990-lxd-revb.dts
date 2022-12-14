@@ -1,0 +1,106 @@
+// SPDX-License-Identifier: GPL-2.0 OR X11
+/*
+ * Copyright 2017-2022 Technologic Systems, Inc. dba embeddedTS
+ */
+
+/dts-v1/;
+#include "imx6dl.dtsi"
+#include "imx6qdl-ts7990.dtsi"
+
+/ {
+	model = "embeddedTS i.MX6 Solo/DualLite TS-7990 (LXD) REV B";
+	compatible = "fsl,imx6dl-ts7990", "fsl,imx6dl";
+
+	lcd_lvds0: disp0 {
+		compatible = "panel-lvds";
+		backlight = <&backlight0>;
+		width-mm = <15>;
+		height-mm = <9>;
+		data-mapping = "vesa-24";
+
+		panel-timing {
+			clock-frequency = <51200000>;
+			hactive = <1024>;
+			vactive = <600>;
+			hback-porch = <46>;
+			hfront-porch = <210>;
+			vback-porch = <23>;
+			vfront-porch = <12>;
+			hsync-len = <20>;
+			vsync-len = <10>;
+			de-active = <1>;
+			hsync-active = <1>;
+			vsync-active = <1>;
+			pixelclk-active = <0>;
+		};
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&lvds0_out>;
+			};
+		};
+	};
+
+	wifi_spi: spi-gpio {
+		compatible = "spi-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ecspi5gpio>;
+		status = "okay";
+		num-chipselects = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gpio-sck = <&gpio1 20 GPIO_ACTIVE_HIGH>;
+		gpio-mosi = <&gpio1 18 GPIO_ACTIVE_HIGH>;
+		gpio-miso = <&gpio1 16 GPIO_ACTIVE_HIGH>;
+		cs-gpios = <&gpio1 17 GPIO_ACTIVE_LOW>;
+
+		wilc3000: wifi@0 {
+			compatible = "microchip,wilc3000";
+			reg = <0>;
+			spi-max-frequency = <18000000>;
+			reset-gpios = <&gpio8 13 GPIO_ACTIVE_HIGH>;
+			chip_en-gpios = <&gpio8 14 GPIO_ACTIVE_HIGH>;
+			interrupt-parent = <&gpio1>;
+			interrupts = <26 IRQ_TYPE_EDGE_FALLING>;
+		};
+	};
+};
+
+&pixcir_tangoc {
+	status = "okay";
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+	imx6-ts7990 {
+		pinctrl_ecspi5gpio: ecspi5gpio {
+			fsl,pins = <
+				MX6QDL_PAD_SD1_CMD__GPIO1_IO18		0x100b1 /* mosi */
+				MX6QDL_PAD_SD1_CLK__GPIO1_IO20		0x100b1 /* sclk */
+				MX6QDL_PAD_SD1_DAT0__GPIO1_IO16		0x100b1 /* miso */
+				MX6QDL_PAD_SD1_DAT1__GPIO1_IO17		0x1b088 /* SPI_1_CS# */
+				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26	0x1b088 /* WIFI_IRQ# */
+			>;
+		};
+	};
+};
+
+&ldb {
+	status = "okay";
+
+	lvds-channel@0 {
+		fsl,data-mapping = "spwg";
+		fsl,data-width = <18>;
+
+		status = "okay";
+
+		port@4 {
+			reg = <4>;
+
+			lvds0_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
