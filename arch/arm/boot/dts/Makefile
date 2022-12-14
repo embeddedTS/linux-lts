@@ -470,6 +470,12 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6dl-savageboard.dtb \
 	imx6dl-ts4900.dtb \
 	imx6dl-ts7970.dtb \
+	imx6dl-ts7990-lxd-revb.dtb \
+	imx6dl-ts7990-lxd.dtb \
+	imx6dl-ts7990-microtips-revb.dtb \
+	imx6dl-ts7990-microtips.dtb \
+	imx6dl-ts7990-okaya-revb.dtb \
+	imx6dl-ts7990-okaya.dtb \
 	imx6dl-tx6dl-comtft.dtb \
 	imx6dl-tx6s-8034.dtb \
 	imx6dl-tx6s-8034-mb7.dtb \
@@ -563,6 +569,12 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6q-tbs2910.dtb \
 	imx6q-ts4900.dtb \
 	imx6q-ts7970.dtb \
+	imx6q-ts7990-lxd-revb.dtb \
+	imx6q-ts7990-lxd.dtb \
+	imx6q-ts7990-microtips-revb.dtb \
+	imx6q-ts7990-microtips.dtb \
+	imx6q-ts7990-okaya-revb.dtb \
+	imx6q-ts7990-okaya.dtb \
 	imx6q-tx6q-1010.dtb \
 	imx6q-tx6q-1010-comtft.dtb \
 	imx6q-tx6q-1020.dtb \
