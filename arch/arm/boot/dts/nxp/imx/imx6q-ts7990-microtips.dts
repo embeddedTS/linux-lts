@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0 OR X11
+/*
+ * Copyright 2017-2022 Technologic Systems, Inc. dba embeddedTS
+ */
+
+/dts-v1/;
+#include "imx6q.dtsi"
+#include "imx6qdl-ts7990.dtsi"
+
+/ {
+	model = "embeddedTS i.MX6 Quad TS-7990 (Microtips)";
+	compatible = "fsl,imx6q-ts7990", "fsl,imx6q";
+
+	lcd_display: disp0 {
+		compatible = "fsl,imx-parallel-display";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interface-pix-fmt = "rgb24";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ipu>;
+
+		display-timings {
+			MICROTIPS-WVGA {
+				clock-frequency = <30030000>;
+				hactive = <800>;
+				vactive = <480>;
+				hfront-porch = <46>;
+				hback-porch = <210>;
+				hsync-len = <1>;
+				vback-porch = <22>;
+				vfront-porch = <23>;
+				vsync-len = <1>;
+
+				de-active = <1>;
+				pixelclk-active = <1>;
+			};
+		};
+
+		port@0 {
+			lcd_display_in: endpoint {
+				remote-endpoint = <&ipu1_di0_disp0>;
+			};
+		};
+	};
+};
+
+&ipu1_di0_disp0 {
+	remote-endpoint = <&lcd_display_in>;
+};
+
+&sata {
+	status = "okay";
+};
+
+&touch_spi {
+	status = "okay";
+};
+
+&usdhc1 {
+	status = "okay";
+};
+
+&reg_wlan_vqmmc {
+	status = "okay";
+};
