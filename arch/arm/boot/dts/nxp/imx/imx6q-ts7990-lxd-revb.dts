@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: GPL-2.0 OR X11
+/*
+ * Copyright 2017-2022 Technologic Systems, Inc. dba embeddedTS
+ */
+
+/dts-v1/;
+#include "imx6q.dtsi"
+#include "imx6qdl-ts7990.dtsi"
+
+/ {
+	model = "embeddedTS i.MX6 Quad TS-7990 (LXD) REV B";
+	compatible = "fsl,imx6q-ts7990", "fsl,imx6q";
+
+	lcd_lvds0: disp0 {
+		compatible = "panel-lvds";
+		backlight = <&backlight0>;
+		width-mm = <15>;
+		height-mm = <9>;
+		data-mapping = "vesa-24";
+
+		panel-timing {
+			clock-frequency = <51200000>;
+			hactive = <1024>;
+			vactive = <600>;
+			hback-porch = <46>;
+			hfront-porch = <210>;
+			vback-porch = <23>;
+			vfront-porch = <12>;
+			hsync-len = <20>;
+			vsync-len = <10>;
+			de-active = <1>;
+			hsync-active = <1>;
+			vsync-active = <1>;
+			pixelclk-active = <0>;
+		};
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&lvds0_out>;
+			};
+		};
+	};
+};
+
+&pixcir_tangoc {
+	status = "okay";
+};
+
+&ecspi5 {
+	num-cs = <1>;
+	cs-gpios = <&gpio1 17 GPIO_ACTIVE_LOW>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi5>;
+	status = "okay";
+
+	wilc3000: wifi@0 {
+		compatible = "microchip,wilc3000";
+		reg = <0>;
+		spi-max-frequency = <18000000>;
+		reset-gpios = <&gpio8 13 GPIO_ACTIVE_HIGH>;
+		chip_en-gpios = <&gpio8 14 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <26 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+	imx6-ts7990 {
+		pinctrl_ecspi5: ecspi5 {
+			fsl,pins = <
+				MX6QDL_PAD_SD1_CMD__ECSPI5_MOSI		0x1b0b0
+				MX6QDL_PAD_SD1_CLK__ECSPI5_SCLK		0x1b0b0
+				MX6QDL_PAD_SD1_DAT0__ECSPI5_MISO	0x1b0b0
+				MX6QDL_PAD_SD1_DAT1__GPIO1_IO17		0x1b088 /* SPI_1_CS# */
+				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26	0x1b088 /* WIFI_IRQ# */
+			>;
+		};
+	};
+};
+
+&ldb {
+	status = "okay";
+
+	lvds-channel@0 {
+		fsl,data-mapping = "spwg";
+		fsl,data-width = <18>;
+
+		status = "okay";
+
+		port@4 {
+			reg = <4>;
+
+			lvds0_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
+
+&sata {
+	status = "okay";
+};
