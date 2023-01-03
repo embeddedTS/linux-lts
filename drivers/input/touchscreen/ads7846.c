@@ -1271,6 +1271,7 @@ static const struct ads7846_platform_data *ads7846_probe_dt(struct device *dev)
 }
 #endif
 
+
 static int ads7846_probe(struct spi_device *spi)
 {
 	const struct ads7846_platform_data *pdata;
@@ -1526,12 +1527,23 @@ static int ads7846_remove(struct spi_device *spi)
 	return 0;
 }
 
+static const struct spi_device_id ads7846_spi_id[] = {
+	{ "tsc2046", 0 },
+	{ "ads7843", 0 },
+	{ "ads7845", 0 },
+	{ "ads7846", 0 },
+	{ "ads7873", 0 },
+	{  }
+};
+MODULE_DEVICE_TABLE(spi, ads7846_spi_id);
+
 static struct spi_driver ads7846_driver = {
 	.driver = {
 		.name	= "ads7846",
 		.pm	= &ads7846_pm,
 		.of_match_table = of_match_ptr(ads7846_dt_ids),
 	},
+	.id_table	= ads7846_spi_id,
 	.probe		= ads7846_probe,
 	.remove		= ads7846_remove,
 };
