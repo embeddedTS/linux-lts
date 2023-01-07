@@ -9,7 +9,7 @@
 #include "imx6qdl-ts7970.dtsi"
 
 / {
-	model = "Technologic Systems i.MX6 Quad TS-7970 (Default Device Tree)";
+	model = "embeddedTS i.MX6 Quad TS-7970 (Default Device Tree)";
 	compatible = "technologic,imx6q-ts7970", "fsl,imx6q";
 
 	/* Will be filled by the bootloader */
