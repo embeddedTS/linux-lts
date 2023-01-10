@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0 OR X11
 /*
  * Copyright (C) 2022 Technologic Systems, Inc. dba embeddedTS
  */
@@ -94,7 +94,7 @@
 
 	reg_sd1_vmmc: regulator-sd1-vmmc {
 		compatible = "regulator-fixed";
-		regulator-name = "SD1-3V3";
+		regulator-name = "SD1_3V3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		gpio = <&gpio3 12 GPIO_ACTIVE_HIGH>;
@@ -105,7 +105,7 @@
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_enet_3v3>;
-		regulator-name = "ENET-3V3";
+		regulator-name = "ENET_3V3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		gpio = <&gpio2 10 GPIO_ACTIVE_HIGH>;
@@ -116,7 +116,7 @@
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_flexcan_3v3>;
-		regulator-name = "CAN-EN";
+		regulator-name = "CAN_EN";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		gpio = <&gpio5 9 GPIO_ACTIVE_LOW>;
@@ -149,15 +149,15 @@
 };
 
 &gpio1 {
-	gpio-line-names = "", "USB-5V-EN", "", "", "", "", "", "",
-		"MODEM-5V-EN", "XBEE-3V3-EN", "", "", "", "", "", "", "", "",
-		"", "", "", "", "", "RS232-XCEIVER-EN";
+	gpio-line-names = "", "USB_5V_EN", "", "", "", "", "", "",
+		"MODEM_5V_EN", "XBEE_3V3_EN", "", "", "", "", "", "", "", "",
+		"", "", "", "", "", "RS232_XCEIVER_EN";
 };
 
 &gpio2 {
 	gpio-line-names = "", "", "", "", "", "", "", "",
-		"XBEE-PIN-9", "XBEE-PIN-16", "", "", "", "",
-		"XBEE-PIN-12";
+		"XBEE_PIN_9", "XBEE_PIN_16", "", "", "", "",
+		"XBEE_PIN_12";
 
 	/* XXX: Do more testing with with this. PFM mode normally enabled under
 	 * 700 mA which is well below what the 7553v2 runs at. in PFM mode lower
@@ -167,27 +167,27 @@
 		gpio-hog;
 		gpios = <13 GPIO_ACTIVE_HIGH>;
 		output-high;
-		line-name = "VREG-MODE";
+		line-name = "VREG_MODE";
 	};
 };
 
 &gpio3 {
-	gpio-line-names = "USB-HUB-RESET#", "", "", "", "", "", "",
-		"USB-MUX-CPU-OTG", "", "", "", "NO-CHRG-JMP#", "", "", "", "",
-		"", "SD-BOOT-JMP#", "PUSH-SW#", "U-BOOT-JMP#", "XBEE-RESET#",
-		"", "", "RES-STRAP-0", "RES-STRAP-1", "", "",
-		"RES-STRAP-2", "RES-STRAP-3";
+	gpio-line-names = "USB_HUB_RESET#", "", "", "", "", "", "",
+		"USB_MUX_CPU_OTG", "", "", "", "NO_CHRG_JMP#", "", "", "", "",
+		"", "SD_BOOT_JMP#", "PUSH_SW#", "U_BOOT_JMP#", "XBEE_RESET#",
+		"", "", "RES_STRAP_0", "RES_STRAP_1", "", "",
+		"RES_STRAP_2", "RES-STRAP_3";
 };
 
 &gpio5 {
-	gpio-line-names = "POWER-FAIL#", "", "EMMC-PWR-EN", "", "", "", "",
-		"XBEE-USB-EN#", "RELAY-EN";
+	gpio-line-names = "POWER_FAIL#", "", "EMMC_PWR_EN", "", "", "", "",
+		"XBEE_USB_EN#", "RELAY_EN";
 
 	vdd-soc-in-v-hog {
 		gpio-hog;
 		gpios = <3 GPIO_ACTIVE_HIGH>;
 		output-high;
-		line-name = "VDD-SOC-IN-V";
+		line-name = "VDD_SOC_IN_V";
 	};
 };
 
@@ -244,11 +244,11 @@
 	status = "okay";
 
 	wilc: wifi@0 {
-		compatible = "microchip,wilc1000";
+		compatible = "microchip,wilc3000";
 		reg = <0>;
 		spi-max-frequency = <48000000>;
 		reset-gpios = <&gpio4 10 GPIO_ACTIVE_HIGH>;
-		enable-gpios = <&gpio4 26 GPIO_ACTIVE_HIGH>;
+		chip_en-gpios = <&gpio4 26 GPIO_ACTIVE_HIGH>;
 		interrupt-parent = <&gpio5>;
 		interrupts = <1 GPIO_ACTIVE_HIGH>;
 	};
