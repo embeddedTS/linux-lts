@@ -327,6 +327,10 @@ dtb-$(CONFIG_SOC_IMX6UL) += \
 	imx6ul-phytec-segin-ff-rdk-emmc.dtb \
 	imx6ul-phytec-segin-ff-rdk-nand.dtb \
 	imx6ul-prti6g.dtb \
+	imx6ul-ts4100.dtb \
+	imx6ul-ts4100-7.dtb \
+	imx6ul-ts4100-8.dtb \
+	imx6ul-ts4100-16.dtb \
 	imx6ul-ts7553v2.dtb \
 	imx6ul-tx6ul-0010.dtb \
 	imx6ul-tx6ul-0011.dtb \
