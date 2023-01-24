@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: GPL-2.0 OR X11
+/*
+ * Copyright (C) 2023 Technologic Systems, Inc. dba embeddedTS
+ */
+
+#include <dt-bindings/input/input.h>
+
+/* Requires more CS GPIO and updated pinctrl? */
+&ecspi3 {
+	num-cs = <2>;
+	cs-gpios = <&gpio4 12 GPIO_ACTIVE_LOW
+		    &gpio4 10 GPIO_ACTIVE_LOW>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi3>;
+	status = "okay";
+
+        spifram: eeprom@1 {
+                compatible = "atmel,at25", "cypress,fm25l16b";
+                reg = <1>;
+                spi-max-frequency = <20000000>;
+                size = <0x800>;
+                address-width = <16>;
+                pagesize = <64>;
+        };
+
+};
+
+&can2 {
+	status = "disabled";
+};
+
+&i2c3 {
+	m41t00s: rtc@68 {
+		compatible = "st,m41t00";
+		reg = <0x68>;
+	};
+};
+
+&snvs_rtc {
+	status = "disabled";
+};
+
+&uart4 {
+	uart-has-rtscts;
+	/* gpio 1_18 is initialized by the hog group in 4100.dtsi
+	 * It is the SPARE_1 pin, needs to be set up in FPGA to pass to TXEN
+	 * with the command 'tshwctl --out 0x31 --in 0x1'
+	 */
+	rts-gpios = <&gpio1 18 GPIO_ACTIVE_LOW>;
+	dma-names = "", "";
+	linux,rs485-enabled-at-boot-time;
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ts4100_pinctrl_hog &pinctrl_cam_gpio &pinctrl_lcd_gpio>;
+};
