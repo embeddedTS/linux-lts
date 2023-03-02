@@ -224,6 +224,13 @@ config TS_NBUS
 	  Driver for the Technologic Systems NBUS which is used to interface
 	  with the peripherals in the FPGA of the TS-4600 SoM.
 
+config TSPC104
+	tristate "embeddedTS PC104 memory window bus"
+	depends on HAS_IOMEM
+	depends on OF
+	help
+	  Driver for embeddedTS PC104 implementation inside of a memory window
+
 config UNIPHIER_SYSTEM_BUS
 	tristate "UniPhier System Bus driver"
 	depends on ARCH_UNIPHIER && OF
