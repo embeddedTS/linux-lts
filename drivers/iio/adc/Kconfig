@@ -1361,6 +1361,15 @@ config TI_TSC2046
 	  This driver can also be built as a module. If so, the module will be
 	  called ti-tsc2046.
 
+config TS_SIMPLEADC
+	tristate "embeddedTS simple FPGA ADC"
+	depends on OF
+	depends on HAS_IOMEM
+	select IIO_BUFFER
+	select IIO_KFIFO_BUF
+	help
+	  Say yes here to build support for embeddedTS FPGA based ADC.
+
 config TWL4030_MADC
 	tristate "TWL4030 MADC (Monitoring A/D Converter)"
 	depends on TWL4030_CORE
