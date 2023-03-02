@@ -640,6 +640,10 @@ dtb-$(CONFIG_SOC_IMX6UL) += \
 	imx6ul-pico-hobbit.dtb \
 	imx6ul-pico-pi.dtb \
 	imx6ul-phytec-segin-ff-rdk-nand.dtb \
+	imx6ul-ts4100.dtb \
+	imx6ul-ts4100-7.dtb \
+	imx6ul-ts4100-8.dtb \
+	imx6ul-ts4100-16.dtb \
 	imx6ul-ts7553v2.dtb \
 	imx6ul-tx6ul-0010.dtb \
 	imx6ul-tx6ul-0011.dtb \
@@ -728,6 +732,7 @@ dtb-$(CONFIG_ARCH_MXS) += \
 	imx28-sps1.dtb \
 	imx28-ts4600.dtb \
 	imx28-ts7400v2.dtb \
+	imx28-ts7670.dtb \
 	imx28-tx28.dtb
 dtb-$(CONFIG_ARCH_NOMADIK) += \
 	ste-nomadik-s8815.dtb \

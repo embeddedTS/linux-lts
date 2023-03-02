@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0 OR X11
+/*
+ * Copyright (C) 2023 Technologic Systems, Inc. dba embeddedTS
+ */
+
+/dts-v1/;
+
+#include "imx6ul-ts4100.dtsi"
+
+/ {
+	model = "embeddedTS i.MX6UL TS-4100 (Default Device Tree)";
+	compatible = "fsl,imx6ul-ts4100", "fsl,imx6ul";
+};
+
+&ecspi3 {
+	num-cs = <2>;
+	cs-gpios = <&gpio4 12 GPIO_ACTIVE_LOW
+		    &gpio4 10 GPIO_ACTIVE_LOW>;
+
+	spioffbd: spi@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+	};
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_cam_gpio &pinctrl_lcd_gpio &ts4100_pinctrl_hog>;
+};
