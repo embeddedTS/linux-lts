@@ -32,6 +32,7 @@
 #include <linux/uaccess.h>
 #include <linux/pm_runtime.h>
 #include <linux/ktime.h>
+#include <linux/ts16550.h>
 
 #include <asm/io.h>
 #include <asm/irq.h>
@@ -421,6 +422,23 @@ static void io_serial_out(struct uart_port *p, int offset, int value)
 {
 	offset = offset << p->regshift;
 	outb(value, p->iobase + offset);
+}
+
+static unsigned int tsisa_serial_in(struct uart_port *p, int offset)
+{
+	struct ts16550_priv *priv = (struct ts16550_priv *)p->private_data;
+	unsigned int val;
+
+	tspc104_io_read8(priv->bus, priv->base + offset, &val);
+
+	return val;
+}
+
+static void tsisa_serial_out(struct uart_port *p, int offset, int value)
+{
+	struct ts16550_priv *priv = (struct ts16550_priv *)p->private_data;
+
+	tspc104_io_write8(priv->bus, priv->base + offset, &value);
 }
 
 static int serial8250_default_handle_irq(struct uart_port *port);
@@ -1280,6 +1298,10 @@ static void autoconfig(struct uart_8250_port *up)
 	    __enable_rsa(up))
 		port->type = PORT_RSA;
 #endif
+	case UPIO_TSISABUS:
+		p->serial_in = tsisa_serial_in;
+		p->serial_out = tsisa_serial_out;
+		break;
 
 	serial_out(up, UART_LCR, save_lcr);
 
