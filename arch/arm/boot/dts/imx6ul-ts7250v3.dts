@@ -161,15 +161,9 @@
 		status = "okay";
 	};
 
-	silabs: silabs@54 {
-		compatible = "technologic,ts7100-wdt";
-		/* 5min timeout default, in case of slow userspace.
-		 * Set to 0 to disable WDT at startup. Userspace procs
-		 * can still start feeding later.
-		 */
-		timeout-sec = <300>;
-		reg = <0x54>;
-		status = "okay";
+	supervisor: supervisor@10 {
+		compatible = "technologic,supervisor";
+		reg = <0x10>;
 	};
 
 	rtc: m41t00s@68 {
@@ -541,7 +535,10 @@
 };
 
 &wdog1 {
-	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_wdog>;
+	status = "okay";
+	fsl,ext-reset-output;
 };
 
 &weim {
@@ -664,12 +661,56 @@
 				reg = <0x50 0x4>;
 
 				ranges = <0 0 0x1000>;
-				reset-gpio = <&gpio3 7 0>;
+				reset-gpio = <&gpio3 7 GPIO_ACTIVE_LOW>;
 
 				#address-cells = <0x1>;
 				#size-cells = <0x1>;
 
 				status = "okay";
+
+				/* COMA */
+				ts16550@3f8 {
+					compatible = "technologic,ts16550";
+
+					reg = <0x3f8 8>;
+					interrupt-parent = <&fpga_intc>;
+					interrupts = <15>;
+
+					status = "okay";
+				};
+
+				/* COMB */
+				ts16550@2f8 {
+					compatible = "technologic,ts16550";
+
+					reg = <0x2f8 8>;
+					interrupt-parent = <&fpga_intc>;
+					interrupts = <15>;
+
+					status = "okay";
+				};
+
+				/* COMC */
+				ts16550@3e8 {
+					compatible = "technologic,ts16550";
+
+					reg = <0x3e8 8>;
+					interrupt-parent = <&fpga_intc>;
+					interrupts = <15>;
+
+					status = "okay";
+				};
+
+				/* COMD */
+				ts16550@2e8 {
+					compatible = "technologic,ts16550";
+
+					reg = <0x2e8 8>;
+					interrupt-parent = <&fpga_intc>;
+					interrupts = <15>;
+
+					status = "okay";
+				};
 			};
 
 			fpga_bank2: fpga_gpio@54 {
@@ -1054,7 +1095,6 @@
 				MX6UL_PAD_SNVS_TAMPER8__GPIO5_IO08	0x1a020 /* EN_CL_2 */
 				MX6UL_PAD_SNVS_TAMPER9__GPIO5_IO09	0x1a020 /* EN_CL_3 */
 				MX6UL_PAD_LCD_CLK__GPIO3_IO00		0x1b020 /* EN_USB_5V */
-				MX6UL_PAD_LCD_RESET__WDOG1_WDOG_ANY	0x1a020 /* WDOG# */
 				MX6UL_PAD_NAND_RE_B__GPIO4_IO00		0x1b029 /* FPGA_FLASH_SELECT */
 				MX6UL_PAD_NAND_WE_B__GPIO4_IO01		0x1b029 /* DETECT_94-120 */
 			>;
@@ -1216,9 +1256,16 @@
 				MX6UL_PAD_SNVS_TAMPER3__GPIO5_IO03	0x1b0a0
 			>;
 		};
+
 		pinctrl_weim_cs0: weimcs0grp {
 			fsl,pins = <
 				MX6UL_PAD_CSI_MCLK__GPIO4_IO17		0xb029 /* EIM_CS0# */
+			>;
+		};
+
+		pinctrl_wdog: wdoggrp {
+			fsl,pins = <
+				MX6UL_PAD_LCD_RESET__WDOG1_WDOG_ANY	0xb029
 			>;
 		};
 
