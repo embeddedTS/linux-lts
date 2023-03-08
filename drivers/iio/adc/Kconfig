@@ -1370,6 +1370,14 @@ config TS_SIMPLEADC
 	help
 	  Say yes here to build support for embeddedTS FPGA based ADC.
 
+config TS_SUPERVISOR_ADC
+	tristate "embeddedTS Supervisory Microcontroller ADC"
+	depends on OF
+	depends on MFD_TS_SUPERVISOR
+	help
+	  Say yes here to build support for embeddedTS supervisory
+	  microcontroller ADC.
+
 config TWL4030_MADC
 	tristate "TWL4030 MADC (Monitoring A/D Converter)"
 	depends on TWL4030_CORE
