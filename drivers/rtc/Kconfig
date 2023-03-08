@@ -534,6 +534,12 @@ config RTC_DRV_DM355EVM
 	help
 	  Supports the RTC firmware in the MSP430 on the DM355 EVM.
 
+config RTC_DRV_TSSUPERVISOR
+	tristate "embeddedTS Supervisory Microcontroller RTC"
+	select REGMAP_I2C
+	help
+	  Supports the RTC on embeddedTS Supervisory microcontroller
+
 config RTC_DRV_TWL92330
 	bool "TI TWL92330/Menelaus"
 	depends on MENELAUS
