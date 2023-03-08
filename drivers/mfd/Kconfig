@@ -1873,6 +1873,16 @@ config MFD_TC3589X
 	  additional drivers must be enabled in order to use the
 	  functionality of the device.
 
+config MFD_TS_SUPERVISOR
+	tristate "embeddedTS Supervisor"
+	select MFD_CORE
+	select REGMAP_I2C
+	depends on I2C && OF
+	help
+	  Support for embeddedTS supervisory controller.  This includes an adc
+	  driver for system rails, supercap backup management, and some misc
+	  controls.
+
 config MFD_TQMX86
 	tristate "TQ-Systems IO controller TQMX86"
 	select MFD_CORE
