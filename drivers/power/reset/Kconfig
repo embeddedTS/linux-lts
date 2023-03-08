@@ -211,6 +211,12 @@ config POWER_RESET_TPS65086
 	help
 	  This driver adds support for resetting the TPS65086 PMIC on restart.
 
+config POWER_RESET_TS_SUPERVISOR
+	bool "embeddedTS Supervisory reset driver"
+	depends on MFD_TS_SUPERVISOR
+	help
+	  Reset support for embeddedTS boards
+
 config POWER_RESET_VERSATILE
 	bool "ARM Versatile family reboot driver"
 	depends on ARM
