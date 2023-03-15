@@ -1,0 +1,40 @@
+# =y required as compiled in
+# =m required as a module
+# =x either is fine
+# =n Must not be included
+
+######## Driver frameworks required on all hardware:
+CONFIG_SPI_SPIDEV=x
+
+######## Debug options:
+CONFIG_LOCKDEP=n
+CONFIG_DEBUG_INFO=n
+CONFIG_RUNTIME_TESTING_MENU=n
+CONFIG_DEBUG_MISC=n
+CONFIG_MAGIC_SYSRQ_DEFAULT_ENABLE=n
+
+######## Systemd requirements:
+CONFIG_DEVTMPFS=x
+CONFIG_CGROUPS=x
+CONFIG_INOTIFY_USER=x
+CONFIG_SIGNALFD=x
+CONFIG_TIMERFD=x
+CONFIG_EPOLL=x
+CONFIG_UNIX =x
+CONFIG_SYSFS=x
+CONFIG_PROC_FS=x
+CONFIG_FHANDLE=x
+
+######## NFS root requirements:
+CONFIG_ROOT_NFS=y
+CONFIG_NFS_V3=y
+CONFIG_NFS_V2=y
+CONFIG_NFS_DISABLE_UDP_SUPPORT=y
+CONFIG_IP_PNP_DHCP=y
+# Skipped because its huge
+CONFIG_NFS_V4=n
+
+# Needed for WILC3000 correct operation!
+# With powersaving enabled, BLE is completely broken, while Wi-Fi will show
+# strange hiccups and subtle breakages sometimes.
+CONFIG_CFG80211_DEFAULT_PS=n
