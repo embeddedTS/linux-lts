@@ -1578,6 +1578,15 @@ config GPIO_TS7800V2
 	help
 	  This driver supports the TS-7800-V2 FPGA GPIO controller.
 
+config GPIO_TS7820
+	tristate "embeddedTS' TS-7820/TS-7840 GPIO Support"
+	select GPIO_GENERIC
+	select GPIOLIB_IRQCHIP
+	depends on MFD_TS78XX
+	default n
+	help
+	  Say yes here to support GPIO on the TS-78XX.
+
 endmenu
 
 menu "PCI GPIO expanders"
