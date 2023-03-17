@@ -1,0 +1,500 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Device Tree file for embeddedTS TS-7800-V2
+ * Copyright (C) 2017-2022 Technologic Systems, Inc. dba embeddedTS
+ */
+
+/dts-v1/;
+#include "armada-385.dtsi"
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/leds/common.h>
+
+/ {
+	model = "embeddedTS TS-7800-V2";
+	compatible = "embeddedts,a385-ts7800-v2", "marvell,armada385", "marvell,armada380";
+
+	aliases {
+		ethernet0 = &eth0;
+		spi0 = &spi0;
+
+		serial1 = &fpga_uart0;
+		serial2 = &fpga_uart1;
+		serial3 = &fpga_uart2;
+		serial4 = &fpga_uart3;
+		serial5 = &fpga_uart4;
+		serial6 = &fpga_uart5;
+		serial7 = &fpga_uart6;
+		serial8 = &fpga_uart7;
+		serial9 = &fpga_uart8;
+		serial10 = &fpga_uart9;
+		serial11 = &fpga_uart10;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x40000000>; /* 1GB */
+	};
+
+	led-controller {
+		compatible = "gpio-leds";
+
+		led-0 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_POWER;
+			gpios = <&ts7800v2_gpio 118 GPIO_ACTIVE_HIGH>;
+			default-state = "on";
+		};
+
+		led-1 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&ts7800v2_gpio 119 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+		};
+	};
+
+	mux: mux-controller {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&ts7800v2_gpio 120 GPIO_ACTIVE_HIGH>; // FPGA_FLASH_SELECT
+		idle-state = <0>;
+	};
+
+	soc {
+		ranges = <MBUS_ID(0xf0, 0x01) 0 0xf1000000 0x100000
+			  MBUS_ID(0x01, 0x1d) 0 0xfff00000 0x100000
+			  MBUS_ID(0x09, 0x19) 0 0xf1100000 0x10000
+			  MBUS_ID(0x09, 0x15) 0 0xf1110000 0x10000
+			  MBUS_ID(0x0c, 0x04) 0 0xf1200000 0x100000>;
+	};
+
+	tsfpga_pcie: tsfpga-pcie {
+		compatible = "technologic,ts78xx-mfd";
+
+		vendor = <0x1204>;
+		device = <0x0001>;
+		irqnum = <32>;
+
+		#address-cells = <2>;
+		#size-cells = <1>;
+		interrupt-controller;
+		#interrupt-cells = <1>;
+
+		pc104; /* Configures PC104 header as the PC104 signals, not GPIO */
+
+		/* <ranges> is set in the driver at runtime */
+
+		can@4c {
+			compatible = "technologic,sja1000";
+			reg = <2 0x4C 4>;
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <27>;
+			reg-io-width = <4>;
+			nxp,tx-output-config = <0x06>;
+			nxp,external-clock-frequency = <16000000>;
+		};
+
+		fpgarng@2,44 {
+			compatible = "technologic,ts7840-rng";
+			reg = <2 0x44 4>;
+		};
+
+		tssdcore@2,100 {
+			compatible = "technologic,tssdcard";
+			reg = <2 0x100 0x200>;
+		};
+
+		/*
+		 *  FPGA UARTS
+		 *  Intentionally out of order to align with physical locaions and names
+		 *  of the original TS-7800.
+		 */
+		fpga_uart0: fpga-uart10@2,d0 {
+			compatible = "ns16550a";
+			reg = <2 0xd0 8>;
+
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <26>;
+
+			clock-frequency = <1843200>;
+			reg-io-width = <1>;
+		};
+
+		fpga_uart1: fpga-uart0@2,80 {
+			compatible = "ns16550a";
+			reg = <2 0x80 8>;
+
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <16>;
+
+			clock-frequency = <1843200>;
+			reg-io-width = <1>;
+		};
+
+		fpga_uart2: fpga-uart1@2,88 {
+			compatible = "ns16550a";
+			reg = <2 0x88 8>;
+
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <17>;
+
+			clock-frequency = <1843200>;
+			reg-io-width = <1>;
+		};
+
+		fpga_uart3: fpga-uart2@2,90 {
+			compatible = "ns16550a";
+			reg = <2 0x90 8>;
+
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <18>;
+
+			clock-frequency = <1843200>;
+			reg-io-width = <1>;
+		};
+
+		fpga_uart4: fpga-uart3@2,98 {
+			compatible = "ns16550a";
+			reg = <2 0x98 8>;
+
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <19>;
+
+			clock-frequency = <1843200>;
+			reg-io-width = <1>;
+		};
+
+		fpga_uart5: fpga-uart4@2,a0 {
+			compatible = "ns16550a";
+			reg = <2 0xa0 8>;
+
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <20>;
+
+			clock-frequency = <1843200>;
+			reg-io-width = <1>;
+		};
+
+		fpga_uart6: fpga-uart5@2,a8 {
+			compatible = "ns16550a";
+			reg = <2 0xa8 8>;
+
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <21>;
+
+			clock-frequency = <1843200>;
+			reg-io-width = <1>;
+		};
+
+		fpga_uart7: fpga-uart6@2,b0 {
+			compatible = "ns16550a";
+			reg = <2 0xb0 8>;
+
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <22>;
+
+			clock-frequency = <1843200>;
+			reg-io-width = <1>;
+		};
+
+		fpga_uart8: fpga-uart7@2,b8 {
+			compatible = "ns16550a";
+			reg = <2 0xb8 8>;
+
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <23>;
+
+			clock-frequency = <1843200>;
+			reg-io-width = <1>;
+		};
+
+		fpga_uart9: fpga-uart8@2,c0 {
+			compatible = "ns16550a";
+			reg = <2 0xc0 8>;
+
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <24>;
+
+			clock-frequency = <1843200>;
+			reg-io-width = <1>;
+		};
+
+		fpga_uart10: fpga-uart9@2,c8 {
+			compatible = "ns16550a";
+			reg = <2 0xc8 8>;
+
+			interrupt-parent = <&tsfpga_pcie>;
+			interrupts = <25>;
+
+			clock-frequency = <1843200>;
+			reg-io-width = <1>;
+		};
+
+		ts7800v2_gpio: ts7800v2-gpio {
+			compatible = "technologic,ts7800v2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			base = <64>;
+			ngpios = <118>;
+			#address-cells = <0x1>;
+			#size-cells = <0>;
+			reg = <2 0x0 0x60>;
+
+			gpio-line-names = "DIO_1", "DIO_3", "DIO_04", "DIO_5",
+				"SPI_FRAME", "DIO_7", "DIO_8", "DIO_9",
+				"SPI_MISO", "DIO_11", "SPI_MOSI", "DIO_13",
+				"SPI_CLK", "DIO_15", "LCD_03", "LCD_04",
+				"LCD_05", "LCD_06", "LCD_07", "LCD_08",
+				"LCD_09", "LCD_10", "LCD_11", "LCD_12",
+				"LCD_13", "LCD_14", "ISA_A01", "ISA_DATA_07",
+				"ISA_DATA_06", "ISA_DATA_05", "ISA_DATA_04",
+				"ISA_DATA_03", "ISA_DATA_02", "ISA_DATA_01",
+				"ISA_DATA_00", "ISA_A10", "ISA_A11", "ISA_A12",
+				"ISA_A13", "ISA_A14", "ISA_A15", "ISA_A16",
+				"ISA_A17", "ISA_A18", "ISA_A19", "ISA_A20",
+				"ISA_A21", "ISA_A22", "ISA_A23", "ISA_A24",
+				"ISA_A25", "ISA_A26", "ISA_A27", "ISA_A28",
+				"ISA_A29", "ISA_A30", "", "ISA_RESET",
+				"ISA_B04", "ISA_B06", "", "ISA_B08", "ISA_B11",
+				"ISA_B12", "ISA_B13", "ISA_B14", "ISA_B15",
+				"ISA_B16", "ISA_B17", "ISA_B18", "ISA_B19",
+				"ISA_B20", "IRQ7", "IRQ6", "IRQ5", "ISA_B24",
+				"ISA_B25", "ISA_B26", "ISA_B27", "ISA_B28",
+				"ISA_B29", "ISA_B30", "ISA_B32", "ISA_C01",
+				"ISA_C02", "ISA_C03", "ISA_C04", "ISA_C05",
+				"ISA_C06", "ISA_C07", "ISA_C08", "ISA_C09",
+				"ISA_C10", "ISA_DATA_08", "ISA_DATA_09",
+				"ISA_DATA_10", "ISA_DATA_11", "ISA_DATA_12",
+				"ISA_DATA_13", "ISA_DATA_14", "ISA_DATA_15",
+				"ISA_D01", "ISA_D02", "IRQ10", "IRQ11", "IRQ12",
+				"IRQ15", "IRQ14", "ISA_D09", "ISA_D10",
+				"ISA_D11", "ISA_D12", "ISA_D13", "ISA_D14",
+				"ISA_D15", "ISA_D17", "EN_WIFI_PWR",
+				"WIFI_RESET", "GREEN_LED", "RED_LED",
+				"CPU_ACCESS_FPGA_FLASH#";
+		};
+
+		isa_mem8: bus@0 {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			ranges = <0 3 0 0x1000000>;
+		};
+
+		isa_mem16: bus@1000000 {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			ranges = <0 3 0x1000000 0x1000000>;
+		};
+
+		isa_io8: bus@2000000 {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			ranges = <0 3 0x2000000 0x1000000>;
+		};
+
+		isa_io16: bus@3000000 {
+			compatible = "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			ranges = <0 3 0x3000000 0x1000000>;
+		};
+	};
+};
+
+&ahci0 {
+	status = "okay";
+};
+
+&bm {
+	status = "okay";
+};
+
+&bm_bppi {
+	status = "okay";
+};
+
+/* magjack/sfp port 0 */
+&eth0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ge0_rgmii_pins>;
+	status = "okay";
+	phy = <&phy0>;
+	phy-mode = "rgmii-id";
+	buffer-manager = <&bm>;
+	bm,pool-long = <0>;
+	bm,pool-short = <1>;
+};
+
+&gpio0 {
+	gpio-line-names = "", "", "", "", "", "", "", "", "", "", "", "", "",
+		"", "", "", "", "", "", "CPU_IRQ", "", "", "", "", "", "", "",
+		"", "SPI_0_CS3#", "GE_PHY_INT#", "CPU_SPEED_1", "CPU_SPEED_2";
+};
+
+&gpio1 {
+	gpio-line-names = "", "CPU_SPEED_0", "CPU_SPEED_3", "CPU_SPEED_4",
+		"CPU_TYPE_0", "", "", "", "", "", "EN_EMMC_PWR", "EN_FAN",
+		"CPU_TYPE_1", "EN_USB_HOST_5V", "FPGA_FLASH_SELECT", "", "", "",
+		"", "SPREAD_SPECTRUM#", "DETECT_MSATA", "DETECT_9478", "", "",
+		"", "", "", "";
+};
+
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c0_pins>;
+	clock-frequency = <100000>;
+	status = "okay";
+
+	silabs_wdt: watchdog@54 {
+		compatible = "technologic,ts7100-wdt";
+		reg = <0x54>;
+		enable-early;
+	};
+
+	m41t00s: rtc@68 {
+		compatible = "st,m41t00";
+		reg = <0x68>;
+	};
+
+	mma8451: accelerometer@1c {
+		compatible = "fsl,mma8451";
+		reg = <0x1c>;
+	};
+};
+
+&mdio {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mdio_pins>;
+
+	phy0: ethernet-phy@0 {
+		reg = <1>;
+	};
+};
+
+&pciec {
+	status = "okay";
+};
+
+/* Mini PCIe */
+&pcie2 {
+	status = "okay";
+};
+
+/* FPGA */
+&pcie3 {
+	status = "okay";
+};
+
+&pinctrl {
+	sdhci_pins0: sdhci-pins0 {
+		marvell,pins = "mpp50", "mpp54", "mpp55",
+			       "mpp57", "mpp58", "mpp59";
+		marvell,function = "sd0";
+	};
+	spi0_pins: spi-pins-0 {
+		marvell,pins = "mpp22",   // SPI_0_MOSI
+			       "mpp23",   // SPI_0_CLK
+			       "mpp24",   // SPI_0_MISO
+			       "mpp25",   // SPI_0_BOOT_CS0#, native CS[0]
+			       "mpp26",   // CS1 n/c
+			       "mpp27";   // SPI_0_WIFI_CS2#, native CS[3]
+		marvell,function = "spi0";
+	};
+
+	spi0_cs_gpio_pins: spi0-cs-gpio-pins {
+		marvell,pins = "mpp18", // WIFI_IRQ#
+			       "mpp28"; // SPI_0_CS3#, non-native CS[4]
+		marvell,function = "gpio";
+		bias-pull-up;
+	};
+};
+
+/* We use an external RTC rather than the CPU's built in RTC */
+&rtc {
+	status = "disabled";
+};
+
+&sdhci {
+	bus-width = <4>;
+	no-1-8-v;
+	pinctrl-0 = <&sdhci_pins0>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_pins &spi0_cs_gpio_pins>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	num-cs = <5>;
+	cs-gpios = <0>, <0>, <0>, <0>, <&gpio0 28 GPIO_ACTIVE_LOW>;
+
+	offboard_flash: flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+	};
+
+	wilc: wifi@3 {
+		compatible = "microchip,wilc3000";
+		reg = <3>;
+		spi-max-frequency = <20000000>;
+		reset-gpios = <&ts7800v2_gpio 117 GPIO_ACTIVE_HIGH>;   /* WIFI_RESET# */
+		chip_en-gpios = <&ts7800v2_gpio 116 GPIO_ACTIVE_HIGH>; /* EN_WIFI_PWR */
+		interrupt-parent = <&gpio0>;
+		interrupts = <18 GPIO_ACTIVE_HIGH>;
+	};
+
+	spi@4 { /* Muxed between FPGA SPI master and this CPU's SPI */
+		compatible = "spi-mux";
+		reg = <4>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		spi-max-frequency = <1000000>;
+		mux-controls = <&mux>;
+
+		onboard_flash: flash@1 {
+			compatible = "jedec,spi-nor";
+			reg = <1>;
+			spi-max-frequency = <1000000>;
+		};
+	};
+};
+
+&uart0 {
+	pinctrl-0 = <&uart0_pins>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+/* We use external watchdog */
+&watchdog {
+	status = "disabled";
+};
+
+&usb0 {
+	status = "okay";
+};
+
+&usb3_0 {
+	status = "okay";
+};
+
+&usb3_1 {
+	status = "okay";
+};
