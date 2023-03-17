@@ -1570,6 +1570,14 @@ config GPIO_WM8994
 	  Say yes here to access the GPIO signals of WM8994 audio hub
 	  CODECs from Wolfson Microelectronics.
 
+config GPIO_TS7800V2
+	tristate "embeddedTS TS-7800 FPGA GPIO support"
+	depends on MFD_TS78XX
+	select GPIO_GENERIC
+	default n
+	help
+	  This driver supports the TS-7800-V2 FPGA GPIO controller.
+
 endmenu
 
 menu "PCI GPIO expanders"
