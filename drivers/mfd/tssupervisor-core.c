@@ -33,12 +33,14 @@ static const struct regmap_range ts_supervisor_read_regs[] = {
 	regmap_reg_range(16, 16), /* flags */
 	regmap_reg_range(24, 24), /* inputs */
 	regmap_reg_range(32, 32), /* reboot_reason */
+	regmap_reg_range(34, 37), /* serial */
 	regmap_reg_range(128, 160), /* ADCs+temp */
 };
 
 static const struct regmap_range ts_supervisor_write_regs[] = {
 	regmap_reg_range(8, 8), /* cmds */
 	regmap_reg_range(16, 16), /* flags */
+	regmap_reg_range(34, 37), /* serial */
 };
 
 const struct regmap_access_table ts_supervisor_read_register_set = {
@@ -119,6 +121,74 @@ static ssize_t wake_en_show(struct device *dev,
 }
 static DEVICE_ATTR_RW(wake_en);
 
+static ssize_t serial_store(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct ts_supervisor *super = dev_get_drvdata(dev);
+	unsigned int ctrl = 0;
+	u8 sn[6], verify[6];
+	int ret;
+
+	ret = regmap_read(super->regmap, SUPER_SERIAL_CTRL, &ctrl);
+	if (ret)
+		return ret;
+
+	/* Dont write the SN if its already written */
+	if (ctrl & SUPER_SN_LOCKED)
+		return -EEXIST;
+
+	if (count < 17)
+		return -EIO;
+
+	if (sscanf(buf, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+		   &sn[0], &sn[1], &sn[2], &sn[3], &sn[4], &sn[5]) != 6)
+		return -EINVAL;
+
+	ret = regmap_bulk_write(super->regmap, SUPER_SERIAL0, sn, 3);
+	if (ret)
+		return ret;
+
+	/* Verify data before commiting OTP SN */
+	ret = regmap_bulk_read(super->regmap, SUPER_SERIAL0, verify, 3);
+	if (ret)
+		return ret;
+
+	if (memcmp(verify, sn, 6) != 0)
+		return -EIO;
+
+	ret = regmap_update_bits(super->regmap, SUPER_SERIAL_CTRL,
+				 SUPER_SN_LOCKED,
+				 SUPER_SN_LOCKED);
+
+	return ret ? ret : count;
+}
+
+static ssize_t serial_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct ts_supervisor *super = dev_get_drvdata(dev);
+	unsigned int ctrl;
+	u8 sn[6];
+	int ret;
+
+	ret = regmap_read(super->regmap, SUPER_SERIAL_CTRL, &ctrl);
+	if (ret)
+		return ret;
+
+	/* Dont show the serial number if its not written yet */
+	if (!(ctrl & SUPER_SN_LOCKED))
+		return -EINVAL;
+
+	ret = regmap_bulk_read(super->regmap, SUPER_SERIAL0, sn, 3);
+	if (ret)
+		return ret;
+	ret = sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
+		sn[0], sn[1], sn[2], sn[3], sn[4], sn[5]);
+
+	return ret;
+}
+static DEVICE_ATTR_RW(serial);
+
 static ssize_t console_cfg_store(struct device *dev, struct device_attribute *attr,
 			      const char *buf, size_t count)
 {
@@ -170,12 +240,21 @@ static struct attribute_group ts7250v3_attr_group = {
 	.attrs	= ts7250v3_sysfs_entries,
 };
 
+static struct attribute *serial_sysfs_entries[] = {
+	&dev_attr_serial.attr,
+	NULL,
+};
+
+static struct attribute_group serial_attr_group = {
+	.attrs	= serial_sysfs_entries,
+};
+
 static int ts_supervisor_i2c_probe(struct i2c_client *client)
 {
 	struct ts_supervisor *super;
 	struct device *dev = &client->dev;
 	int err = 0, i;
-	uint32_t model, revision;
+	uint32_t model, revision, features;
 
 	super = devm_kzalloc(dev, sizeof(struct ts_supervisor),
 			     GFP_KERNEL);
@@ -198,6 +277,9 @@ static int ts_supervisor_i2c_probe(struct i2c_client *client)
 	err = regmap_read(super->regmap, SUPER_REV_INFO, &revision);
 	if (err < 0)
 		dev_err(dev, "error reading reg %u", SUPER_REV_INFO);
+	err = regmap_read(super->regmap, SUPER_FEATURES0, &features);
+	if (err < 0)
+		dev_err(dev, "error reading reg %u", SUPER_FEATURES0);
 	dev_info(&client->dev, "Model %04X rev %d%s\n",
 		 model,
 		 revision & 0x7fff,
@@ -205,6 +287,12 @@ static int ts_supervisor_i2c_probe(struct i2c_client *client)
 
 	if (model == MODEL_TS_7250_V3) {
 		err = sysfs_create_group(&dev->kobj, &ts7250v3_attr_group);
+		if (err)
+			dev_warn(dev, "error creating sysfs entries\n");
+	}
+
+	if (features & SUPER_FEAT_SN) {
+		err = sysfs_create_group(&dev->kobj, &serial_attr_group);
 		if (err)
 			dev_warn(dev, "error creating sysfs entries\n");
 	}
