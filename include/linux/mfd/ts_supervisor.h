@@ -19,6 +19,10 @@ struct ts_supervisor {
 #define SUPER_FLAGS         16
 #define SUPER_INPUTS        24
 #define SUPER_REBOOT_REASON 32
+#define SUPER_SERIAL0       34
+#define SUPER_SERIAL1       35
+#define SUPER_SERIAL2       36
+#define SUPER_SERIAL_CTRL   37
 #define SUPER_ADC_BASE      128
 #define SUPER_ADC_LAST      159
 #define SUPER_TEMPERATURE   160
@@ -55,6 +59,10 @@ enum reboot_reasons_t {
 enum super_cmds_t {
     I2C_REBOOT = (1 << 0),
     I2C_HALT = (1 << 1),
+};
+
+enum super_serial_ctrl_t {
+    SUPER_SN_LOCKED = (1 << 0),
 };
 
 #endif
