@@ -107,22 +107,9 @@ MODULE_DEVICE_TABLE(of, tsweim_gpio_of_match_table);
 static int tsweim_gpio_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	const struct of_device_id *match;
 	struct tsweim_gpio_priv *priv;
-	u32 ngpio;
-	int base;
 	void __iomem  *membase;
 	struct resource *res;
-
-	match = of_match_device(tsweim_gpio_of_match_table, dev);
-	if (!match)
-		return -EINVAL;
-
-	if (of_property_read_u32(dev->of_node, "ngpios", &ngpio))
-		ngpio = TSWEIM_NR_DIO;
-
-	if (of_property_read_u32(dev->of_node, "base", &base))
-		base = -1;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL) {
@@ -143,15 +130,10 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 
 	priv->syscon = membase;
 
-	pr_info("FPGA syscon mapped to 0x%08X, %d bytes\n",
-	  (unsigned int)priv->syscon, resource_size(res));
-
 	priv->gpio_chip = template_chip;
 	priv->gpio_chip.label = dev_name(dev);
-	priv->gpio_chip.ngpio = ngpio;
-	priv->gpio_chip.base = base;
+	priv->gpio_chip.ngpio = TSWEIM_NR_DIO;
 	pdev->dev.platform_data = &priv;
-	priv->gpio_chip.of_node = pdev->dev.of_node;
 
 	return devm_gpiochip_add_data(&pdev->dev, &priv->gpio_chip, &priv);
 }
