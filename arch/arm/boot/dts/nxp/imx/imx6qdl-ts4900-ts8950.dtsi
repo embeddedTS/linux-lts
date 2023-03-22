@@ -12,6 +12,7 @@
 
 	aliases {
 		ethernet0 = &fec;
+		ethernet1 = &ethernet;
 	};
 
 	backlight_lvds: backlight-lvds {
@@ -330,4 +331,22 @@
 &ssi1 {
 	fsl,mode = "i2s-slave";
 	status = "okay";
+};
+
+&usbh1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	usb1@1 {
+		compatible = "usb424,9514";
+		reg = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethernet: usbether@1 {
+			compatible = "usb424,ec00";
+			reg = <1>;
+		};
+	};
 };
