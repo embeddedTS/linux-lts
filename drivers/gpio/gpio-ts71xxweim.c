@@ -89,7 +89,6 @@ static void tsweim_gpio_set(struct gpio_chip *chip, unsigned int offset,
 }
 
 static const struct gpio_chip template_chip = {
-	.label			= "tsweim-gpio",
 	.owner			= THIS_MODULE,
 	.direction_input	= tsweim_gpio_direction_input,
 	.direction_output	= tsweim_gpio_direction_output,
@@ -148,7 +147,7 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 	  (unsigned int)priv->syscon, resource_size(res));
 
 	priv->gpio_chip = template_chip;
-	priv->gpio_chip.label = "tsweim-gpio";
+	priv->gpio_chip.label = dev_name(dev);
 	priv->gpio_chip.ngpio = ngpio;
 	priv->gpio_chip.base = base;
 	pdev->dev.platform_data = &priv;
