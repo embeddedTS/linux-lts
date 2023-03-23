@@ -226,6 +226,9 @@
 	pinctrl-0 = <&mac0_pins>;
 	phy-supply = <&reg_enet_3v3>;
 	phy-handle = <&ethphy0>;
+	phy-reset-gpios = <&gpio2 9 GPIO_ACTIVE_LOW>;
+	phy-reset-duration = <26>;
+	phy-reset-post-delay = <1>;
 	status = "okay";
 
 	mdio {
@@ -234,9 +237,6 @@
 
 		ethphy0: ethernet-phy@0 {
 			compatible = "ethernet-phy-ieee802.3-c22";
-			reset-gpios = <&gpio2 9 GPIO_ACTIVE_LOW>;
-			reset-assert-us = <26000>;
-			reset-deassert-us = <100>;
 			reg = <0>;
 		};
 	};
