@@ -22,12 +22,6 @@ static struct tsweim_intc *irq_data_to_priv(struct irq_data *data)
 	return data->domain->host_data;
 }
 
-static const struct of_device_id tsweim_intc_of_match_table[] = {
-	{.compatible = "technologic,ts71xxweim-intc", },
-	{},
-};
-MODULE_DEVICE_TABLE(of, tsweim_intc_of_match_table);
-
 static void tsweim_intc_mask(struct irq_data *d)
 {
 	struct tsweim_intc *priv = irq_data_to_priv(d);
@@ -94,51 +88,33 @@ static const struct irq_domain_ops tsweim_intc_irqdomain_ops = {
 static int tsweim_intc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	const struct of_device_id *match;
-	struct device_node *np =  pdev->dev.of_node;
 	struct tsweim_intc *priv;
-	void __iomem  *membase;
-	struct resource *res = 0;
+	struct resource *irq = 0;
 
 	priv = devm_kzalloc(dev, sizeof(struct tsweim_intc), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
-	match = of_match_device(tsweim_intc_of_match_table, dev);
-	if (!match)
-		return -EINVAL;
+	priv->syscon = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(priv->syscon))
+		return PTR_ERR(priv->syscon);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-
-	if (res == NULL) {
-		pr_err("Can't get device address\n");
-		return -EFAULT;
-	}
-
-	membase = devm_ioremap(&pdev->dev, res->start, resource_size(res));
-	if (IS_ERR(membase)) {
-		pr_err("Could not map resource\n");
-		return -ENOMEM;
-	}
-
-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (res == NULL) {
+	irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (irq == NULL) {
 		pr_err("Can't get interrupt\n");
 		return -EFAULT;
 	}
 
-	priv->syscon = membase;
-
 	priv->irqdomain = irq_domain_add_linear(
-		np, TSWEIM_NUM_FPGA_IRQ, &tsweim_intc_irqdomain_ops, priv);
+		dev->of_node, TSWEIM_NUM_FPGA_IRQ, &tsweim_intc_irqdomain_ops, priv);
 
 	if (!priv->irqdomain) {
-		pr_err("%s: unable to add irq domain\n", np->name);
+		pr_err("unable to add irq domain\n");
 		return -ENOMEM;
 	}
 
-	irq_set_handler_data(res->start, priv);
-	irq_set_chained_handler(res->start, tsweim_irq_handler);
+	irq_set_handler_data(irq->start, priv);
+	irq_set_chained_handler(irq->start, tsweim_irq_handler);
 
 	platform_set_drvdata(pdev, priv);
 
@@ -163,6 +139,12 @@ static int tsweim_intc_remove(struct platform_device *pdev)
 
 	return 0;
 }
+
+static const struct of_device_id tsweim_intc_of_match_table[] = {
+	{.compatible = "technologic,ts71xxweim-intc", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, tsweim_intc_of_match_table);
 
 static struct platform_driver tsweim_intc_driver = {
 	.driver = {
