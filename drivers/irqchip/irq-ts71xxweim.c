@@ -8,12 +8,14 @@
 #include <linux/of_device.h>
 
 #define TSWEIM_IRQ_STATUS	0x24
+#define TSWEIM_IRQ_POLARITY	0x28
 #define TSWEIM_IRQ_MASK		0x48
 #define TSWEIM_NUM_FPGA_IRQ	32
 
 struct tsweim_intc {
 	void __iomem  *syscon;
 	struct irq_domain *irqdomain;
+	struct irq_chip chip;
 	u32 mask;
 };
 
@@ -36,6 +38,28 @@ static void tsweim_intc_unmask(struct irq_data *d)
 
 	priv->mask = readl(priv->syscon + TSWEIM_IRQ_MASK) | BIT(d->hwirq);
 	writel(priv->mask, priv->syscon + TSWEIM_IRQ_MASK);
+}
+
+static int tsweim_intc_set_type(struct irq_data *d, unsigned int flow_type)
+{
+	struct tsweim_intc *priv = irq_data_to_priv(d);
+	uint32_t polarity = readl(priv->syscon + TSWEIM_IRQ_POLARITY);
+	uint32_t bit = BIT_MASK(d->hwirq);
+
+	switch (flow_type) {
+	case IRQ_TYPE_LEVEL_LOW:
+		polarity |= bit;
+		break;
+	case IRQ_TYPE_LEVEL_HIGH:
+		polarity &= ~bit;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	writel(polarity, priv->syscon + TSWEIM_IRQ_POLARITY);
+
+	return 0;
 }
 
 static void tsweim_irq_handler(struct irq_desc *desc)
@@ -63,18 +87,12 @@ static void tsweim_irq_handler(struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
-static struct irq_chip tsweim_irq_chip = {
-	.name		= "tsweim_intc",
-	.irq_mask	= tsweim_intc_mask,
-	.irq_unmask	= tsweim_intc_unmask,
-};
-
 static int tsweim_intc_irqdomain_map(struct irq_domain *d,
 		unsigned int irq, irq_hw_number_t hwirq)
 {
-	irq_set_chip_and_handler(irq, &tsweim_irq_chip,
-				 handle_level_irq);
+	struct tsweim_intc *priv = d->host_data;
 
+	irq_set_chip_and_handler(irq, &priv->chip, handle_level_irq);
 	irq_clear_status_flags(irq, IRQ_NOREQUEST | IRQ_NOPROBE);
 	irq_set_status_flags(irq, IRQ_LEVEL);
 
@@ -83,6 +101,7 @@ static int tsweim_intc_irqdomain_map(struct irq_domain *d,
 
 static const struct irq_domain_ops tsweim_intc_irqdomain_ops = {
 	.map = tsweim_intc_irqdomain_map,
+	.xlate = irq_domain_xlate_onetwocell,
 };
 
 static int tsweim_intc_probe(struct platform_device *pdev)
@@ -90,6 +109,7 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct tsweim_intc *priv;
 	struct resource *irq = 0;
+	struct irq_chip *chip;
 
 	priv = devm_kzalloc(dev, sizeof(struct tsweim_intc), GFP_KERNEL);
 	if (!priv)
@@ -105,8 +125,16 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 		return -EFAULT;
 	}
 
-	priv->irqdomain = irq_domain_add_linear(
-		dev->of_node, TSWEIM_NUM_FPGA_IRQ, &tsweim_intc_irqdomain_ops, priv);
+	chip = &priv->chip;
+	chip->name = dev->of_node->name;
+	chip->irq_mask = tsweim_intc_mask;
+	chip->irq_unmask = tsweim_intc_unmask;
+
+	if (of_property_read_bool(dev->of_node, "ts,haspolarity"))
+		chip->irq_set_type = tsweim_intc_set_type;
+
+	priv->irqdomain = irq_domain_add_linear(dev->of_node,
+		TSWEIM_NUM_FPGA_IRQ, &tsweim_intc_irqdomain_ops, priv);
 
 	if (!priv->irqdomain) {
 		pr_err("unable to add irq domain\n");
