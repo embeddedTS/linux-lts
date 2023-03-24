@@ -420,7 +420,7 @@
 				reg = <0x0 0x50>;
 
 				interrupt-controller;
-				#interrupt-cells = <1>;
+				#interrupt-cells = <2>;
 
 				interrupt-parent = <&gpio5>;
 				interrupts = <1 IRQ_TYPE_LEVEL_HIGH>;
@@ -549,7 +549,7 @@
 			fifo-size = <64>;
 			clock-frequency = <1843200>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <0>;
+			interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		/* COM2 RS-232 */
@@ -564,7 +564,7 @@
 			fifo-size = <64>;
 			clock-frequency = <1843200>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <1>;
+			interrupts = <1 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		/* COM3 RS-232 */
@@ -579,7 +579,7 @@
 			fifo-size = <64>;
 			clock-frequency = <1843200>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <2>;
+			interrupts = <2 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		/* COM2 RS-485 */
@@ -594,7 +594,7 @@
 			fifo-size = <64>;
 			clock-frequency = <1843200>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <3>;
+			interrupts = <3 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		/* COM2 RS-422 */
@@ -609,7 +609,7 @@
 			fifo-size = <64>;
 			clock-frequency = <1843200>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <4>;
+			interrupts = <4 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		/* Mikrobus UART */
@@ -624,7 +624,7 @@
 			fifo-size = <64>;
 			clock-frequency = <1843200>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <5>;
+			interrupts = <5 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		fpga_uart6: serial@60 {
@@ -638,7 +638,7 @@
 			fifo-size = <64>;
 			clock-frequency = <1843200>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <6>;
+			interrupts = <6 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		fpga_uart7: serial@70 {
@@ -652,7 +652,7 @@
 			fifo-size = <64>;
 			clock-frequency = <1843200>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <7>;
+			interrupts = <7 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		fpga_uart8: serial@80 {
@@ -666,7 +666,7 @@
 			fifo-size = <64>;
 			clock-frequency = <1843200>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <8>;
+			interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		opencores_spi0: spi@100 {
@@ -675,7 +675,7 @@
 			#size-cells = <0>;
 			reg = <0x100 32>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <9>;
+			interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&fpga_clk_weim_bclk>;
 			clock-names = "spi-oc-clk";
 			opencores-spi,idx = <0>;
@@ -710,7 +710,7 @@
 			#size-cells = <0>;
 			reg = <0x120 32>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <10>;
+			interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&fpga_clk_weim_bclk>;
 			clock-names = "spi-oc-clk";
 			opencores-spi,idx = <0>;
@@ -727,14 +727,14 @@
 			compatible = "technologic,ts-simple-adc";
 			reg = <0x180 4>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <19>;
+			interrupts = <19 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		mikro_i2c: mikro_i2c@188 {
 			compatible = "opencores,i2c-ocores";
 			reg = <0x188 16>;
 			interrupt-parent = <&fpga_intc>;
-			interrupts = <20>;
+			interrupts = <20 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&fpga_clk_weim_bclk>;
 			clock-names = "i2c-oc-clk";
 			reg-io-width = <1>;
