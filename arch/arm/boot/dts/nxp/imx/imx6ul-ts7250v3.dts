@@ -15,3 +15,7 @@
 &supervisor_rtc {
 	status = "okay";
 };
+
+&fpga_intc {
+	ts,haspolarity;
+};
