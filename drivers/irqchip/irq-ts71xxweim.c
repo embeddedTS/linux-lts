@@ -11,12 +11,16 @@
 #define TSWEIM_IRQ_MASK		0x48
 #define TSWEIM_NUM_FPGA_IRQ	32
 
-static struct tsweim_intc_priv {
+struct tsweim_intc {
 	void __iomem  *syscon;
 	struct irq_domain *irqdomain;
-	int irq;
 	u32 mask;
-} priv;
+};
+
+static struct tsweim_intc *irq_data_to_priv(struct irq_data *data)
+{
+	return data->domain->host_data;
+}
 
 static const struct of_device_id tsweim_intc_of_match_table[] = {
 	{.compatible = "technologic,ts71xxweim-intc", },
@@ -26,31 +30,36 @@ MODULE_DEVICE_TABLE(of, tsweim_intc_of_match_table);
 
 static void tsweim_intc_mask(struct irq_data *d)
 {
-	priv.mask = readl(priv.syscon + TSWEIM_IRQ_MASK) & ~BIT(d->hwirq);
-	writel(priv.mask, priv.syscon + TSWEIM_IRQ_MASK);
+	struct tsweim_intc *priv = irq_data_to_priv(d);
+
+	priv->mask = readl(priv->syscon + TSWEIM_IRQ_MASK) & ~BIT(d->hwirq);
+	writel(priv->mask, priv->syscon + TSWEIM_IRQ_MASK);
 }
 
 static void tsweim_intc_unmask(struct irq_data *d)
 {
-	priv.mask = readl(priv.syscon + TSWEIM_IRQ_MASK) | BIT(d->hwirq);
-	writel(priv.mask, priv.syscon + TSWEIM_IRQ_MASK);
+	struct tsweim_intc *priv = irq_data_to_priv(d);
+
+	priv->mask = readl(priv->syscon + TSWEIM_IRQ_MASK) | BIT(d->hwirq);
+	writel(priv->mask, priv->syscon + TSWEIM_IRQ_MASK);
 }
 
 static void tsweim_irq_handler(struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
+	struct tsweim_intc *priv = irq_desc_get_handler_data(desc);
 	unsigned int irq;
 	unsigned int status;
 
 	chained_irq_enter(chip, desc);
 
 	while ((status =
-	  (priv.mask & readl(priv.syscon + TSWEIM_IRQ_STATUS)))) {
+	  (priv->mask & readl(priv->syscon + TSWEIM_IRQ_STATUS)))) {
 		irq = 0;
 		do {
 			if (status & 1) {
 				generic_handle_irq(irq_linear_revmap(
-				  priv.irqdomain, irq));
+				  priv->irqdomain, irq));
 			}
 			status >>= 1;
 			irq++;
@@ -87,8 +96,13 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	const struct of_device_id *match;
 	struct device_node *np =  pdev->dev.of_node;
+	struct tsweim_intc *priv;
 	void __iomem  *membase;
 	struct resource *res = 0;
+
+	priv = devm_kzalloc(dev, sizeof(struct tsweim_intc), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
 
 	match = of_match_device(tsweim_intc_of_match_table, dev);
 	if (!match)
@@ -113,37 +127,38 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 		return -EFAULT;
 	}
 
-	priv.irq = res->start;
-	priv.syscon = membase;
+	priv->syscon = membase;
 
-	priv.irqdomain = irq_domain_add_linear(
-		np, TSWEIM_NUM_FPGA_IRQ, &tsweim_intc_irqdomain_ops, &priv);
+	priv->irqdomain = irq_domain_add_linear(
+		np, TSWEIM_NUM_FPGA_IRQ, &tsweim_intc_irqdomain_ops, priv);
 
-	if (!priv.irqdomain) {
+	if (!priv->irqdomain) {
 		pr_err("%s: unable to add irq domain\n", np->name);
 		return -ENOMEM;
 	}
 
-	irq_set_handler_data(priv.irq, &priv);
-	irq_set_chained_handler(priv.irq, tsweim_irq_handler);
+	irq_set_handler_data(res->start, priv);
+	irq_set_chained_handler(res->start, tsweim_irq_handler);
 
-	platform_set_drvdata(pdev, &priv);
+	platform_set_drvdata(pdev, priv);
 
 	return 0;
 }
 
 static int tsweim_intc_remove(struct platform_device *pdev)
 {
-	if (priv.irqdomain) {
+	struct tsweim_intc *priv = dev_get_platdata(&pdev->dev);
+
+	if (priv->irqdomain) {
 		int i, irq;
 
 		for (i = 0; i < TSWEIM_NUM_FPGA_IRQ; i++) {
-			irq = irq_find_mapping(priv.irqdomain, i);
+			irq = irq_find_mapping(priv->irqdomain, i);
 			if (irq > 0)
 				irq_dispose_mapping(irq);
 		}
-		irq_domain_remove(priv.irqdomain);
-		priv.irqdomain = NULL;
+		irq_domain_remove(priv->irqdomain);
+		priv->irqdomain = NULL;
 	}
 
 	return 0;
