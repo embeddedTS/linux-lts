@@ -58,6 +58,7 @@ obj-$(CONFIG_ST_IRQCHIP)		+= irq-st.o
 obj-$(CONFIG_TANGO_IRQ)			+= irq-tango.o
 obj-$(CONFIG_TB10X_IRQC)		+= irq-tb10x.o
 obj-$(CONFIG_TS4800_IRQ)		+= irq-ts4800.o
+obj-$(CONFIG_TS7840_IRQ)		+= irq-ts7840.o
 obj-$(CONFIG_TSWEIM_FPGA_INTC)		+= irq-ts71xxweim.o
 obj-$(CONFIG_XTENSA)			+= irq-xtensa-pic.o
 obj-$(CONFIG_XTENSA_MX)			+= irq-xtensa-mx.o
