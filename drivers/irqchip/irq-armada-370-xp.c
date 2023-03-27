@@ -140,7 +140,7 @@
 #define IPI_DOORBELL_NR				8
 #define IPI_DOORBELL_MASK			GENMASK(7, 0)
 #define PCI_MSI_DOORBELL_START			16
-#define PCI_MSI_DOORBELL_NR			16
+#define PCI_MSI_DOORBELL_NR			32
 #define PCI_MSI_DOORBELL_MASK			GENMASK(31, 16)
 
 /* MSI interrupt definitions for non-IPI platforms */
