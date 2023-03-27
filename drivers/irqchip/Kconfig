@@ -288,6 +288,13 @@ config TS4800_IRQ
 	help
 	  Support for the TS-4800 FPGA IRQ controller
 
+config TS7840_IRQ
+	tristate "TS-7840 IRQ controller"
+	select IRQ_DOMAIN
+	depends on HAS_IOMEM
+	help
+	  Support for the TS-7840 FPGA IRQ controller
+
 config TSWEIM_FPGA_INTC
 	tristate "TS-71XX WEIM FPGA IRQ Support"
 	default n
