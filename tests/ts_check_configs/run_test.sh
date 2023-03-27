@@ -9,11 +9,13 @@ min_graphics_config_files=(
 )
 
 full_headless_config_files=(
+    "tsa38x_defconfig"
     "tsimx6ul_defconfig"
     "tsimx28_defconfig"
 )
 
 min_headless_config_files=(
+    "tsa38x_minimal_defconfig"
     "tsimx6ul_minimal_defconfig"
     "tsimx28_minimal_defconfig"
 )
