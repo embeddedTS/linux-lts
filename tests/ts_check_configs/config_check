@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+import sys
+import os
+
+def parse_config_file(file_path):
+    """
+    Parses a Linux kernel .config file and returns a dictionary of options
+    that have a value of 'y' or 'm'.
+
+    Args:
+        file_path (str): The path to the .config file to be parsed.
+
+    Returns:
+        dict: A dictionary containing the names of options that have a value
+        of 'y' or 'm' as keys, and their values as values.
+
+    Raises:
+        IOError: If the file at `file_path` cannot be opened.
+        ValueError: If the contents of the file at `file_path` are not
+        formatted correctly.
+
+    Example:
+        >>> parse_config_file('/path/to/config_file.config')
+        {'CONFIG_THING1': 'y', 'CONFIG_THING2': 'm'}
+        options = {}
+    """
+
+    options = {}
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            option, value = map(str.strip, line.split('=', 1))
+            if value in ('y', 'm', 'n'):
+                options[option] = value
+            else:
+                options[option] = 'x'
+    return options
+
+if len(sys.argv) != 3:
+    print("Usage: check_config requirements.config your.config")
+    sys.exit(1)
+
+expected_options = parse_config_file(sys.argv[1])
+config_options = parse_config_file(sys.argv[2])
+RESULT = 0
+
+# Check if the config options match the expected options
+for expected_option, expected_value in expected_options.items():
+    if expected_option in config_options:
+        if expected_value == 'x':
+            continue
+
+        if expected_value != config_options[expected_option]:
+            print(f'{expected_option} is set to {config_options[expected_option]} and should be {expected_value}')
+            RESULT = 1
+    else:
+        if expected_value == 'n':
+            continue
+        print(f'{expected_option} is missing')
+        RESULT = 1
+
+sys.exit(RESULT)
