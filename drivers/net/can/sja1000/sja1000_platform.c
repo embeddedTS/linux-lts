@@ -94,12 +94,65 @@ static void sp_technologic_write_reg16(const struct sja1000_priv *priv,
 	spin_unlock_irqrestore(&tp->io_lock, flags);
 }
 
+#define TS_CAN_START BIT(31)
+#define TS_CAN_WRITE BIT(30)
+static u8 sp_technologic_read_reg32(const struct sja1000_priv *priv, int reg)
+{
+	struct technologic_priv *tp = priv->priv;
+	unsigned long flags;
+	u32 val;
+
+	spin_lock_irqsave(&tp->io_lock, flags);
+	while (readl(priv->reg_base) & TS_CAN_START)
+		;
+	writel(TS_CAN_START | (u32)reg, priv->reg_base);
+
+	do {
+		val = readl(priv->reg_base);
+	} while (val & TS_CAN_START);
+
+	spin_unlock_irqrestore(&tp->io_lock, flags);
+
+	return (u8)((val >> 8) & 0xFF);
+}
+
+static void sp_technologic_write_reg32(const struct sja1000_priv *priv,
+				       int reg, u8 val)
+{
+	struct technologic_priv *tp = priv->priv;
+	unsigned long flags;
+
+	spin_lock_irqsave(&tp->io_lock, flags);
+	while (readl(priv->reg_base) & TS_CAN_START)
+		;
+
+	writel(TS_CAN_START | TS_CAN_WRITE | (u32)reg | ((u16)val << 8),
+	       priv->reg_base);
+	spin_unlock_irqrestore(&tp->io_lock, flags);
+}
+
 static void sp_technologic_init(struct sja1000_priv *priv, struct device_node *of)
 {
 	struct technologic_priv *tp = priv->priv;
+	int err;
+	u32 prop;
 
-	priv->read_reg = sp_technologic_read_reg16;
-	priv->write_reg = sp_technologic_write_reg16;
+	err = of_property_read_u32(of, "reg-io-width", &prop);
+	if (err)
+		prop = 2; /* 16 bit is default */
+
+	switch (prop) {
+	case 4:
+		priv->read_reg = sp_technologic_read_reg32;
+		priv->write_reg = sp_technologic_write_reg32;
+		break;
+	case 2:
+	default:
+		priv->read_reg = sp_technologic_read_reg16;
+		priv->write_reg = sp_technologic_write_reg16;
+		break;
+	}
+
 	spin_lock_init(&tp->io_lock);
 }
 
