@@ -5,6 +5,8 @@
 
 ######## Driver frameworks required on all hardware:
 CONFIG_SPI_SPIDEV=x
+CONFIG_USB_ACM=x
+CONFIG_USB_SERIAL_FTDI_SIO=x
 
 ######## Debug options:
 CONFIG_LOCKDEP=n
