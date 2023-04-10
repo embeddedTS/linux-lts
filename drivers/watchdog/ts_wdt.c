@@ -180,10 +180,6 @@ static int ts_wdt_probe(struct i2c_client *client)
 
 	i2c_set_clientdata(client, wdd);
 
-	err = watchdog_register_device(wdd);
-	if (err)
-		return err;
-
 	/* We want this handler to be the first priority handler for reboots */
 	watchdog_set_restart_priority(wdd, 255);
 
@@ -201,13 +197,8 @@ static int ts_wdt_probe(struct i2c_client *client)
 	 * userspace can take over. If not set, a single feed takes place at
 	 * this point in time.
 	 */
-	if (enable_early) {
-		err = ts_wdt_start(wdd);
-		if (err)
-			return err;
-
+	if (enable_early)
 		set_bit(WDOG_HW_RUNNING, &wdd->status);
-	}
 
 	/*
 	 * On supported platforms, this will generally be the only way to
@@ -221,6 +212,10 @@ static int ts_wdt_probe(struct i2c_client *client)
 	}
 	pm_power_off = ts_wdt_poweroff;
 	ts_wdt_poweroff_dev = client;
+
+	err = watchdog_register_device(wdd);
+	if (err)
+		return err;
 
 	dev_info(&client->dev, "Registered embeddedTS microcontroller watchdog\n");
 
