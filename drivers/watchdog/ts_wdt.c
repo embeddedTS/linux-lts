@@ -14,10 +14,6 @@
 
 #define TS_DEFAULT_TIMEOUT 30
 
-static int wdt_timeout;
-module_param(wdt_timeout, int, 0);
-MODULE_PARM_DESC(wdt_timeout, "Watchdog timeout in seconds");
-
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started default="
@@ -177,7 +173,6 @@ static int ts_wdt_probe(struct i2c_client *client)
 	wdd->timeout = TS_DEFAULT_TIMEOUT;
 	wdd->parent = &client->dev;
 
-	watchdog_init_timeout(wdd, wdt_timeout, &client->dev);
 	if (of_property_read_bool(client->dev.of_node, "enable-early"))
 		enable_early = true;
 
