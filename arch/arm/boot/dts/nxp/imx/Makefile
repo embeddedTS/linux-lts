@@ -334,6 +334,8 @@ dtb-$(CONFIG_SOC_IMX6UL) += \
 	imx6ul-ts7250v3-reva.dtb \
 	imx6ul-ts7250v3.dtb \
 	imx6ul-ts7553v2.dtb \
+	imx6ul-ts7100-1.dtb \
+	imx6ul-ts7100-3.dtb \
 	imx6ul-tx6ul-0010.dtb \
 	imx6ul-tx6ul-0011.dtb \
 	imx6ul-tx6ul-mainboard.dtb \
