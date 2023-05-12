@@ -14,10 +14,6 @@
 
 #define TS_DEFAULT_TIMEOUT 30
 
-static int wdt_timeout;
-module_param(wdt_timeout, int, 0);
-MODULE_PARM_DESC(wdt_timeout, "Watchdog timeout in seconds");
-
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started default="
@@ -178,17 +174,12 @@ static int ts_wdt_probe(struct i2c_client *client,
 	wdd->timeout = TS_DEFAULT_TIMEOUT;
 	wdd->parent = &client->dev;
 
-	watchdog_init_timeout(wdd, wdt_timeout, &client->dev);
 	if (of_property_read_bool(client->dev.of_node, "enable-early"))
 		enable_early = true;
 
 	watchdog_set_nowayout(wdd, nowayout);
 
 	i2c_set_clientdata(client, wdd);
-
-	err = watchdog_register_device(wdd);
-	if (err)
-		return err;
 
 	/* We want this handler to be the first priority handler for reboots */
 	watchdog_set_restart_priority(wdd, 255);
@@ -207,13 +198,8 @@ static int ts_wdt_probe(struct i2c_client *client,
 	 * userspace can take over. If not set, a single feed takes place at
 	 * this point in time.
 	 */
-	if (enable_early) {
-		err = ts_wdt_start(wdd);
-		if (err)
-			return err;
-
+	if (enable_early)
 		set_bit(WDOG_HW_RUNNING, &wdd->status);
-	}
 
 	/*
 	 * On supported platforms, this will generally be the only way to
@@ -227,6 +213,10 @@ static int ts_wdt_probe(struct i2c_client *client,
 	}
 	pm_power_off = ts_wdt_poweroff;
 	ts_wdt_poweroff_dev = client;
+
+	err = watchdog_register_device(wdd);
+	if (err)
+		return err;
 
 	dev_info(&client->dev, "Registered embeddedTS microcontroller watchdog\n");
 

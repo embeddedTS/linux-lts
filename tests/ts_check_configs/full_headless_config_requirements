@@ -5,6 +5,8 @@
 
 ######## Driver frameworks required on all hardware:
 CONFIG_SPI_SPIDEV=x
+CONFIG_USB_ACM=x
+CONFIG_USB_SERIAL_FTDI_SIO=x
 
 ######## Debug options:
 CONFIG_LOCKDEP=n
@@ -20,10 +22,11 @@ CONFIG_INOTIFY_USER=x
 CONFIG_SIGNALFD=x
 CONFIG_TIMERFD=x
 CONFIG_EPOLL=x
-CONFIG_UNIX =x
+CONFIG_UNIX=x
 CONFIG_SYSFS=x
 CONFIG_PROC_FS=x
 CONFIG_FHANDLE=x
+CONFIG_BINFMT_MISC=y
 
 ######## Systemd Optional:
 #CONFIG_DMIID=x SMBIOS thing, we dont need thsi
