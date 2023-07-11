@@ -495,6 +495,7 @@ static void mxs_mmc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 static void mxs_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct mxs_mmc_host *host = mmc_priv(mmc);
+	int result;
 
 	if (ios->bus_width == MMC_BUS_WIDTH_8)
 		host->bus_width = 2;
@@ -502,6 +503,25 @@ static void mxs_mmc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		host->bus_width = 1;
 	else
 		host->bus_width = 0;
+
+	switch (ios->power_mode) {
+	  case MMC_POWER_OFF:
+		if (!IS_ERR(mmc->supply.vmmc)) {
+			if (mmc->regulator_enabled) {
+				result = regulator_disable(mmc->supply.vmmc);
+				if (!result) mmc->regulator_enabled = false;
+			}
+		}
+		break;
+	  case MMC_POWER_UP:
+		if (!IS_ERR(mmc->supply.vmmc)) {
+			if (!mmc->regulator_enabled) {
+				result = regulator_enable(mmc->supply.vmmc);
+				if (!result) mmc->regulator_enabled = true;
+			}
+		}
+		break;
+	}
 
 	if (ios->clock)
 		mxs_ssp_set_clk_rate(&host->ssp, ios->clock);
@@ -578,7 +598,6 @@ static int mxs_mmc_probe(struct platform_device *pdev)
 	struct mxs_mmc_host *host;
 	struct mmc_host *mmc;
 	int ret = 0, irq_err;
-	struct regulator *reg_vmmc;
 	struct mxs_ssp *ssp;
 
 	irq_err = platform_get_irq(pdev, 0);
@@ -603,20 +622,9 @@ static int mxs_mmc_probe(struct platform_device *pdev)
 	host->mmc = mmc;
 	host->sdio_irq_en = 0;
 
-	reg_vmmc = devm_regulator_get(&pdev->dev, "vmmc");
-	if (!IS_ERR(reg_vmmc)) {
-		ret = regulator_enable(reg_vmmc);
-		if (ret) {
-			dev_err(&pdev->dev,
-				"Failed to enable vmmc regulator: %d\n", ret);
-			goto out_mmc_free;
-		}
-
-		ret = devm_add_action_or_reset(&pdev->dev, mxs_mmc_regulator_disable,
-					       reg_vmmc);
-		if (ret)
-			goto out_mmc_free;
-	}
+	ret = mmc_regulator_get_supply(mmc);
+	if (ret == -EPROBE_DEFER)
+		goto out_mmc_free;
 
 	ssp->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(ssp->clk)) {
@@ -655,7 +663,7 @@ static int mxs_mmc_probe(struct platform_device *pdev)
 	if (ret)
 		goto out_free_dma;
 
-	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
+	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34 | MMC_VDD_165_195;
 
 	mmc->max_segs = 52;
 	mmc->max_blk_size = 1 << 0xf;
