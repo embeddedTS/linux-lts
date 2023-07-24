@@ -121,6 +121,27 @@
 	fsl,err006687-workaround-present;
 	phy-mode = "rgmii";
 	status = "okay";
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		eth_phy: ethernet-phy@7 {
+			reg = <0x7>;
+			txen-skew-ps = <0>;
+			txc-skew-ps = <3000>;
+			rxdv-skew-ps = <0>;
+			rxc-skew-ps = <3000>;
+			rxd0-skew-ps = <0>;
+			rxd1-skew-ps = <0>;
+			rxd2-skew-ps = <0>;
+			rxd3-skew-ps = <0>;
+			txd0-skew-ps = <0>;
+			txd1-skew-ps = <0>;
+			txd2-skew-ps = <0>;
+			txd3-skew-ps = <0>;
+		};
+	};
 };
 
 &gpio1 {
