@@ -7,51 +7,52 @@
 #include <linux/platform_device.h>
 #include <linux/serial_8250.h>
 #include <linux/tspc104_bus.h>
-#include <linux/ts16550.h>
+
+static unsigned int tsisa_serial_in(struct uart_port *p, int offset)
+{
+	struct tspc104_bus *bus = (struct tspc104_bus *)p->private_data;
+	unsigned int value;
+
+	tspc104_io_read8(bus, p->mapbase + offset, &value);
+	return value;
+}
+
+static void tsisa_serial_out(struct uart_port *p, int offset, int value)
+{
+	struct tspc104_bus *bus = (struct tspc104_bus *)p->private_data;
+	tspc104_io_write8(bus, p->mapbase + offset, &value);
+}
 
 static int technologic_ts16550_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct ts16550_priv *priv;
+	struct uart_8250_port uport;
 	struct uart_port *port;
 	const __be32 *addr_be;
-	int ret;
 
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
-
-	pdev->dev.platform_data = &priv;
-	port = &priv->uart.port;
+	memset(&uport, 0, sizeof(uport));
 
 	addr_be = of_get_property(dev->of_node, "reg", NULL);
 	if (!addr_be)
 		return -ENODEV;
 
-	priv->uart.port.irq = platform_get_irq(pdev, 0);
-	if (priv->uart.port.irq < 0)
-		return priv->uart.port.irq;
+	port = &uport.port;
+	port->irq = platform_get_irq(pdev, 0);
+	if (port->irq < 0)
+		return port->irq;
 
-	priv->base = be32_to_cpup(addr_be);
-	priv->bus = platform_get_drvdata(to_platform_device(pdev->dev.parent));
-	priv->dev = &pdev->dev;
+	port->mapbase = be32_to_cpup(addr_be);
 	port->flags = UPF_SHARE_IRQ | UPF_BOOT_AUTOCONF |
-				UPF_FIXED_PORT | UPF_FIXED_TYPE;
-	port->iotype = UPIO_TSISABUS;
+		      UPF_FIXED_PORT | UPF_FIXED_TYPE;
+	port->iotype = UPIO_MEM;
 	port->irqflags = IRQF_TRIGGER_HIGH;
-	port->private_data = priv;
+	port->private_data = platform_get_drvdata(to_platform_device(pdev->dev.parent));
 	port->uartclk = 1843200;
-	port->fifosize = 16;
 	port->type = PORT_16550A;
+	port->serial_in = tsisa_serial_in;
+	port->serial_out = tsisa_serial_out;
 
-	ret = serial8250_register_8250_port(&priv->uart);
-
-	if (ret < 0)
-		return ret;
-
-	dev_info(dev, "Adding 16550 UART ttyS%d\n", ret);
-
-	return 0;
+	return serial8250_register_8250_port(&uport);
 }
 
 static const struct of_device_id ts16550_of_match[] = {
