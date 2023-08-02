@@ -287,6 +287,15 @@
 		status = "disabled";
 	};
 
+	/* Only present on REV E and above */
+	magnet: magnetometer@1e {
+		compatible = "st,lis2mdl";
+		reg = <0x1e>;
+		st,drdy-int-pin = <1>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <23 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	m41t00s: rtc@68 {
 		compatible = "m41t00";
 		reg = <0x68>;
@@ -303,6 +312,7 @@
 		VDDD-supply = <&reg_1v2>;
 	};
 
+	/* Only present on REV D and below */
         mma8451: accelerometer@1c {
 		compatible = "fsl,mma8451";
 		reg = <0x1c>;
@@ -312,6 +322,14 @@
 		interrupts = <23 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "INT1";
 		/* INT2 is connected to CPU but is unused */
+	};
+
+	/* Only present on REV E and above */
+	ism330: gyro@6a {
+		compatible = "st,ism330dlc";
+		reg = <0x6a>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <15 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	gpio8: gpio@28 {
@@ -457,6 +475,8 @@
 				MX6QDL_PAD_EIM_CS0__GPIO2_IO23		0x17059 /* ACCEL_INT */
 				MX6QDL_PAD_EIM_DA15__GPIO3_IO15		0x17059 /* ACCEL_2_INT */
 				MX6QDL_PAD_GPIO_9__GPIO1_IO09		0x88 /* TOUCH_RESET */
+				MX6QDL_PAD_EIM_CS0__GPIO2_IO23		0x17059 /* MAGNET_IRQ */
+				MX6QDL_PAD_EIM_DA15__GPIO3_IO15		0x17059 /* GYRO_IRQ */
 			>;
 		};
 
