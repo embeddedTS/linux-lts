@@ -67,6 +67,14 @@
 		regulator-always-on;
 	};
 
+	reg_1v8: regulator-1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "1V8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
 	reg_can1_3v3: regulator-can1-en {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
@@ -96,11 +104,11 @@
 		enable-active-high;
 	};
 
-	reg_wlan_vqmmc: regulator-wlan-vqmmc {
+	reg_wlan_vmmc: regulator-wlan-vmmc {
 		compatible = "regulator-fixed";
-		regulator-name = "WLAN_1V8";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+		regulator-name = "WLAN_3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
 		gpio = <&gpio8 14 GPIO_ACTIVE_HIGH>;
 		startup-delay-us = <70000>;
 		enable-active-high;
@@ -253,6 +261,7 @@
 		reg = <0x6f>;
 		btse-minutes = <1>;
 		isil,battery-trip-levels-microvolt = <2550000>, <2250000>;
+		#clock-cells = <0>;
 	};
 
 	isl12022_sram: eeprom@57 {
@@ -650,8 +659,8 @@
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	pinctrl-1 = <&pinctrl_usdhc1_100mhz>;
 	pinctrl-2 = <&pinctrl_usdhc1_200mhz>;
-	vmmc-supply = <&reg_3v3>;
-	vqmmc-supply = <&reg_wlan_vqmmc>;
+	vmmc-supply = <&reg_wlan_vmmc>;
+	vqmmc-supply = <&reg_1v8>;
 	bus-width = <4>;
 	fsl,tuning-step = <2>;
 	cap-sdio-irq;
