@@ -13,7 +13,7 @@
 #include "imx6ul.dtsi"
 
 / {
-	model = "embeddedTS i.MX6ul TS-7180 (G)";
+	model = "embeddedTS i.MX6ul TS-7180";
 	compatible = "technologic,ts7180", "fsl,imx6ul";
 
 	aliases {
