@@ -27,8 +27,9 @@
 	};
 
 	led-controller {
-		compatible = "gpio-leds";
 		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_gpio_leds>;
+		compatible = "gpio-leds";
 
 		led-0 {
 			color = <LED_COLOR_ID_YELLOW>;
@@ -701,6 +702,16 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog>;
 	imx6ul-ts7180 {
+	        pinctrl_gpio_leds: leds1grp {
+		        fsl,pins = <
+				MX6UL_PAD_CSI_DATA02__GPIO4_IO23	0x1b020 /* EN_YEL_LED# */
+				MX6UL_PAD_CSI_DATA03__GPIO4_IO24	0x1b020 /* EN_RED_LED# */
+				MX6UL_PAD_CSI_DATA04__GPIO4_IO25	0x1b020 /* EN_GREEN_LED# */
+				MX6UL_PAD_CSI_DATA05__GPIO4_IO26	0x1b020 /* EN_BLUE_LED */
+		        >;
+	        };
+
+	        /* Pins that are always GPIO */
 		pinctrl_hog: hoggrp {
 			fsl,pins = <
 				MX6UL_PAD_UART1_CTS_B__GPIO1_IO18 	0x1b020 /* SPARE_1 */
@@ -724,10 +735,10 @@
 				MX6UL_PAD_LCD_HSYNC__GPIO3_IO02		0x1b020 /* JTAG_FPGA_TMS */
 				MX6UL_PAD_LCD_ENABLE__GPIO3_IO01	0x1b020 /* JTAG_FPGA_TCK */
 				MX6UL_PAD_CSI_DATA00__GPIO4_IO21	0x10020 /* 6UL_FORCE_5V_ON */
-				MX6UL_PAD_CSI_DATA02__GPIO4_IO23	0x1b020 /* EN_YEL_LED# */
-				MX6UL_PAD_CSI_DATA03__GPIO4_IO24	0x1b020 /* EN_RED_LED# */
-				MX6UL_PAD_CSI_DATA04__GPIO4_IO25	0x1b020 /* EN_GREEN_LED# */
-				MX6UL_PAD_CSI_DATA05__GPIO4_IO26	0x1b020 /* EN_BLUE_LED */
+				/* EN_YEL_LED# in pinctrl_gpio_leds */
+				/* EN_RED_LED# in pinctrl_gpio_leds */
+				/* EN_GREEN_LED# in pinctrl_gpio_leds  */
+				/* EN_BLUE_LED in pinctrl_gpio_leds  */
 				MX6UL_PAD_LCD_DATA06__GPIO3_IO11	0x1b020 /* NO_CHRG_JMP# */
 				MX6UL_PAD_CSI_VSYNC__GPIO4_IO19		0x1b020 /* ID5 */
 				MX6UL_PAD_CSI_HSYNC__GPIO4_IO20		0x03020 /* GYRO_INT */
