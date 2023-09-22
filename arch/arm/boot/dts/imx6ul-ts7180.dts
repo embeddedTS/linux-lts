@@ -58,25 +58,6 @@
 			gpios = <&gpio4 26 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
-
-		/* The following are meant to be userspace controlled IO. The
-		 * kernel does not allow setting default state of GPIO, but
-		 * the default state of LEDs can be set, which is why the LED
-		 * subsystem is used.
-		 * Additionally, Linux regulators often cannot be manually
-		 * controlled, making LED the ideal way to control certain pins
-		 */
-		 en-emmc {
-			label = "en-emmc";
-			gpios = <&gpio4 22 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
-
-		 en-sd {
-			label = "en-sd";
-			gpio = <&gpio6 14 GPIO_ACTIVE_HIGH>;
-			default-state = "on";
-		};
 	};
 
 		reg_gpio_dvfs: regulator-gpio {
