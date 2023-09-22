@@ -31,30 +31,30 @@
 		pinctrl-0 = <&pinctrl_gpio_leds>;
 		compatible = "gpio-leds";
 
-		led-0 {
+		led-2 {
 			color = <LED_COLOR_ID_YELLOW>;
-			label = "yellow-led";
+			function = LED_FUNCTION_INDICATOR;
 			gpios = <&gpio4 23 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
-		led-1 {
-			color = <LED_COLOR_ID_RED>;
-			label = "red-led";
-			gpios = <&gpio4 24 GPIO_ACTIVE_LOW>;
-			default-state = "off";
-		};
-
-		led-2 {
+		led-3 {
 			color = <LED_COLOR_ID_GREEN>;
-			label = "green-led";
+			function = LED_FUNCTION_POWER;
 			gpios = <&gpio4 25 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
-		led-3 {
+		led-4 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&gpio4 24 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		led-6 {
 			color = <LED_COLOR_ID_BLUE>;
-			label = "blue-led";
+			function = LED_FUNCTION_INDICATOR;
 			gpios = <&gpio4 26 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
