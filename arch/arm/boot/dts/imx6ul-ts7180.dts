@@ -84,8 +84,8 @@
 		reg_flexcan_3v3: en-can@0 {
 			compatible = "regulator-fixed";
 			regulator-name = "en-can";
-			regulator-min-microvolt = <3000000>;
-			regulator-max-microvolt = <3000000>;
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
 			gpio = <&gpio6 20 GPIO_ACTIVE_HIGH>;
 		};
 
