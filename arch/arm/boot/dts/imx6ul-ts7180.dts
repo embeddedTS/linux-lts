@@ -227,8 +227,8 @@
 	};
 
 	/* This is actually the FRAM, which is compatible with the AT25 SPI EEPROM */
-	spifram: spi@2 {
-		compatible = "atmel,at25", "cypress,fm25l16b";
+	fm25l16b: eeprom@2 {
+		compatible = "atmel,at25";
 		reg = <2>;
 		spi-max-frequency = <20000000>;
 		size = <0x800>;
