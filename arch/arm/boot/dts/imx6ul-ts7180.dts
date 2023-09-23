@@ -162,7 +162,7 @@
 	};
 
 	m41t00s: rtc@68 {
-		compatible = "m41t00";
+		compatible = "st,m41t00";
 		reg = <0x68>;
 	};
 
