@@ -60,34 +60,34 @@
 		};
 	};
 
-		reg_gpio_dvfs: regulator-gpio {
-			compatible = "regulator-gpio";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_dvfs>;
-			regulator-min-microvolt = <1300000>;
-			regulator-max-microvolt = <1400000>;
-			regulator-name = "gpio_dvfs";
-			regulator-type = "voltage";
-			gpios = <&gpio5 3 GPIO_ACTIVE_HIGH>;
-			states = <1300000 0x1 1400000 0x0>;
-		};
+	reg_gpio_dvfs: regulator-gpio {
+		compatible = "regulator-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_dvfs>;
+		regulator-min-microvolt = <1300000>;
+		regulator-max-microvolt = <1400000>;
+		regulator-name = "gpio_dvfs";
+		regulator-type = "voltage";
+		gpios = <&gpio5 3 GPIO_ACTIVE_HIGH>;
+		states = <1300000 0x1 1400000 0x0>;
+	};
 
-		reg_adc_vref: adc_vref {
-			compatible = "regulator-fixed";
-			regulator-name = "ADC_VREF";
-			regulator-min-microvolt = <2500000>;
-			regulator-max-microvolt = <2500000>;
-			//gpio = EN_2.5_VREF driven by Silabs;
-			//enable-active-high;
-		};
+	reg_adc_vref: adc_vref {
+		compatible = "regulator-fixed";
+		regulator-name = "ADC_VREF";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		//gpio = EN_2.5_VREF driven by Silabs;
+		//enable-active-high;
+	};
 
-		reg_flexcan_3v3: en-can@0 {
-			compatible = "regulator-fixed";
-			regulator-name = "en-can";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&gpio6 20 GPIO_ACTIVE_HIGH>;
-		};
+	reg_flexcan_3v3: en-can@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "en-can";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio6 20 GPIO_ACTIVE_HIGH>;
+	};
 
 	reg_3v3: regulator-3v3 {
 		compatible = "regulator-fixed";
