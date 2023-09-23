@@ -118,8 +118,6 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_ppsgpio>;
 		gpios = <&gpio5 1 GPIO_ACTIVE_HIGH>;
-
-		status = "okay";
 	};
 };
 
