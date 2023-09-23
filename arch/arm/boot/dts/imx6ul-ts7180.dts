@@ -159,7 +159,6 @@
 		interrupt-parent = <&gpio4>;
 		interrupts = <20 IRQ_TYPE_LEVEL_HIGH>;    /* See MX6UL_PAD_CSI_HSYNC__GPIO4_IO20 */
 		vdd-supply = <&reg_3v3>;
-		status = "okay";
 	};
 
 	rtc: m41t00s@68 {
