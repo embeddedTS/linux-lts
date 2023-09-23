@@ -161,7 +161,7 @@
 		vdd-supply = <&reg_3v3>;
 	};
 
-	rtc: m41t00s@68 {
+	m41t00s: rtc@68 {
 		compatible = "m41t00";
 		reg = <0x68>;
 	};
