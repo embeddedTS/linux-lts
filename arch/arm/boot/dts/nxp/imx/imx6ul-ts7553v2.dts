@@ -168,14 +168,14 @@
 
 	/* CS# 0 is SPI LCD interface */
 	spidevlcd: spi@0 {
-		compatible = "spidev";
+		compatible = "technologic,spi-header";
 		reg = <0>;
 		spi-max-frequency = <5000000>;
 	};
 
 	/* CS# 1 is HD1 pin header SPI interface */
 	hd1_spidev: spidev@1 {
-		compatible = "spidev";
+		compatible = "technologic,spi-header";
 		reg = <1>;
 	};
 

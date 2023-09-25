@@ -195,7 +195,7 @@
 	status = "okay";
 
 	offbdspi: spi@1 {
-		compatible = "spidev";
+		compatible = "technologic,spi-header";
 		reg = <1>;
 		spi-max-frequency = <1000000>;
 	};
