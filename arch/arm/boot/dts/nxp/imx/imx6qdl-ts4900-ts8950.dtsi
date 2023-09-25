@@ -160,7 +160,7 @@
 	};
 
 	spidev: spi@2 {
-		compatible = "spidev";
+		compatible = "technologic,spi-header";
 		reg = <2>;
 		spi-max-frequency = <18000000>;
 	};

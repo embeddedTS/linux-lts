@@ -186,7 +186,7 @@
 	/* CS1# is generic FPGA SPI access, normally unused */
 
 	spidevhd1: spi@2 {
-		compatible = "spidev";
+		compatible = "technologic,spi-header";
 		reg = <2>;
 		spi-max-frequency = <1000000>;
 	};
