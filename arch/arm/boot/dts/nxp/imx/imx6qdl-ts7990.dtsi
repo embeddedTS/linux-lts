@@ -212,13 +212,13 @@
 	};
 
 	spidevfpga: spidev@1 {
-		compatible = "spidev";
+		compatible = "technologic,spi-header";
 		reg = <1>;
 		spi-max-frequency = <1000000>;
 	};
 
 	spidevdc1: spidev@2 {
-		compatible = "spidev";
+		compatible = "technologic,spi-header";
 		reg = <2>;
 		spi-max-frequency = <1000000>;
 	};
