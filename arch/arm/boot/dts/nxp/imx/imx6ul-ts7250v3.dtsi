@@ -682,7 +682,7 @@
 			opencores-spi,num-chipselects = <3>;
 
 			dioheader: spi@0 {
-				compatible = "spidev";
+				compatible = "technologic,spi-header";
 				spi-max-frequency = <19800000>;
 				reg = <0>;
 			};
@@ -717,7 +717,7 @@
 			opencores-spi,num-chipselects = <1>;
 
 			mikrobus: spi@0 {
-				compatible = "spidev";
+				compatible = "technologic,spi-header";
 				spi-max-frequency = <19800000>;
 				reg = <0>;
 			};
