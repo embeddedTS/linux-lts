@@ -327,7 +327,7 @@
 		 * the CPU driver, wdog1,  unless you want both active).
 		 */
 
-		status = "okay";
+		status = "disabled";
 	};
 };
 
@@ -780,6 +780,6 @@
 &wdog1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_wdog>;
+	status = "okay";
 	fsl,ext-reset-output;
-	status = "disabled";
 };
