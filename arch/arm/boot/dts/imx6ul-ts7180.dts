@@ -221,183 +221,63 @@
 };
 
 &gpio1 {
-	gpio-line-names =
-		"BOOT_MODE_0",
-		"",
-		"I2C_1_CLK",
-		"I2C_1_DAT",
-		"ADC_1",
-		"ADC_2",
-		"ETH_MDIO",
-		"ETH_MDC",
-		"ADC_3",
-		"ADC_4",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",           /* CONSOLE_TXD */
-		"",           /* CONSOLE_RXD */
-		"SPARE_1",
-		"EN_485",
-		"",           /* UART2_TXD */
-		"",           /* UART2_RXD */
-		"",           /* CAN_2_TXD */
-		"",           /* CAN2_RXD_3V */
-		"",           /* UART3_TXD */
-		"",           /* UART3_RXD */
-		"UART3_CTS#",
-		"UART3_RTS#",
-		"",           /* UART4_TXD */
-		"",           /* UART4_RXD */
-		"",           /* UART5_TXD */
-		"";           /* UART5_RXD */
+	gpio-line-names = "BOOT_MODE_0", "",            "I2C_1_CLK",   "I2C_1_DAT",   
+	                  "",            "",            "",            "",     
+	                  "",            "",            "",            "",            
+	                  "",            "",            "",            "",            
+	                  "",            "",            "SPARE_1",     "EN_485",      
+	                  "",            "",            "",            "",            
+	                  "",            "",            "UART3_CTS#",  "UART3_RTS#",  
+	                  "",            "",            "",            "",            
+	                  "",            "",            "",            "",            
+	                  "",            "",            "",            "",            
+	                  "",            "",            "",            "",            
+	                  "",            "",            "",            "",            
+	                  "",            "",            "",            "",            
+	                  "",            "",            "",            "",            
+	                  "",            "",            "",            "",            
+	                  "",            "",            "",            "";
 };
 
 &gpio2 {
-	gpio-line-names =
-		"",           /* ENET1_RX_DATA0 */
-		"",           /* ENET1_RX_DATA1 */
-		"",           /* ENET1_RX_EN */
-		"",           /* ENET1_TX_DATA0 */
-		"",           /* ENET1_TX_DATA1 */
-		"",           /* ENET1_TX_EN */
-		"",           /* ENET1_TX_CLK */
-		"",           /* ENET1_RX_ER */
-		"",           /* ENET2_RX_DATA0 */
-		"",           /* ENET2_RX_DATA1 */
-		"",           /* ENET2_RX_EN */
-		"",           /* ENET2_TX_DATA0 */
-		"",           /* ENET2_TX_DATA1 */
-		"",           /* ENET2_TX_EN */
-		"",           /* ENET2_TX_CLK */
-		"",           /* ENET2_RX_ER */
-		"",           /* SD_CMD */
-		"",           /* SD_CLK */
-		"",           /* SD_D0 */
-		"",           /* SD_D1 */
-		"",           /* SD_D2 */
-		"",           /* SD_D3 */
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"";
+	gpio-line-names = "", "", "", "", "", "", "", "", 
+	                  "", "", "", "", "", "", "", "", 
+	                  "", "", "", "", "", "", "", "", 
+	                  "", "", "", "", "", "", "", ""; 
 };
 
 &gpio3 {
-	gpio-line-names =
-		"HD12_SPI_CS",
-		"JTAG_FPGA_TCK",
-		"JTAG_FPGA_TMS",
-		"JTAG_FPGA_TDI",
-		"WDOG#",
-		"I2C_3_DAT",
-		"I2C_3_CLK",
-		"",
-		"HD12_I2C_CLK",
-		"HD12_I2C_DAT",
-		"HD12_DIG_INPUT",
-		"NO_CHRG_JMP#",
-		"EN_NIM_USB#",
-		"",           /* CAN_1_TXD */
-		"",           /* CAN1_RXD_3V */
-		"XBEE_CTS#",
-		"U_BOOT_JMP#",
-		"",
-		"PUSH_SW_CPU#",
-		"NIMBEL_PWR_ON",
-		"",
-		"",           /* UART7_TXD */
-		"",           /* UART7_RXD */
-		"ID4",
-		"JTAG_FPGA_TDO",
-		"",           /* UART8_TXD */
-		"",           /* UART8_RXD */
-		"ID1",
-		"ETH_PHY_RESET#",
-		"",
-		"",
-		"";
+	gpio-line-names = "HD12_SPI_CS",    "JTAG_FPGA_TCK",  "JTAG_FPGA_TMS",  "JTAG_FPGA_TDI",  
+	                  "WDOG#",          "I2C_3_DAT",      "I2C_3_CLK",      "",               
+	                  "HD12_I2C_CLK",   "HD12_I2C_DAT",   "HD12_DIG_INPUT", "NO_CHRG_JMP#",   
+	                  "EN_NIM_USB#",    "",               "",               "XBEE_CTS#",      
+	                  "U_BOOT_JMP#",    "",               "PUSH_SW_CPU#",   "NIMBEL_PWR_ON",  
+	                  "",               "",               "",               "ID4",            
+	                  "JTAG_FPGA_TDO",  "",               "",               "ID1",            
+	                  "ETH_PHY_RESET#", "",               "",               "";               
 };
 
 &gpio4 {
-	gpio-line-names =
-		"EMMC_CLK",
-		"EMMC_CMD",
-		"EMMC_D0",
-		"EMMC_D1",
-		"EMMC_D2",
-		"EMMC_D3",
-		"SPI_4_CLK",
-		"SPI_4_MOSI",
-		"SPI_4_MISO",
-		"SPI_4_CS#",
-		"MAG_N_IRQ",
-		"FPGA_RESET#",
-		"SPI_3_FPGA_CS#",
-		"SPI_3_CLK",
-		"SPI_3_MOSI",
-		"SPI_3_MISO",
-		"PWM_5",
-		"",           /* UART6_TXD */
-		"",           /* UART6_RXD */
-		"ID5",
-		"GYRO_INT",
-		"6UL_FORCE_5V_ON",
-		"EN_EMMC_3.3V#",
-		"EN_YEL_LED#",
-		"EN_RED_LED#",
-		"EN_GRN_LED#",
-		"EN_BLU_LED",
-		"FRAM_SPI_CS#",
-		"SD_VSEL_1.8V",
-		"",
-		"",
-		"";
+	gpio-line-names = "",                "",                "",                "",         
+	                  "",                "",                "SPI_4_CLK",       "SPI_4_MOSI",      
+	                  "SPI_4_MISO",      "SPI_4_CS#",       "MAG_N_IRQ",       "FPGA_RESET#",     
+	                  "SPI_3_FPGA_CS#",  "SPI_3_CLK",       "SPI_3_MOSI",      "SPI_3_MISO",      
+	                  "PWM_5",           "",                "",                "ID5",             
+	                  "GYRO_INT",        "6UL_FORCE_5V_ON", "EN_EMMC_3.3V#",   "EN_YEL_LED#",     
+	                  "EN_RED_LED#",     "EN_GRN_LED#",     "EN_BLU_LED",      "FRAM_SPI_CS#",    
+	                  "SD_VSEL_1.8V",    "",                "",                "";                
 };
 
 &gpio5 {
-	gpio-line-names =
-		"POWER_FAIL",
-		"GPS_PPS_OUT",
-		"",
-		"GPIO_DVFS",
-		"",
-		"SILAB_C2_CLK",
-		"SILAB_C2_DATA",
-		"SILAB_C2_RESET",
-		"SPARE_4",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"",
-		"";
+	gpio-line-names = "POWER_FAIL",     "GPS_PPS_OUT",    "",               "GPIO_DVFS",      
+	                  "",               "SILAB_C2_CLK",   "SILAB_C2_DATA",  "SILAB_C2_RESET", 
+	                  "SPARE_4",        "",               "",               "",               
+	                  "",               "",               "",               "",               
+	                  "",               "",               "",               "",               
+	                  "",               "",               "",               "",               
+	                  "",               "",               "",               "",               
+	                  "",               "",               "",               "";               
+};
 
 &i2c1 {
 	clock-frequency = <100000>;
