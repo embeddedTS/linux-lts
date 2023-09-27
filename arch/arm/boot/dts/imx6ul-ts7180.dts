@@ -398,7 +398,6 @@
 		"",
 		"",
 		"";
-};
 
 &i2c1 {
 	clock-frequency = <100000>;
@@ -484,74 +483,22 @@
 		gpio-controller;
 		base = <160>;
 		ngpios = <64>;
-
-		gpio-line-names =
-			/* Outputs 0-31 */
-			"WIFI_RESET#",
-			"EN_WIFI_PWR",
-			"",
-			"",
-			"",
-			"FRAM_WP#",
-			"EN_CL_1",
-			"EN_CL_2",
-			"EN_CL_3",
-			"EN_CL_4",
-			"EN_ADC1_10V",
-			"EN_ADC2_10V",
-			"EN_ADC3_10V",
-			"EN_ADC4_10V",
-			"EN_SD_POWER",
-			"EN_USB_HOST_5V",
-			"EN_OFF_BD_5V",
-			"EN_CELL_MODEM_PWR",
-			"EN_NIMBEL_3.3V",
-			"EN_GPS_PWR#",
-			"EN_CAN_XVR#",
-			"EN_232_XVR",
-			"EN_LS_OUT_1",
-			"EN_LS_OUT_2",
-			"EN_LS_OUT_3",
-			"EN_LS_OUT_4",
-			"EN_LS_OUT_5",
-			"EN_LS_OUT_6",
-			"EN_LS_OUT_7",
-			"",
-			"",
-			"",
-			/* Inputs 32-63 */
-			"DIG_IN_1",
-			"DIG_IN_2",
-			"DIG_IN_3",
-			"DIG_IN_4",
-			"SD_BOOT_JMP#",
-			"DIO_1_IN",
-			"DIO_2_IN",
-			"DIO_3_IN",
-			"DIO_4_IN",
-			"DIO_5_IN",
-			"DIO_6_IN",
-			"DIO_7_IN",
-			"",
-			"",
-			"",
-			"N7",
-			"P7",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"",
-			"";
+	        gpio-line-names = "WIFI_RESET#",       "EN_WIFI_PWR",       "",                  "",                  
+		                  "",                  "FRAM_WP#",          "EN_CL_1",           "EN_CL_2",           
+		                  "EN_CL_3",           "EN_CL_4",           "EN_ADC1_10V",       "EN_ADC2_10V",       
+		                  "EN_ADC3_10V",       "EN_ADC4_10V",       "EN_SD_POWER",       "EN_USB_HOST_5V",    
+		                  "EN_OFF_BD_5V",      "EN_CELL_MODEM_PWR", "EN_NIMBEL_3.3V",    "EN_GPS_PWR#",       
+		                  "EN_CAN_XVR#",       "EN_232_XVR",        "EN_LS_OUT_1",       "EN_LS_OUT_2",       
+		                  "EN_LS_OUT_3",       "EN_LS_OUT_4",       "EN_LS_OUT_5",       "EN_LS_OUT_6",       
+		                  "EN_LS_OUT_7",       "MT_RESET#",         "",                  "",                  
+		                  "DIG_IN_1",          "DIG_IN_2",          "DIG_IN_3",          "DIG_IN_4",          
+		                  "SD_BOOT_JMP#",      "DIO_1_IN",          "DIO_2_IN",          "DIO_3_IN",          
+		                  "DIO_4_IN",          "DIO_5_IN",          "DIO_6_IN",          "DIO_7_IN",          
+		                  "",                  "",                  "",                  "",                
+		                  "",                  "",                  "",                  "",                  
+		                  "",                  "",                  "",                  "",                  
+		                  "",                  "",                  "",                  "",                  
+		                  "",                  "",                  "",                  "";                  
 	};
 };
 
