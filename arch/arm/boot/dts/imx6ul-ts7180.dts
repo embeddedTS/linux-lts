@@ -60,18 +60,6 @@
 		};
 	};
 
-	reg_gpio_dvfs: regulator-gpio {
-		compatible = "regulator-gpio";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_dvfs>;
-		regulator-min-microvolt = <1300000>;
-		regulator-max-microvolt = <1400000>;
-		regulator-name = "GPIO_DVFS";
-		regulator-type = "voltage";
-		gpios = <&gpio5 3 GPIO_ACTIVE_HIGH>;
-		states = <1300000 0x1 1400000 0x0>;
-	};
-
 	reg_adc_vref: adc_vref {
 		compatible = "regulator-fixed";
 		regulator-name = "ADC_VREF";
