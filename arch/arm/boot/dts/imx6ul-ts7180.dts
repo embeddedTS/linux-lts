@@ -302,8 +302,6 @@
 		st,drdy-int-pin = <1>;
 		interrupt-parent = <&gpio4>;
 		interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;    /* See MX6UL_PAD_NAND_ALE__GPIO4_IO10 */
-		vdd-supply = <&reg_3v3>;
-		vddio-supply = <&reg_3v3>;
 	};
 
 	/*
@@ -316,7 +314,6 @@
 		reg = <0x6a>;
 		interrupt-parent = <&gpio4>;
 		interrupts = <20 IRQ_TYPE_LEVEL_HIGH>;    /* See MX6UL_PAD_CSI_HSYNC__GPIO4_IO20 */
-		vdd-supply = <&reg_3v3>;
 	};
 
 	m41t00s: rtc@68 {
