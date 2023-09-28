@@ -312,7 +312,7 @@
 	};
 
 	supervisor: wdt@54 {
-		compatible = "technologic,ts-wdt";
+		compatible = "technologic,ts7100-wdt";
 		enable-early;
 		/* 5min timeout default, in case of slow userspace.
 		 * Set to 0 to disable WDT at startup. Userspace procs
