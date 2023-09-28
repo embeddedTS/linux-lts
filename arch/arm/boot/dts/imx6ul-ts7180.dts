@@ -91,7 +91,6 @@
 	        pinctrl-0 = <&pinctrl_i2c_gpio>;
 	        scl-gpios = <&gpio3 8 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;   /* I2C_CLK on HD12 pin 6 */
 	        sda-gpios = <&gpio3 9 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;   /* I2C_DAT on HD12 pin 1 */
-		i2c-gpio,delay-us = <2>;	/* ~100 kHz */
 	        #address-cells = <1>;
 	        #size-cells = <0>;
         };
