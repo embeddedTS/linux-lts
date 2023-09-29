@@ -29,6 +29,7 @@ static int technologic_ts16550_probe(struct platform_device *pdev)
 	struct uart_8250_port uport;
 	struct uart_port *port;
 	const __be32 *addr_be;
+	int line;
 
 	memset(&uport, 0, sizeof(uport));
 
@@ -52,7 +53,16 @@ static int technologic_ts16550_probe(struct platform_device *pdev)
 	port->serial_in = tsisa_serial_in;
 	port->serial_out = tsisa_serial_out;
 
-	return serial8250_register_8250_port(&uport);
+	line = serial8250_register_8250_port(&uport);
+
+	if (line < 0) {
+		dev_err(dev,
+			"serial8250_register_8250_port() 0x%X irq %d failed\n",
+			port->mapbase, port->irq);
+		return line;
+	}
+
+	return 0;
 }
 
 static const struct of_device_id ts16550_of_match[] = {
