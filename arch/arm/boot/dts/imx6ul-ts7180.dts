@@ -279,12 +279,10 @@
 	status = "okay";
 
 	/*
-	 * lis2mdl_magn (now lis2mdl) is handled by the st_magn driver
+         * Reference: Documentation/devicetree/bindings/iio/st-sensors.txt
 	 *
-	 *	- MAG_N_IRQ into NAND_ALE/SD2_RST#/PWM3 pin B4
-	 *	- as well as the FPGA
-	 *
-	 * drdy-int-pin is mandatory, not optional, when using interrupts.
+	 *   - MAG_N_IRQ enters NAND_ALE/SD2_RST#/PWM3 pad B4
+	 *   - as well as the FPGA
 	 */
 	st_magn: magnetometer@1e {
 		compatible = "st,lis2mdl";
@@ -292,23 +290,6 @@
 		st,drdy-int-pin = <1>;
 		interrupt-parent = <&gpio4>;
 		interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;    /* See MX6UL_PAD_NAND_ALE__GPIO4_IO10 */
-	};
-
-	/*
-	 * ism330dlc is (now) handled by the lsm6dsx gyro/accel driver
-	 *
-	 *	- GYRO_INT into CSI_HSYNC pin F3
-	 */
-	ism330: gyro@6a {
-		compatible = "st,ism330dlc";
-		reg = <0x6a>;
-		interrupt-parent = <&gpio4>;
-		interrupts = <20 IRQ_TYPE_LEVEL_HIGH>;    /* See MX6UL_PAD_CSI_HSYNC__GPIO4_IO20 */
-	};
-
-	m41t00s: rtc@68 {
-		compatible = "st,m41t00";
-		reg = <0x68>;
 	};
 
 	supervisor: wdt@54 {
@@ -331,6 +312,23 @@
 		 */
 
 		status = "disabled";
+	};
+
+	m41t00s: rtc@68 {
+		compatible = "st,m41t00";
+		reg = <0x68>;
+	};
+
+	/*
+	 * Reference: Documentation/devicetree/bindings/iio/imu/st_lsm6dsx.txt
+	 *
+	 *   - GYRO_INT enters CSI_HSYNC (pad F3)
+	 */
+	ism330: gyro@6a {
+		compatible = "st,ism330dlc";
+		reg = <0x6a>;
+		interrupt-parent = <&gpio4>;
+		interrupts = <20 IRQ_TYPE_LEVEL_HIGH>;    /* See MX6UL_PAD_CSI_HSYNC__GPIO4_IO20 */
 	};
 };
 
