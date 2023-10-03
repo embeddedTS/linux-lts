@@ -32,28 +32,28 @@
 		pinctrl-0 = <&pinctrl_gpio_leds>;
 		compatible = "gpio-leds";
 
-		led-2 {
+		led-0 {
 			color = <LED_COLOR_ID_YELLOW>;
 			function = LED_FUNCTION_INDICATOR;
 			gpios = <&gpio4 23 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
-		led-3 {
+		led-1 {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_POWER;
 			gpios = <&gpio4 25 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
-		led-4 {
+		led-2 {
 			color = <LED_COLOR_ID_RED>;
 			function = LED_FUNCTION_STATUS;
 			gpios = <&gpio4 24 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
-		led-6 {
+		led-3 {
 			color = <LED_COLOR_ID_BLUE>;
 			function = LED_FUNCTION_INDICATOR;
 			gpios = <&gpio4 26 GPIO_ACTIVE_HIGH>;
@@ -126,7 +126,7 @@
 };
 
 &ecspi3 {
-	fsl,num-cs = <3>;
+	num-cs = <3>;
 	cs-gpios = <&gpio4 12 GPIO_ACTIVE_LOW>, <&gpio3 0 GPIO_ACTIVE_LOW>, <&gpio4 27 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi3>;
@@ -141,7 +141,6 @@
 	spioffbd: spi@1 {
 		compatible = "technologic,spi-header";
 		reg = <1>;
-		spi-cs-high;
 		spi-max-frequency = <1000000>;
 	};
 
@@ -157,7 +156,7 @@
 };
 
 &ecspi4 {
-	fsl,num-cs = <1>;
+	num-cs = <1>;
 	cs-gpios = <&gpio4 9 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi4>;
@@ -211,6 +210,7 @@
 	};
 };
 
+/* CPU GPIO1: 209c000.gpio */
 &gpio1 {
 	gpio-line-names =
 			"BOOT_MODE_0", "",            "I2C_1_CLK",   "I2C_1_DAT",
@@ -231,14 +231,7 @@
 			"",            "",            "",            "";
 };
 
-&gpio2 {
-	gpio-line-names =
-			"", "", "", "", "", "", "", "",
-			"", "", "", "", "", "", "", "",
-			"", "", "", "", "", "", "", "",
-			"", "", "", "", "", "", "", "";
-};
-
+/* CPU GPIO3: 20a4000.gpio */
 &gpio3 {
 	gpio-line-names =
 			"HD12_SPI_CS",    "JTAG_FPGA_TCK",  "JTAG_FPGA_TMS",  "JTAG_FPGA_TDI",
@@ -251,6 +244,7 @@
 			"ETH_PHY_RESET#", "",               "",               "";
 };
 
+/* CPU GPIO4: 20a8000.gpio */
 &gpio4 {
 	gpio-line-names =
 			"",                "",                "",                "",
@@ -263,6 +257,7 @@
 			"SD_VSEL_1.8V",    "",                "",                "";
 };
 
+/* CPU GPIO5: 20ac000.gpio */
 &gpio5 {
 	gpio-line-names =
 			"POWER_FAIL",     "GPS_PPS_OUT",    "",               "GPIO_DVFS",
@@ -284,12 +279,6 @@
 	sda-gpios = <&gpio1 3 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
 
-	/*
-         * Reference: Documentation/devicetree/bindings/iio/st-sensors.txt
-	 *
-	 *   - MAG_N_IRQ enters NAND_ALE/SD2_RST#/PWM3 pad B4
-	 *   - as well as the FPGA
-	 */
 	st_magn: magnetometer@1e {
 		compatible = "st,lis2mdl";
 		reg = <0x1e>;
@@ -325,11 +314,6 @@
 		reg = <0x68>;
 	};
 
-	/*
-	 * Reference: Documentation/devicetree/bindings/iio/imu/st_lsm6dsx.txt
-	 *
-	 *   - GYRO_INT enters CSI_HSYNC (pad F3)
-	 */
 	ism330: gyro@6a {
 		compatible = "st,ism330dlc";
 		reg = <0x6a>;
@@ -347,12 +331,11 @@
 	scl-gpios = <&gpio3 6 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio3 5 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 
-	gpio6: gpio@28 {
+	gpio6: gpio-controller@28 {
 		compatible = "technologic,ts4900-gpio";
 		reg = <0x28>;
 		#gpio-cells = <2>;
 		gpio-controller;
-		base = <160>;
 		ngpios = <64>;
 	        gpio-line-names =
 			"WIFI_RESET#",       "EN_WIFI_PWR",       "",                  "",
@@ -411,10 +394,6 @@
 				MX6UL_PAD_LCD_HSYNC__GPIO3_IO02		0x1b020 /* JTAG_FPGA_TMS */
 				MX6UL_PAD_LCD_ENABLE__GPIO3_IO01	0x1b020 /* JTAG_FPGA_TCK */
 				MX6UL_PAD_CSI_DATA00__GPIO4_IO21	0x10020 /* 6UL_FORCE_5V_ON */
-				/* EN_YEL_LED# in pinctrl_gpio_leds */
-				/* EN_RED_LED# in pinctrl_gpio_leds */
-				/* EN_GREEN_LED# in pinctrl_gpio_leds  */
-				/* EN_BLUE_LED in pinctrl_gpio_leds  */
 				MX6UL_PAD_LCD_DATA06__GPIO3_IO11	0x1b020 /* NO_CHRG_JMP# */
 				MX6UL_PAD_CSI_VSYNC__GPIO4_IO19		0x1b020 /* ID5 */
 				MX6UL_PAD_CSI_HSYNC__GPIO4_IO20		0x03020 /* GYRO_INT */
@@ -427,7 +406,7 @@
 			>;
 		};
 
-		pinctrl_pwm5: ts7180pwm5 {
+		pinctrl_pwm5: ts7180pwm5grp {
 			fsl,pins = <
 				MX6UL_PAD_NAND_DQS__PWM5_OUT         0x13020 /* SPARE_3 */
 			>;
@@ -549,7 +528,7 @@
 			>;
 		};
 
-		pinctrl_i2c1_gpio: i2c1grpgpio {
+		pinctrl_i2c1_gpio: i2c1gpiogrp {
 			fsl,pins = <
 				MX6UL_PAD_GPIO1_IO02__GPIO1_IO02 0x4001b8b0
 				MX6UL_PAD_GPIO1_IO03__GPIO1_IO03 0x4001b8b0
@@ -563,14 +542,14 @@
 			>;
 		};
 
-		pinctrl_i2c3_gpio: i2c3grpgpio {
+		pinctrl_i2c3_gpio: i2c3gpiogrp {
 			fsl,pins = <
 				MX6UL_PAD_LCD_DATA01__GPIO3_IO06 0x4001b8b0
 				MX6UL_PAD_LCD_DATA00__GPIO3_IO05 0x4001b8b0
 			>;
 		};
 
-		pinctrl_i2c_gpio: i2cgrpgpio {
+		pinctrl_i2c_gpio: i2cgpiogrp {
 			fsl,pins = <
 				MX6UL_PAD_LCD_DATA03__GPIO3_IO08 0x000108b0	/* HD12_I2C_CLK */
 				MX6UL_PAD_LCD_DATA04__GPIO3_IO09 0x000108b0	/* HD12_I2C_DAT */
@@ -608,25 +587,26 @@
 
 		pinctrl_usdhc1_100mhz: usdhc1grp100mhz {
 			fsl,pins = <
-				MX6UL_PAD_SD1_CMD__USDHC1_CMD     0x170b9
-				MX6UL_PAD_SD1_CLK__USDHC1_CLK     0x100b9
-				MX6UL_PAD_SD1_DATA0__USDHC1_DATA0 0x170b9
-				MX6UL_PAD_SD1_DATA1__USDHC1_DATA1 0x170b9
-				MX6UL_PAD_SD1_DATA2__USDHC1_DATA2 0x170b9
-				MX6UL_PAD_SD1_DATA3__USDHC1_DATA3 0x170b9
+				MX6UL_PAD_SD1_CMD__USDHC1_CMD		0x170b9
+				MX6UL_PAD_SD1_CLK__USDHC1_CLK		0x100b9
+				MX6UL_PAD_SD1_DATA0__USDHC1_DATA0	0x170b9
+				MX6UL_PAD_SD1_DATA1__USDHC1_DATA1	0x170b9
+				MX6UL_PAD_SD1_DATA2__USDHC1_DATA2	0x170b9
+				MX6UL_PAD_SD1_DATA3__USDHC1_DATA3	0x170b9
 			>;
 		};
 
 		pinctrl_usdhc1_200mhz: usdhc1grp200mhz {
 			fsl,pins = <
-				MX6UL_PAD_SD1_CMD__USDHC1_CMD     0x170f9
-				MX6UL_PAD_SD1_CLK__USDHC1_CLK     0x100f9
-				MX6UL_PAD_SD1_DATA0__USDHC1_DATA0 0x170f9
-				MX6UL_PAD_SD1_DATA1__USDHC1_DATA1 0x170f9
-				MX6UL_PAD_SD1_DATA2__USDHC1_DATA2 0x170f9
-				MX6UL_PAD_SD1_DATA3__USDHC1_DATA3 0x170f9
+				MX6UL_PAD_SD1_CMD__USDHC1_CMD		0x170f9
+				MX6UL_PAD_SD1_CLK__USDHC1_CLK		0x100f9
+				MX6UL_PAD_SD1_DATA0__USDHC1_DATA0	0x170f9
+				MX6UL_PAD_SD1_DATA1__USDHC1_DATA1	0x170f9
+				MX6UL_PAD_SD1_DATA2__USDHC1_DATA2	0x170f9
+				MX6UL_PAD_SD1_DATA3__USDHC1_DATA3	0x170f9
 			>;
 		};
+
 		pinctrl_usdhc2: usdhc2grp {
 			fsl,pins = <
 				MX6UL_PAD_NAND_RE_B__USDHC2_CLK     0x10069
@@ -694,8 +674,8 @@
 &uart3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart3>;
-	status = "okay";
 	uart-has-rtscts;
+	status = "okay";
 };
 
 &uart4 {
@@ -704,6 +684,8 @@
 	status = "okay";
 	rts-gpios = <&gpio1 19 GPIO_ACTIVE_HIGH>;
 	linux,rs485-enabled-at-boot-time;
+	dma-names = "", "";
+	status = "okay";
 };
 
 &uart5 {
@@ -753,14 +735,14 @@
 	max-frequency = <208000000>;
 	keep-power-in-suspend;
 	enable-sdio-wakeup;
-	disable-wp;
 	cap-sd-highspeed;
 	sd-uhs-sdr12;
 	sd-uhs-sdr25;
 	sd-uhs-sdr50;
 	sd-uhs-sdr104;
 	sd-uhs-ddr50;
-	broken-cd = <1>;
+	disable-wp;
+	broken-cd;
 	bus-width = <4>;
 	status = "okay";
 };
@@ -770,8 +752,8 @@
 	pinctrl-0 = <&pinctrl_usdhc2>;
 	no-1-8-v;
 	disable-wp;
-	broken-cd = <1>;
-	enable-sdio-wakeup;
+	non-removable;
+	broken-cd;
 	bus-width = <4>;
 	status = "okay";
 };
