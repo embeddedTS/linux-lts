@@ -4,6 +4,7 @@
  * board devices with an identifier EEPROM
  *
  * Copyright 2020 Vaishnav M A, BeagleBoard.org Foundation.
+ * Copyright 2023 Ayush Singh <ayushdevel1325@gmail.com>
  */
 
 #define pr_fmt(fmt) "mikrobus:%s: " fmt, __func__
@@ -386,10 +387,9 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 	struct serdev_device *serdev;
 	struct platform_device *pdev;
 	struct gpiod_lookup_table *lookup;
-	struct regulator_consumer_supply regulator;
+	struct fwnode_handle *fwnode;
 	char devname[MIKROBUS_NAME_SIZE];
 	int i;
-	u64 *val;
 
 	dev_info(&port->dev, "registering device : %s", dev->drv_name);
 
@@ -414,50 +414,19 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 		gpiod_add_lookup_table(lookup);
 	}
 
-	if (dev->regulators) {
-		if (dev->protocol == GREYBUS_PROTOCOL_SPI) {
-			snprintf(devname, sizeof(devname), "%s.%u", dev_name(&port->spi_mstr->dev),
-				 port->chip_select[dev->reg]);
-			regulator.dev_name = kmemdup(devname, MIKROBUS_NAME_SIZE, GFP_KERNEL);
-		} else if (dev->protocol == GREYBUS_PROTOCOL_RAW) {
-			snprintf(devname, sizeof(devname), "%s.%u", dev->drv_name, dev->reg);
-			regulator.dev_name = kmemdup(devname, MIKROBUS_NAME_SIZE, GFP_KERNEL);
-		} else
-			regulator.dev_name = dev->drv_name;
-
-		for (i = 0; i < dev->num_regulators; i++) {
-			val = dev->regulators[i].value.u64_data;
-			regulator.supply =
-				kmemdup(dev->regulators[i].name, MIKROBUS_NAME_SIZE, GFP_KERNEL);
-			dev_info(&port->dev, " adding fixed regulator %llu uv, %s for %s\n", *val,
-				 regulator.supply, regulator.dev_name);
-			regulator_register_always_on(0, dev->regulators[i].name, &regulator, 1,
-						     *val);
-		}
-	}
 	switch (dev->protocol) {
 	case GREYBUS_PROTOCOL_SPI:
 		spi = spi_alloc_device(port->spi_mstr);
 		if (!spi)
 			return -ENOMEM;
-		strncpy(spi->modalias, dev->drv_name, sizeof(spi->modalias) - 1);
+
 		if (dev->irq)
 			spi->irq = mikrobus_irq_get(port, dev->irq, dev->irq_type);
 		if (dev->properties)
-			device_add_properties(&spi->dev, dev->properties);
+			device_create_managed_software_node(&spi->dev, dev->properties, NULL);
 		spi->chip_select = port->chip_select[dev->reg];
 		spi->max_speed_hz = dev->max_speed_hz;
 		spi->mode = dev->mode;
-		if (dev->clocks) {
-			for (i = 0; i < dev->num_clocks; i++) {
-				val = dev->clocks[i].value.u64_data;
-				dev_info(&port->dev, " adding fixed clock %s, %llu hz\n",
-					 dev->clocks[i].name, *val);
-				//failing: under debug
-				clk_register_fixed_rate(&spi->dev, dev->clocks[i].name, devname, 0,
-							*val);
-			}
-		}
 		spi_add_device(spi);
 		dev->dev_client = (void *)spi;
 		break;
@@ -468,8 +437,10 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 		strncpy(i2c->type, dev->drv_name, sizeof(i2c->type) - 1);
 		if (dev->irq)
 			i2c->irq = mikrobus_irq_get(port, dev->irq, dev->irq_type);
-		if (dev->properties)
-			i2c->properties = dev->properties;
+		if (dev->properties) {
+			fwnode = fwnode_create_software_node(dev->properties, NULL);
+			i2c->swnode = to_software_node(fwnode);
+		}
 		i2c->addr = dev->reg;
 		dev->dev_client = (void *)i2c_new_client_device(port->i2c_adap, i2c);
 		break;
@@ -478,7 +449,7 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 		if (!pdev)
 			return -ENOMEM;
 		if (dev->properties)
-			platform_device_add_properties(pdev, dev->properties);
+			device_create_managed_software_node(&pdev->dev, dev->properties, NULL);
 		dev->dev_client = pdev;
 		platform_device_add(dev->dev_client);
 		break;
@@ -486,9 +457,8 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 		serdev = serdev_device_alloc(port->ser_ctrl);
 		if (!serdev)
 			return -ENOMEM;
-		strncpy(serdev->modalias, dev->drv_name, sizeof(serdev->modalias) - 1);
 		if (dev->properties)
-			device_add_properties(&serdev->dev, dev->properties);
+			device_create_managed_software_node(&serdev->dev, dev->properties, NULL);
 		dev->dev_client = serdev;
 		serdev_device_add(serdev);
 		break;
@@ -627,7 +597,7 @@ static int mikrobus_port_id_eeprom_probe(struct mikrobus_port *port)
 		goto early_exit;
 	}
 
-		port->w1_master->search_count = 4;
+	port->w1_master->search_count = 4;
 
 	return 0;
 
@@ -771,6 +741,7 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 		retval = -ENODEV;
 		goto err_port;
 	}
+
 	port->i2c_adap = of_find_i2c_adapter_by_node(i2c_adap_np);
 	of_node_put(i2c_adap_np);
 	retval = device_property_read_u32(dev, "spi-master", &val);
@@ -778,40 +749,37 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to get spi-master [%d]\n", retval);
 		goto err_port;
 	}
+
 	port->spi_mstr = spi_busnum_to_master(val);
 	retval = device_property_read_u32_array(dev, "spi-cs", port->chip_select, 2);
 	if (retval) {
 		dev_err(dev, "failed to get spi-cs [%d]\n", retval);
 		goto err_port;
 	}
+
 	uart_np = of_parse_phandle(dev->of_node, "uart", 0);
 	if (!uart_np) {
 		dev_err(dev, "cannot parse uart\n");
 		retval = -ENODEV;
 		goto err_port;
 	}
+
 	port->ser_ctrl = of_find_serdev_controller_by_node(uart_np);
 	of_node_put(uart_np);
-	//port->pwm = devm_pwm_get(dev, NULL);
-	//if (IS_ERR(port->pwm)) {
-	//	retval = PTR_ERR(port->pwm);
-	//	if (retval != -EPROBE_DEFER)
-	//		dev_err(dev, "failed to request PWM device [%d]\n",
-	//			retval);
-	//	goto err_port;
-	//}
 	port->gpios = gpiod_get_array(dev, "mikrobus", GPIOD_OUT_LOW);
 	if (IS_ERR(port->gpios)) {
 		retval = PTR_ERR(port->gpios);
 		dev_err(dev, "failed to get gpio array [%d]\n", retval);
 		goto err_port;
 	}
+
 	port->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(port->pinctrl)) {
 		retval = PTR_ERR(port->pinctrl);
 		dev_err(dev, "failed to get pinctrl [%d]\n", retval);
 		goto err_port;
 	}
+
 	port->dev.parent = dev;
 	port->dev.of_node = pdev->dev.of_node;
 
@@ -826,8 +794,11 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 		pr_err("port : can't register port [%d]\n", retval);
 		goto err_port;
 	}
+
 	platform_set_drvdata(pdev, port);
+
 	return 0;
+
 err_port:
 	kfree(port);
 	return retval;

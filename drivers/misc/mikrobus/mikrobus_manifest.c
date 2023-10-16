@@ -271,10 +271,6 @@ static u8 *mikrobus_property_link_get(struct addon_board_info *board, u8 prop_id
 		board_dev->num_gpio_resources = desc_property->length;
 	else if (prop_type == MIKROBUS_PROPERTY_TYPE_PROPERTY)
 		board_dev->num_properties = desc_property->length;
-	else if (prop_type == MIKROBUS_PROPERTY_TYPE_REGULATOR)
-		board_dev->num_regulators = desc_property->length;
-	else if (prop_type == MIKROBUS_PROPERTY_TYPE_CLOCK)
-		board_dev->num_clocks = desc_property->length;
 	return val_u8;
 }
 
@@ -287,8 +283,6 @@ static int mikrobus_manifest_attach_device(struct addon_board_info *board,
 	struct manifest_desc *descriptor;
 	u8 *gpio_desc_link;
 	u8 *prop_link;
-	u8 *reg_link;
-	u8 *clock_link;
 	u8 *gpioval;
 	int retval;
 	int i;
@@ -356,30 +350,6 @@ static int mikrobus_manifest_attach_device(struct addon_board_info *board,
 		board_dev->gpio_lookup = lookup;
 	}
 
-	if (dev_desc->reg_link > 0) {
-		reg_link = mikrobus_property_link_get(board, dev_desc->reg_link, board_dev,
-						      MIKROBUS_PROPERTY_TYPE_REGULATOR);
-		if (!reg_link) {
-			retval = -ENOENT;
-			goto err_free_board_dev;
-		}
-		pr_info("device %d, number of regulators=%d", board_dev->id,
-			board_dev->num_regulators);
-		board_dev->regulators =
-			mikrobus_property_entry_get(board, reg_link, board_dev->num_regulators);
-	}
-
-	if (dev_desc->clock_link > 0) {
-		clock_link = mikrobus_property_link_get(board, dev_desc->clock_link, board_dev,
-							MIKROBUS_PROPERTY_TYPE_CLOCK);
-		if (!clock_link) {
-			retval = -ENOENT;
-			goto err_free_board_dev;
-		}
-		pr_info("device %d, number of clocks=%d", board_dev->id, board_dev->num_clocks);
-		board_dev->clocks =
-			mikrobus_property_entry_get(board, clock_link, board_dev->num_clocks);
-	}
 	list_add_tail(&board_dev->links, &board->devices);
 	return 0;
 err_free_board_dev:

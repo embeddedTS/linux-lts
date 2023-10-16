@@ -54,8 +54,6 @@ enum mikrobus_property_type {
 	MIKROBUS_PROPERTY_TYPE_U16	= 0x04,
 	MIKROBUS_PROPERTY_TYPE_U32	= 0x05,
 	MIKROBUS_PROPERTY_TYPE_U64	= 0x06,
-	MIKROBUS_PROPERTY_TYPE_REGULATOR	= 0x07,
-	MIKROBUS_PROPERTY_TYPE_CLOCK	= 0x08,
 };
 
 enum mikrobus_pin {
@@ -115,13 +113,9 @@ enum mikrobus_pin_state {
 struct board_device_info {
 	struct gpiod_lookup_table *gpio_lookup;
 	struct property_entry *properties;
-	struct property_entry *regulators;
-	struct property_entry *clocks;
 	struct list_head links;
 	unsigned short num_gpio_resources;
 	unsigned short num_properties;
-	unsigned short num_regulators;
-	unsigned short num_clocks;
 	unsigned short protocol;
 	unsigned short reg;
 	unsigned int mode;
