@@ -32,6 +32,7 @@ obj-$(CONFIG_SERIAL_SA1100) += sa1100.o
 obj-$(CONFIG_SERIAL_BCM63XX) += bcm63xx_uart.o
 obj-$(CONFIG_SERIAL_SAMSUNG) += samsung_tty.o
 obj-$(CONFIG_SERIAL_MAX3100) += max3100.o
+obj-$(CONFIG_SERIAL_MAX3100_TS) += max3100-ts.o
 obj-$(CONFIG_SERIAL_MAX310X) += max310x.o
 obj-$(CONFIG_SERIAL_IP22_ZILOG) += ip22zilog.o
 obj-$(CONFIG_SERIAL_MUX) += mux.o

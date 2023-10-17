@@ -139,8 +139,8 @@
 #define IPI_DOORBELL_END                        (8)
 #define IPI_DOORBELL_MASK                       0xFF
 #define PCI_MSI_DOORBELL_START                  (16)
-#define PCI_MSI_DOORBELL_NR                     (16)
-#define PCI_MSI_DOORBELL_END                    (32)
+#define PCI_MSI_DOORBELL_NR                     (32)
+#define PCI_MSI_DOORBELL_END                    (48)
 #define PCI_MSI_DOORBELL_MASK                   0xFFFF0000
 
 static void __iomem *per_cpu_int_base;

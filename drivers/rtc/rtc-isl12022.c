@@ -10,12 +10,14 @@
 
 #include <linux/i2c.h>
 #include <linux/bcd.h>
+#include <linux/hwmon.h>
 #include <linux/rtc.h>
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/regmap.h>
 
 /* ISL register offsets */
 #define ISL12022_REG_SC		0x00
@@ -28,74 +30,53 @@
 
 #define ISL12022_REG_SR		0x07
 #define ISL12022_REG_INT	0x08
+#define ISL12022_REG_VBAT	0x0a
+#define ISL12022_REG_BETA	0x0d
+#define ISL12022_REG_FATR	0x0e
+#define ISL12022_REG_FDTR	0x0f
+#define ISL12022_REG_TEMP	0x28
+
+/*
+ * These 3 registers only exist in the emulated device, they are unused dst
+ * registers on the real RTC.
+ */
+#define ISL12022_REG_OFF_VAL	0x21
+#define ISL12022_REG_OFF_CTL	0x25
 
 /* ISL register bits */
 #define ISL12022_HR_MIL		(1 << 7)	/* military or 24 hour time */
 
 #define ISL12022_SR_LBAT85	(1 << 2)
 #define ISL12022_SR_LBAT75	(1 << 1)
+#define ISL12022_SR_RTCF	(1 << 0)
 
 #define ISL12022_INT_WRTC	(1 << 6)
 
+#define ISL12022_BETA_TSE	(1 << 7) /* Enable temp sensor compensation */
+#define ISL12022_BETA_BTSE	(1 << 6) /* Temp sensor enabled on VBAT */
+#define ISL12022_BETA_BTSR	(1 << 5) /* Sample Frequency (1=1min,0=10min) */
+#define ISL12022_VBAT_VB85_MASK 0x38
+#define ISL12022_VBAT_VB85_SHFT	3
+#define ISL12022_VBAT_VB75_MASK 0x7
+#define ISL12022_VBAT_VB75_SHFT	0
+#define ISL12022_OFF_CTL_APPLY	(1 << 0) /* Make value take affect now */
+#define ISL12022_OFF_CTL_ADD	(1 << 1) /* 1 if the value is add, 0 if subtract */
+#define ISL12022_OFF_CTL_FLASH	(1 << 2) /* 1 to commit to flash, 0 to just ram */
+
+/* Detect embeddedTS emulated ISL12022.  This is always 0 on the real RTC. */
+#define ISL12022_FDTR_EMULATED	(1 << 7)
 
 static struct i2c_driver isl12022_driver;
 
 struct isl12022 {
 	struct rtc_device *rtc;
-
-	bool write_enabled;	/* true if write enable is set */
+	struct regmap *regmap;
+	bool enable_btse;
+	uint32_t btse_minutes;
+	bool set_trip_thresh;
+	uint32_t vb75_threshold;
+	uint32_t vb85_threshold;
 };
-
-
-static int isl12022_read_regs(struct i2c_client *client, uint8_t reg,
-			      uint8_t *data, size_t n)
-{
-	struct i2c_msg msgs[] = {
-		{
-			.addr	= client->addr,
-			.flags	= 0,
-			.len	= 1,
-			.buf	= data
-		},		/* setup read ptr */
-		{
-			.addr	= client->addr,
-			.flags	= I2C_M_RD,
-			.len	= n,
-			.buf	= data
-		}
-	};
-
-	int ret;
-
-	data[0] = reg;
-	ret = i2c_transfer(client->adapter, msgs, ARRAY_SIZE(msgs));
-	if (ret != ARRAY_SIZE(msgs)) {
-		dev_err(&client->dev, "%s: read error, ret=%d\n",
-			__func__, ret);
-		return -EIO;
-	}
-
-	return 0;
-}
-
-
-static int isl12022_write_reg(struct i2c_client *client,
-			      uint8_t reg, uint8_t val)
-{
-	uint8_t data[2] = { reg, val };
-	int err;
-
-	err = i2c_master_send(client, data, sizeof(data));
-	if (err != sizeof(data)) {
-		dev_err(&client->dev,
-			"%s: err=%d addr=%02x, data=%02x\n",
-			__func__, err, data[0], data[1]);
-		return -EIO;
-	}
-
-	return 0;
-}
-
 
 /*
  * In the routines that deal directly with the isl12022 hardware, we use
@@ -103,22 +84,39 @@ static int isl12022_write_reg(struct i2c_client *client,
  */
 static int isl12022_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
-	struct i2c_client *client = to_i2c_client(dev);
+	struct isl12022 *isl12022 = dev_get_drvdata(dev);
+	struct regmap *regmap = isl12022->regmap;
 	uint8_t buf[ISL12022_REG_INT + 1];
 	int ret;
 
-	ret = isl12022_read_regs(client, ISL12022_REG_SC, buf, sizeof(buf));
+	ret = regmap_bulk_read(regmap, ISL12022_REG_SC, buf, sizeof(buf));
 	if (ret)
 		return ret;
 
-	if (buf[ISL12022_REG_SR] & (ISL12022_SR_LBAT85 | ISL12022_SR_LBAT75)) {
-		dev_warn(&client->dev,
-			 "voltage dropped below %u%%, "
-			 "date and time is not reliable.\n",
-			 buf[ISL12022_REG_SR] & ISL12022_SR_LBAT85 ? 85 : 75);
+	if (buf[ISL12022_REG_SR] & ISL12022_SR_RTCF) {
+		dev_err(dev, "Total power failure, RTC data is invalid.\n");
+		return -EINVAL;
 	}
 
-	dev_dbg(&client->dev,
+	/*
+	 * Check battery voltage trip points.
+	 * These have default settings but may also be set by isl12022_setup()
+	 * which also cycles TSE and forces a re-read of the temperature and
+	 * battery voltages. Temperature conversions take 22 ms, battery voltage
+	 * conversions do not have a listed time.
+	 *
+	 * Warn only once if the battery voltage is found to be under the set
+	 * thresholds to prevent spamming on every RTC read.
+	 */
+	if (buf[ISL12022_REG_SR] & ISL12022_SR_LBAT75) {
+		dev_warn_once(dev,
+			"battery voltage dropped below 75%%, date and time may not be reliable.\n");
+	} else if (buf[ISL12022_REG_SR] & ISL12022_SR_LBAT85) {
+		dev_warn_once(dev,
+			"battery voltage dropped below 85%%.\n");
+	}
+
+	dev_dbg(dev,
 		"%s: raw data is sec=%02x, min=%02x, hr=%02x, "
 		"mday=%02x, mon=%02x, year=%02x, wday=%02x, "
 		"sr=%02x, int=%02x",
@@ -141,65 +139,25 @@ static int isl12022_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	tm->tm_mon = bcd2bin(buf[ISL12022_REG_MO] & 0x1F) - 1;
 	tm->tm_year = bcd2bin(buf[ISL12022_REG_YR]) + 100;
 
-	dev_dbg(&client->dev, "%s: secs=%d, mins=%d, hours=%d, "
-		"mday=%d, mon=%d, year=%d, wday=%d\n",
-		__func__,
-		tm->tm_sec, tm->tm_min, tm->tm_hour,
-		tm->tm_mday, tm->tm_mon, tm->tm_year, tm->tm_wday);
+	dev_dbg(dev, "%s: %ptR\n", __func__, tm);
 
 	return 0;
 }
 
 static int isl12022_rtc_set_time(struct device *dev, struct rtc_time *tm)
 {
-	struct i2c_client *client = to_i2c_client(dev);
-	struct isl12022 *isl12022 = i2c_get_clientdata(client);
-	size_t i;
+	struct isl12022 *isl12022 = dev_get_drvdata(dev);
+	struct regmap *regmap = isl12022->regmap;
 	int ret;
 	uint8_t buf[ISL12022_REG_DW + 1];
 
-	dev_dbg(&client->dev, "%s: secs=%d, mins=%d, hours=%d, "
-		"mday=%d, mon=%d, year=%d, wday=%d\n",
-		__func__,
-		tm->tm_sec, tm->tm_min, tm->tm_hour,
-		tm->tm_mday, tm->tm_mon, tm->tm_year, tm->tm_wday);
+	dev_dbg(dev, "%s: %ptR\n", __func__, tm);
 
-	if (!isl12022->write_enabled) {
-
-		ret = isl12022_read_regs(client, ISL12022_REG_INT, buf, 1);
-		if (ret)
-			return ret;
-
-		/* Check if WRTC (write rtc enable) is set factory default is
-		 * 0 (not set) */
-		if (!(buf[0] & ISL12022_INT_WRTC)) {
-			dev_info(&client->dev,
-				 "init write enable and 24 hour format\n");
-
-			/* Set the write enable bit. */
-			ret = isl12022_write_reg(client,
-						 ISL12022_REG_INT,
-						 buf[0] | ISL12022_INT_WRTC);
-			if (ret)
-				return ret;
-
-			/* Write to any RTC register to start RTC, we use the
-			 * HR register, setting the MIL bit to use the 24 hour
-			 * format. */
-			ret = isl12022_read_regs(client, ISL12022_REG_HR,
-						 buf, 1);
-			if (ret)
-				return ret;
-
-			ret = isl12022_write_reg(client,
-						 ISL12022_REG_HR,
-						 buf[0] | ISL12022_HR_MIL);
-			if (ret)
-				return ret;
-		}
-
-		isl12022->write_enabled = true;
-	}
+	/* Ensure the write enable bit is set. */
+	ret = regmap_update_bits(regmap, ISL12022_REG_INT,
+				 ISL12022_INT_WRTC, ISL12022_INT_WRTC);
+	if (ret)
+		return ret;
 
 	/* hours, minutes and seconds */
 	buf[ISL12022_REG_SC] = bin2bcd(tm->tm_sec);
@@ -216,15 +174,101 @@ static int isl12022_rtc_set_time(struct device *dev, struct rtc_time *tm)
 
 	buf[ISL12022_REG_DW] = tm->tm_wday & 0x07;
 
-	/* write register's data */
-	for (i = 0; i < ARRAY_SIZE(buf); i++) {
-		ret = isl12022_write_reg(client, ISL12022_REG_SC + i,
-					 buf[ISL12022_REG_SC + i]);
-		if (ret)
-			return -EIO;
-	}
+	return regmap_bulk_write(isl12022->regmap, ISL12022_REG_SC,
+				 buf, sizeof(buf));
+}
+
+static int isl12022_set_offset(struct device *dev, long offset)
+{
+	struct isl12022 *isl12022 = dev_get_drvdata(dev);
+	uint32_t ppb = abs(offset);
+	uint8_t data;
+	int ret;
+
+	ret = regmap_bulk_write(isl12022->regmap, ISL12022_REG_OFF_VAL, &ppb, sizeof(ppb));
+	if (ret)
+		return ret;
+	data = ISL12022_OFF_CTL_APPLY |
+	       ((offset > 0) ? ISL12022_OFF_CTL_ADD : 0) |
+	       ISL12022_OFF_CTL_FLASH;
+	ret = regmap_bulk_write(isl12022->regmap, ISL12022_REG_OFF_CTL, &data, 1);
+	if (ret)
+		return ret;
+
+	return ret;
+}
+
+static int isl12022_read_offset(struct device *dev, long *offset)
+{
+	struct isl12022 *isl12022 = dev_get_drvdata(dev);
+	int ret;
+	uint32_t ppb;
+	uint8_t data;
+
+	ret = regmap_bulk_read(isl12022->regmap, ISL12022_REG_OFF_VAL, &ppb, sizeof(ppb));
+	if (ret)
+		return ret;
+
+	ret = regmap_bulk_read(isl12022->regmap, ISL12022_REG_OFF_CTL, &data, 1);
+	if (ret)
+		return -EIO;
+
+	*offset = ppb;
+
+	if ((data & ISL12022_OFF_CTL_ADD) == 0)
+		*offset *= -1;
+
+	return ret;
+}
+
+static int isl12022_hwmon_read_temp(struct device *dev, long *mC)
+{
+	struct isl12022 *isl12022 = dev_get_drvdata(dev);
+	u8 data[2];
+	int ret;
+
+	ret = regmap_bulk_read(isl12022->regmap, ISL12022_REG_TEMP, data,
+			       sizeof(data));
+	if (ret < 0)
+		return ret;
+
+	/* Convert from Kelvin */
+	*mC = ((data[0]|(data[1]<<8))*500)-273150;
 
 	return 0;
+}
+
+static int isl12022_hwmon_read(struct device *dev,
+			     enum hwmon_sensor_types type,
+			     u32 attr, int channel, long *temp)
+{
+	int err;
+
+	switch (attr) {
+	case hwmon_temp_input:
+		err = isl12022_hwmon_read_temp(dev, temp);
+		break;
+	default:
+		err = -EOPNOTSUPP;
+		break;
+	}
+
+	return err;
+}
+
+static umode_t isl12022_hwmon_is_visible(const void *data,
+				       enum hwmon_sensor_types type,
+				       u32 attr, int channel)
+{
+	if (type != hwmon_temp)
+		return 0;
+
+	switch (attr) {
+	case hwmon_temp_input:
+		return 0444;
+	default:
+		return 0;
+	}
 }
 
 static const struct rtc_class_ops isl12022_rtc_ops = {
@@ -232,10 +276,143 @@ static const struct rtc_class_ops isl12022_rtc_ops = {
 	.set_time	= isl12022_rtc_set_time,
 };
 
-static int isl12022_probe(struct i2c_client *client,
-			  const struct i2c_device_id *id)
+static const struct rtc_class_ops isl12022_emulated_rtc_ops = {
+	.read_time	= isl12022_rtc_read_time,
+	.set_time	= isl12022_rtc_set_time,
+	.set_offset	= isl12022_set_offset,
+	.read_offset	= isl12022_read_offset,
+};
+
+static const struct regmap_config regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
+	.use_single_write = true,
+};
+
+static u32 isl12022_hwmon_chip_config[] = {
+	HWMON_C_REGISTER_TZ,
+	0
+};
+
+static const struct hwmon_channel_info isl12022_hwmon_chip = {
+	.type = hwmon_chip,
+	.config = isl12022_hwmon_chip_config,
+};
+
+static u32 isl12022_hwmon_temp_config[] = {
+	HWMON_T_INPUT,
+	0
+};
+
+static const struct hwmon_channel_info isl12022_hwmon_temp = {
+	.type = hwmon_temp,
+	.config = isl12022_hwmon_temp_config,
+};
+
+static const struct hwmon_channel_info *isl12022_hwmon_info[] = {
+	&isl12022_hwmon_chip,
+	&isl12022_hwmon_temp,
+	NULL
+};
+
+static const struct hwmon_ops isl12022_hwmon_hwmon_ops = {
+	.is_visible = isl12022_hwmon_is_visible,
+	.read = isl12022_hwmon_read,
+};
+
+static const struct hwmon_chip_info isl12022_hwmon_chip_info = {
+	.ops = &isl12022_hwmon_hwmon_ops,
+	.info = isl12022_hwmon_info,
+};
+
+static void isl12022_hwmon_register(struct device *dev)
 {
+	struct isl12022 *isl12022 = dev_get_drvdata(dev);
+	struct device *hwmon_dev;
+
+	if (!IS_ENABLED(CONFIG_RTC_DRV_ISL12022_HWMON))
+		return;
+
+	hwmon_dev = devm_hwmon_device_register_with_info(dev, "isl12022", isl12022,
+							&isl12022_hwmon_chip_info,
+							NULL);
+	if (IS_ERR(hwmon_dev)) {
+		dev_err(dev, "unable to register hwmon device %ld\n",
+			PTR_ERR(hwmon_dev));
+	}
+}
+
+int isl12022_setup(struct i2c_client *client, struct isl12022 *isl12022)
+{
+	struct regmap *regmap = isl12022->regmap;
+	struct device *dev = &client->dev;
+	uint32_t data = 0;
+	int ret = 0;
+
+	/*
+	 * All changes to ALPHA, BETA, IDTR, and IATR registers must
+	 * be done with TSE disabled according to the datasheet.
+	 * It's possible for BTSE settings to be touched one way or another
+	 * below, so disable TSE for now and re-enable later just in case.
+	 */
+	ret = regmap_update_bits(regmap, ISL12022_REG_BETA,
+				ISL12022_BETA_TSE,
+				0);
+	if (ret)
+		return ret;
+
+	/* Setup temperature sensing on battery power. */
+	if (isl12022->enable_btse) {
+		if (isl12022->btse_minutes != 10)
+			data = ISL12022_BETA_BTSR;
+
+		data |= ISL12022_BETA_BTSE;
+
+		ret = regmap_update_bits(regmap, ISL12022_REG_BETA,
+					ISL12022_BETA_BTSE | ISL12022_BETA_BTSR,
+					data);
+		if (ret)
+			return ret;
+	} else {
+		ret = regmap_update_bits(regmap, ISL12022_REG_BETA,
+					ISL12022_BETA_BTSE,
+					0);
+		if (ret)
+			return ret;
+	}
+
+	/* Set battery voltage trip thresholds */
+	if (isl12022->set_trip_thresh) {
+		ret = regmap_update_bits(regmap,
+					 ISL12022_REG_VBAT,
+					 ISL12022_VBAT_VB85_MASK | ISL12022_VBAT_VB75_MASK,
+					 isl12022->vb75_threshold << ISL12022_VBAT_VB75_SHFT |
+					 isl12022->vb85_threshold << ISL12022_VBAT_VB85_SHFT);
+		if (ret)
+			return ret;
+	}
+
+	/*
+	 * (Re)Enable TSE after BETA and VB75/85T were potentially modified.
+	 * Setting TSE will also force a manual battery voltage and temperature
+	 * read.
+	 */
+	ret = regmap_update_bits(regmap, ISL12022_REG_BETA, ISL12022_BETA_TSE,
+				ISL12022_BETA_TSE);
+	if (ret)
+		return ret;
+
+	isl12022_hwmon_register(dev);
+
+	return ret;
+}
+
+static int isl12022_probe(struct i2c_client *client,
+			  const struct i2c_device_id *id) {
 	struct isl12022 *isl12022;
+	struct device *dev = &client->dev;
+	uint32_t data;
+	int ret;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
 		return -ENODEV;
@@ -244,13 +421,56 @@ static int isl12022_probe(struct i2c_client *client,
 				GFP_KERNEL);
 	if (!isl12022)
 		return -ENOMEM;
+	dev_set_drvdata(&client->dev, isl12022);
 
-	i2c_set_clientdata(client, isl12022);
+	isl12022->regmap = devm_regmap_init_i2c(client, &regmap_config);
+	if (IS_ERR(isl12022->regmap)) {
+		dev_err(&client->dev, "regmap allocation failed\n");
+		return PTR_ERR(isl12022->regmap);
+	}
 
-	isl12022->rtc = devm_rtc_device_register(&client->dev,
-					isl12022_driver.driver.name,
-					&isl12022_rtc_ops, THIS_MODULE);
-	return PTR_ERR_OR_ZERO(isl12022->rtc);
+	isl12022->rtc = devm_rtc_allocate_device(&client->dev);
+	if (IS_ERR(isl12022->rtc))
+		return PTR_ERR(isl12022->rtc);
+
+	/* Detect emulated isl12022 */
+	ret = regmap_bulk_read(isl12022->regmap, ISL12022_REG_FDTR, &data, 1);
+	if (ret)
+		return ret;
+
+	if (data & ISL12022_FDTR_EMULATED) {
+		dev_info(dev, "Emulated isl12022 detected");
+		isl12022->rtc->ops = &isl12022_emulated_rtc_ops;
+	} else {
+		isl12022->rtc->ops = &isl12022_rtc_ops;
+	}
+
+	if (dev->of_node) {
+		ret = of_property_read_u32(dev->of_node,
+					"btse-minutes",
+					&isl12022->btse_minutes);
+		if (!ret)
+			isl12022->enable_btse = 1;
+
+		/* Both vb75t and vb85t must be passed simultaneously. */
+		ret = of_property_read_u32(dev->of_node,
+					"vb75t",
+					&isl12022->vb75_threshold);
+		if (!ret)
+			isl12022->set_trip_thresh = 1;
+
+		ret = of_property_read_u32(dev->of_node,
+					"vb85t",
+					&isl12022->vb85_threshold);
+		if (ret || !isl12022->set_trip_thresh)
+			isl12022->set_trip_thresh = 0;
+	}
+
+	ret = isl12022_setup(client, isl12022);
+	if (ret)
+		return ret;
+
+	return rtc_register_device(isl12022->rtc);
 }
 
 #ifdef CONFIG_OF

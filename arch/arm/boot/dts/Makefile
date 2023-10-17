@@ -469,7 +469,15 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6dl-sabresd.dtb \
 	imx6dl-savageboard.dtb \
 	imx6dl-ts4900.dtb \
+	imx6dl-ts4900-2.dtb \
+	imx6dl-ts4900-14.dtb \
 	imx6dl-ts7970.dtb \
+	imx6dl-ts7990-lxd-revb.dtb \
+	imx6dl-ts7990-lxd.dtb \
+	imx6dl-ts7990-microtips-revb.dtb \
+	imx6dl-ts7990-microtips.dtb \
+	imx6dl-ts7990-okaya-revb.dtb \
+	imx6dl-ts7990-okaya.dtb \
 	imx6dl-tx6dl-comtft.dtb \
 	imx6dl-tx6s-8034.dtb \
 	imx6dl-tx6s-8034-mb7.dtb \
@@ -562,7 +570,15 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6q-sbc6x.dtb \
 	imx6q-tbs2910.dtb \
 	imx6q-ts4900.dtb \
+	imx6q-ts4900-2.dtb \
+	imx6q-ts4900-14.dtb \
 	imx6q-ts7970.dtb \
+	imx6q-ts7990-lxd-revb.dtb \
+	imx6q-ts7990-lxd.dtb \
+	imx6q-ts7990-microtips-revb.dtb \
+	imx6q-ts7990-microtips.dtb \
+	imx6q-ts7990-okaya-revb.dtb \
+	imx6q-ts7990-okaya.dtb \
 	imx6q-tx6q-1010.dtb \
 	imx6q-tx6q-1010-comtft.dtb \
 	imx6q-tx6q-1020.dtb \
@@ -624,6 +640,13 @@ dtb-$(CONFIG_SOC_IMX6UL) += \
 	imx6ul-pico-hobbit.dtb \
 	imx6ul-pico-pi.dtb \
 	imx6ul-phytec-segin-ff-rdk-nand.dtb \
+	imx6ul-ts4100.dtb \
+	imx6ul-ts4100-7.dtb \
+	imx6ul-ts4100-8.dtb \
+	imx6ul-ts4100-16.dtb \
+	imx6ul-ts7250v3-reva.dtb \
+	imx6ul-ts7250v3.dtb \
+	imx6ul-ts7553v2.dtb \
 	imx6ul-tx6ul-0010.dtb \
 	imx6ul-tx6ul-0011.dtb \
 	imx6ul-tx6ul-mainboard.dtb \
@@ -710,6 +733,8 @@ dtb-$(CONFIG_ARCH_MXS) += \
 	imx28-m28evk.dtb \
 	imx28-sps1.dtb \
 	imx28-ts4600.dtb \
+	imx28-ts7400v2.dtb \
+	imx28-ts7670.dtb \
 	imx28-tx28.dtb
 dtb-$(CONFIG_ARCH_NOMADIK) += \
 	ste-nomadik-s8815.dtb \
@@ -1331,6 +1356,8 @@ dtb-$(CONFIG_MACH_ARMADA_38X) += \
 	armada-385-linksys-shelby.dtb \
 	armada-385-synology-ds116.dtb \
 	armada-385-turris-omnia.dtb \
+	armada-385-ts7800-v2.dtb \
+	armada-385-ts7840.dtb \
 	armada-388-clearfog.dtb \
 	armada-388-clearfog-base.dtb \
 	armada-388-clearfog-pro.dtb \

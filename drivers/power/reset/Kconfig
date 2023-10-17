@@ -190,6 +190,12 @@ config POWER_RESET_ST
 	help
 	  Reset support for STMicroelectronics boards.
 
+config POWER_RESET_TS_SUPERVISOR
+	bool "embeddedTS Supervisory reset driver"
+	depends on MFD_TS_SUPERVISOR
+	help
+	  Reset support for embeddedTS boards
+
 config POWER_RESET_VERSATILE
 	bool "ARM Versatile family reboot driver"
 	depends on ARM
