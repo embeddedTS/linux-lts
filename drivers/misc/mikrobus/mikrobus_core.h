@@ -167,7 +167,7 @@ struct mikrobus_port {
 	struct addon_board_info *board;
 	struct nvmem_device *eeprom;
 	struct i2c_adapter *i2c_adap;
-	struct spi_master *spi_mstr;
+	struct spi_controller *spi_ctrl;
 	struct w1_master *w1_master;
 	struct platform_device *w1_gpio;
 	struct serdev_controller *ser_ctrl;
@@ -178,7 +178,6 @@ struct mikrobus_port {
 	struct device dev;
 	char name[MIKROBUS_NAME_SIZE];
 	char *pinctrl_selected[MIKROBUS_NUM_PINCTRL_STATE];
-	unsigned int chip_select[MIKROBUS_NUM_CS];
 	int skip_scan;
 	int id;
 };

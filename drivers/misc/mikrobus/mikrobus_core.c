@@ -40,6 +40,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/clk-provider.h>
 #include <linux/greybus/greybus_manifest.h>
+#include <linux/of_platform.h>
 
 #include "mikrobus_core.h"
 #include "mikrobus_manifest.h"
@@ -396,8 +397,7 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 	if (dev->gpio_lookup) {
 		lookup = dev->gpio_lookup;
 		if (dev->protocol == GREYBUS_PROTOCOL_SPI) {
-			snprintf(devname, sizeof(devname), "%s.%u", dev_name(&port->spi_mstr->dev),
-				 port->chip_select[dev->reg]);
+			snprintf(devname, sizeof(devname), "%s", dev_name(&port->spi_ctrl->dev));
 			lookup->dev_id = kmemdup(devname, MIKROBUS_NAME_SIZE, GFP_KERNEL);
 		} else if (dev->protocol == GREYBUS_PROTOCOL_RAW) {
 			snprintf(devname, sizeof(devname), "%s.%u", dev->drv_name, dev->reg);
@@ -416,7 +416,7 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 
 	switch (dev->protocol) {
 	case GREYBUS_PROTOCOL_SPI:
-		spi = spi_alloc_device(port->spi_mstr);
+		spi = spi_alloc_device(port->spi_ctrl);
 		if (!spi)
 			return -ENOMEM;
 
@@ -424,7 +424,6 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 			spi->irq = mikrobus_irq_get(port, dev->irq, dev->irq_type);
 		if (dev->properties)
 			device_create_managed_software_node(&spi->dev, dev->properties, NULL);
-		spi->chip_select = port->chip_select[dev->reg];
 		spi->max_speed_hz = dev->max_speed_hz;
 		spi->mode = dev->mode;
 		spi_add_device(spi);
@@ -728,8 +727,10 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *i2c_adap_np;
 	struct device_node *uart_np;
+	struct device_node *spi_np;
+	struct platform_device *spi_pdev;
+	struct spi_device *spi_dev;
 	int retval;
-	u32 val;
 
 	port = kzalloc(sizeof(*port), GFP_KERNEL);
 	if (!port)
@@ -744,18 +745,21 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 
 	port->i2c_adap = of_find_i2c_adapter_by_node(i2c_adap_np);
 	of_node_put(i2c_adap_np);
-	retval = device_property_read_u32(dev, "spi-master", &val);
-	if (retval) {
-		dev_err(dev, "failed to get spi-master [%d]\n", retval);
+
+	spi_np = of_parse_phandle(dev->of_node, "spi-master", 0);
+	if (!spi_np) {
+		retval = dev_err_probe(dev, -ENODEV, "cannot parse spi-master");
 		goto err_port;
 	}
 
-	port->spi_mstr = spi_busnum_to_master(val);
-	retval = device_property_read_u32_array(dev, "spi-cs", port->chip_select, 2);
-	if (retval) {
-		dev_err(dev, "failed to get spi-cs [%d]\n", retval);
+	spi_pdev = of_find_device_by_node(spi_np);
+	if (!spi_pdev) {
+		retval = dev_err_probe(dev, -ENODEV, "cannot find spi device");
 		goto err_port;
 	}
+	of_node_put(spi_np);
+	spi_dev = platform_get_drvdata(spi_pdev);
+	port->spi_ctrl = spi_dev->controller;
 
 	uart_np = of_parse_phandle(dev->of_node, "uart", 0);
 	if (!uart_np) {
@@ -763,9 +767,9 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 		retval = -ENODEV;
 		goto err_port;
 	}
-
 	port->ser_ctrl = of_find_serdev_controller_by_node(uart_np);
 	of_node_put(uart_np);
+
 	port->gpios = gpiod_get_array(dev, "mikrobus", GPIOD_OUT_LOW);
 	if (IS_ERR(port->gpios)) {
 		retval = PTR_ERR(port->gpios);
