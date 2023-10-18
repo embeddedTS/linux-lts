@@ -728,8 +728,9 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 	struct device_node *i2c_adap_np;
 	struct device_node *uart_np;
 	struct device_node *spi_np;
-	struct platform_device *spi_pdev;
+	struct platform_device *temp_pdev;
 	struct spi_device *spi_dev;
+	struct serdev_device *serdev_dev;
 	int retval;
 
 	port = kzalloc(sizeof(*port), GFP_KERNEL);
@@ -752,13 +753,17 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 		goto err_port;
 	}
 
-	spi_pdev = of_find_device_by_node(spi_np);
-	if (!spi_pdev) {
+	temp_pdev = of_find_device_by_node(spi_np);
+	of_node_put(spi_np);
+	if (!temp_pdev) {
 		retval = dev_err_probe(dev, -ENODEV, "cannot find spi device");
 		goto err_port;
 	}
-	of_node_put(spi_np);
-	spi_dev = platform_get_drvdata(spi_pdev);
+	spi_dev = platform_get_drvdata(temp_pdev);
+	if (!spi_dev) {
+		retval = dev_err_probe(dev, -ENODEV, "cannot find spi device");
+		goto err_port;
+	}
 	port->spi_ctrl = spi_dev->controller;
 
 	uart_np = of_parse_phandle(dev->of_node, "uart", 0);
@@ -767,8 +772,18 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 		retval = -ENODEV;
 		goto err_port;
 	}
-	port->ser_ctrl = of_find_serdev_controller_by_node(uart_np);
+	temp_pdev = of_find_device_by_node(uart_np);
 	of_node_put(uart_np);
+	if (!temp_pdev) {
+		retval = dev_err_probe(dev, -ENODEV, "cannot find serdev device");
+		goto err_port;
+	}
+	serdev_dev = platform_get_drvdata(temp_pdev);
+	if (!serdev_dev) {
+		retval = dev_err_probe(dev, -ENODEV, "cannot find serdev device");
+		goto err_port;
+	}
+	port->ser_ctrl = serdev_dev->ctrl;
 
 	port->gpios = gpiod_get_array(dev, "mikrobus", GPIOD_OUT_LOW);
 	if (IS_ERR(port->gpios)) {
