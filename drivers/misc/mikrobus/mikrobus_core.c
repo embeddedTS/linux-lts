@@ -73,47 +73,56 @@ int mikrobus_port_scan_eeprom(struct mikrobus_port *port)
 
 	retval = nvmem_device_read(port->eeprom, manifest_start_addr, 12, header);
 	if (retval != 12) {
-		dev_err(&port->dev, "failed to fetch manifest header %d\n", retval);
-		return -EINVAL;
+		return dev_err_probe(&port->dev, -EINVAL, "failed to fetch manifest header %d\n",
+				     retval);
 	}
+
 	manifest_size = mikrobus_manifest_header_validate(header, 12);
 	if (manifest_size < 0) {
-		dev_err(&port->dev, "invalid manifest size %d\n", manifest_size);
-		return -EINVAL;
+		return dev_err_probe(&port->dev, -EINVAL, "invalid manifest size %d\n",
+				     manifest_size);
 	}
+
 	buf = kzalloc(manifest_size, GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
+
 	retval = nvmem_device_read(port->eeprom, manifest_start_addr, manifest_size, buf);
 	if (retval != manifest_size) {
-		dev_err(&port->dev, "failed to fetch manifest %d\n", retval);
-		retval = -EINVAL;
+		retval =
+			dev_err_probe(&port->dev, -EINVAL, "failed to fetch manifest %d\n", retval);
 		goto err_free_buf;
 	}
+
 	board = kzalloc(sizeof(*board), GFP_KERNEL);
 	if (!board) {
 		retval = -ENOMEM;
 		goto err_free_buf;
 	}
+
 	w1_reset_bus(port->w1_master);
 	/* set RST HIGH */
 	gpiod_direction_output(port->gpios->desc[MIKROBUS_PIN_RST], 1);
 	set_bit(W1_ABORT_SEARCH, &port->w1_master->flags);
+
 	INIT_LIST_HEAD(&board->manifest_descs);
 	INIT_LIST_HEAD(&board->devices);
 	retval = mikrobus_manifest_parse(board, buf, manifest_size);
 	if (!retval) {
-		dev_err(&port->dev, "failed to parse manifest, size %d\n", manifest_size);
-		retval = -EINVAL;
+		retval = dev_err_probe(&port->dev, -EINVAL, "failed to parse manifest, size %d\n",
+				       manifest_size);
 		goto err_free_board;
 	}
+
 	retval = mikrobus_board_register(port, board);
 	if (retval) {
 		dev_err(&port->dev, "failed to register board %s\n", board->name);
 		goto err_free_board;
 	}
+
 	kfree(buf);
 	return 0;
+
 err_free_board:
 	kfree(board);
 err_free_buf:
@@ -135,29 +144,29 @@ static ssize_t new_device_store(struct device *dev, struct device_attribute *att
 	struct addon_board_info *board;
 	int retval;
 
-	if (port->board) {
-		dev_err(dev, "already has board registered\n");
-		return -EBUSY;
-	}
+	if (port->board)
+		return dev_err_probe(dev, -EBUSY, "already has board registered\n");
 
 	board = kzalloc(sizeof(*board), GFP_KERNEL);
 	if (!board)
 		return -ENOMEM;
+
 	INIT_LIST_HEAD(&board->manifest_descs);
 	INIT_LIST_HEAD(&board->devices);
 	retval = mikrobus_manifest_parse(board, (void *)buf, count);
 	if (!retval) {
-		dev_err(dev, "failed to parse manifest\n");
-		retval = -EINVAL;
+		retval = dev_err_probe(dev, -EINVAL, "failed to parse manifest\n");
 		goto err_free_board;
 	}
+
 	retval = mikrobus_board_register(port, board);
 	if (retval) {
-		dev_err(dev, "failed to register board %s\n", board->name);
-		retval = -EINVAL;
+		retval = dev_err_probe(dev, -EINVAL, "failed to register board %s\n", board->name);
 		goto err_free_board;
 	}
+
 	return count;
+
 err_free_board:
 	kfree(board);
 	return retval;
@@ -170,14 +179,12 @@ static ssize_t delete_device_store(struct device *dev, struct device_attribute *
 	struct mikrobus_port *port = to_mikrobus_port(dev);
 	unsigned long id;
 
-	if (kstrtoul(buf, 0, &id)) {
-		dev_err(dev, "cannot parse board id");
-		return -EINVAL;
-	}
-	if (!port->board) {
-		dev_err(dev, "does not have registered boards");
-		return -ENODEV;
-	}
+	if (kstrtoul(buf, 0, &id))
+		return dev_err_probe(dev, -EINVAL, "cannot parse board id");
+
+	if (!port->board)
+		return dev_err_probe(dev, -ENODEV, "does not have registered boards");
+
 	mikrobus_board_unregister(port, port->board);
 	return count;
 }
@@ -195,6 +202,7 @@ static void mikrobus_port_release(struct device *dev)
 	mutex_lock(&core_lock);
 	idr_remove(&mikrobus_port_idr, port->id);
 	mutex_unlock(&core_lock);
+
 	kfree(port);
 }
 
@@ -224,40 +232,39 @@ struct mikrobus_port *mikrobus_find_port_by_w1_master(struct w1_master *master)
 	if (!dev)
 		return NULL;
 
-	return (dev->type == &mikrobus_port_type) ? to_mikrobus_port(dev) : NULL;
+	return to_mikrobus_port(dev);
 }
 EXPORT_SYMBOL(mikrobus_find_port_by_w1_master);
 
 int mikrobus_port_pinctrl_select(struct mikrobus_port *port)
 {
 	struct pinctrl_state *state;
-	int retval;
-	int i;
+	int retval, i;
 
 	for (i = 0; i < MIKROBUS_NUM_PINCTRL_STATE; i++) {
 		state = pinctrl_lookup_state(port->pinctrl, port->pinctrl_selected[i]);
 		if (!IS_ERR(state)) {
 			retval = pinctrl_select_state(port->pinctrl, state);
-			pr_debug("setting pinctrl %s\n", port->pinctrl_selected[i]);
-			if (retval != 0) {
-				dev_err(&port->dev, "failed to select state %s\n",
-					port->pinctrl_selected[i]);
-				return retval;
+			if (retval) {
+				return dev_err_probe(&port->dev, retval,
+						     "failed to select state %s\n",
+						     port->pinctrl_selected[i]);
 			}
+			pr_debug("setting pinctrl %s\n", port->pinctrl_selected[i]);
 		} else {
-			dev_err(&port->dev, "failed to find state %s\n", port->pinctrl_selected[i]);
-			return PTR_ERR(state);
+			return dev_err_probe(&port->dev, PTR_ERR(state),
+					     "failed to find state %s\n",
+					     port->pinctrl_selected[i]);
 		}
 	}
 
-	return retval;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(mikrobus_port_pinctrl_select);
 
 static int mikrobus_port_pinctrl_setup(struct mikrobus_port *port, struct addon_board_info *board)
 {
-	int retval;
-	int i;
+	int retval, i;
 
 	for (i = 0; i < MIKROBUS_NUM_PINCTRL_STATE; i++) {
 		switch (i) {
@@ -299,6 +306,7 @@ static int mikrobus_port_pinctrl_setup(struct mikrobus_port *port, struct addon_
 	retval = mikrobus_port_pinctrl_select(port);
 	if (retval)
 		dev_err(&port->dev, "failed to select pinctrl states [%d]", retval);
+
 	return retval;
 }
 
@@ -307,66 +315,57 @@ static int mikrobus_irq_get(struct mikrobus_port *port, int irqno, int irq_type)
 	int irq;
 
 	if (irqno > port->gpios->ndescs - 1) {
-		dev_err(&port->dev, "GPIO %d does not exist", irqno);
-		return -ENODEV;
+		return dev_err_probe(&port->dev, -ENODEV, "GPIO %d does not exist", irqno);
 	}
 
 	irq = gpiod_to_irq(port->gpios->desc[irqno]);
 	if (irq < 0) {
-		dev_err(&port->dev, "could not get irq %d", irqno);
-		return -EINVAL;
+		return dev_err_probe(&port->dev, -EINVAL, "could not get irq %d", irqno);
 	}
+
 	irq_set_irq_type(irq, irq_type);
+
 	return irq;
 }
 
 static int mikrobus_gpio_setup(struct gpio_desc *gpio, int gpio_state)
 {
-	int retval;
-
 	switch (gpio_state) {
 	case MIKROBUS_STATE_INPUT:
-		retval = gpiod_direction_input(gpio);
+		return gpiod_direction_input(gpio);
 		break;
 	case MIKROBUS_STATE_OUTPUT_HIGH:
-		retval = gpiod_direction_output(gpio, 1);
-		break;
+		return gpiod_direction_output(gpio, 1);
 	case MIKROBUS_STATE_OUTPUT_LOW:
-		retval = gpiod_direction_output(gpio, 0);
-		break;
+		return gpiod_direction_output(gpio, 0);
 	case MIKROBUS_STATE_PWM:
 	case MIKROBUS_STATE_SPI:
 	case MIKROBUS_STATE_I2C:
 	default:
 		return 0;
 	}
-	return retval;
 }
 
 static char *mikrobus_gpio_chip_name_get(struct mikrobus_port *port, int gpio)
 {
-	char *name;
 	struct gpio_chip *gpiochip;
 
 	if (gpio > port->gpios->ndescs - 1)
 		return NULL;
 
 	gpiochip = gpiod_to_chip(port->gpios->desc[gpio]);
-	name = kmemdup(gpiochip->label, MIKROBUS_NAME_SIZE, GFP_KERNEL);
-	return name;
+	return kmemdup(gpiochip->label, MIKROBUS_NAME_SIZE, GFP_KERNEL);
 }
 
 static int mikrobus_gpio_hwnum_get(struct mikrobus_port *port, int gpio)
 {
-	int hwnum;
 	struct gpio_chip *gpiochip;
 
 	if (gpio > port->gpios->ndescs - 1)
 		return -ENODEV;
 
 	gpiochip = gpiod_to_chip(port->gpios->desc[gpio]);
-	hwnum = desc_to_gpio(port->gpios->desc[gpio]) - gpiochip->base;
-	return hwnum;
+	return desc_to_gpio(port->gpios->desc[gpio]) - gpiochip->base;
 }
 
 static void mikrobus_board_device_release_all(struct addon_board_info *info)
@@ -396,21 +395,29 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 
 	if (dev->gpio_lookup) {
 		lookup = dev->gpio_lookup;
-		if (dev->protocol == GREYBUS_PROTOCOL_SPI) {
+
+		switch (dev->protocol) {
+		case GREYBUS_PROTOCOL_SPI:
 			snprintf(devname, sizeof(devname), "%s", dev_name(&port->spi_ctrl->dev));
 			lookup->dev_id = kmemdup(devname, MIKROBUS_NAME_SIZE, GFP_KERNEL);
-		} else if (dev->protocol == GREYBUS_PROTOCOL_RAW) {
+			break;
+		case GREYBUS_PROTOCOL_RAW:
 			snprintf(devname, sizeof(devname), "%s.%u", dev->drv_name, dev->reg);
 			lookup->dev_id = kmemdup(devname, MIKROBUS_NAME_SIZE, GFP_KERNEL);
-		} else
+			break;
+		default:
 			lookup->dev_id = dev->drv_name;
+		}
+
 		dev_info(&port->dev, " adding lookup table : %s\n", lookup->dev_id);
+
 		for (i = 0; i < dev->num_gpio_resources; i++) {
 			lookup->table[i].key =
 				mikrobus_gpio_chip_name_get(port, lookup->table[i].chip_hwnum);
 			lookup->table[i].chip_hwnum =
 				mikrobus_gpio_hwnum_get(port, lookup->table[i].chip_hwnum);
 		}
+
 		gpiod_add_lookup_table(lookup);
 	}
 
@@ -433,6 +440,7 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 		i2c = kzalloc(sizeof(*i2c), GFP_KERNEL);
 		if (!i2c)
 			return -ENOMEM;
+
 		strncpy(i2c->type, dev->drv_name, sizeof(i2c->type) - 1);
 		if (dev->irq)
 			i2c->irq = mikrobus_irq_get(port, dev->irq, dev->irq_type);
@@ -447,6 +455,7 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 		pdev = platform_device_alloc(dev->drv_name, 0);
 		if (!pdev)
 			return -ENOMEM;
+
 		if (dev->properties)
 			device_create_managed_software_node(&pdev->dev, dev->properties, NULL);
 		dev->dev_client = pdev;
@@ -456,15 +465,16 @@ static int mikrobus_device_register(struct mikrobus_port *port, struct board_dev
 		serdev = serdev_device_alloc(port->ser_ctrl);
 		if (!serdev)
 			return -ENOMEM;
+
 		if (dev->properties)
 			device_create_managed_software_node(&serdev->dev, dev->properties, NULL);
 		dev->dev_client = serdev;
 		serdev_device_add(serdev);
 		break;
-		break;
 	default:
 		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -476,7 +486,9 @@ static void mikrobus_device_unregister(struct mikrobus_port *port, struct board_
 		gpiod_remove_lookup_table(dev->gpio_lookup);
 		kfree(dev->gpio_lookup);
 	}
+
 	kfree(dev->properties);
+
 	switch (dev->protocol) {
 	case GREYBUS_PROTOCOL_SPI:
 		spi_unregister_device((struct spi_device *)dev->dev_client);
@@ -495,29 +507,32 @@ static void mikrobus_device_unregister(struct mikrobus_port *port, struct board_
 
 int mikrobus_board_register(struct mikrobus_port *port, struct addon_board_info *board)
 {
-	struct board_device_info *devinfo;
-	struct board_device_info *next;
-	int retval;
-	int i;
+	struct board_device_info *devinfo, *next;
+	int retval, i;
 
 	if (WARN_ON(list_empty(&board->devices)))
 		return false;
+
 	if (port->pinctrl) {
 		retval = mikrobus_port_pinctrl_setup(port, board);
 		if (retval)
 			dev_err(&port->dev, "failed to setup pinctrl state [%d]", retval);
 	}
+
 	if (port->gpios) {
 		for (i = 0; i < port->gpios->ndescs; i++) {
 			retval = mikrobus_gpio_setup(port->gpios->desc[i], board->pin_state[i]);
 			if (retval)
 				dev_err(&port->dev, "failed to setup gpio %d, state %d", i,
 					board->pin_state[i]);
+
 			gpiochip_free_own_desc(port->gpios->desc[i]);
 		}
 	}
+
 	list_for_each_entry_safe(devinfo, next, &board->devices, links)
 		mikrobus_device_register(port, devinfo, board->name);
+
 	port->board = board;
 	return 0;
 }
@@ -525,14 +540,15 @@ EXPORT_SYMBOL_GPL(mikrobus_board_register);
 
 void mikrobus_board_unregister(struct mikrobus_port *port, struct addon_board_info *board)
 {
-	struct board_device_info *devinfo;
-	struct board_device_info *next;
+	struct board_device_info *devinfo, *next;
 
 	if (WARN_ON(list_empty(&board->devices)))
 		return;
+
 	port->board = NULL;
 	list_for_each_entry_safe(devinfo, next, &board->devices, links)
 		mikrobus_device_unregister(port, devinfo, board->name);
+
 	mikrobus_board_device_release_all(board);
 	kfree(board);
 	port->board = NULL;
@@ -545,8 +561,7 @@ static int mikrobus_port_id_eeprom_probe(struct mikrobus_port *port)
 	struct gpiod_lookup_table *lookup;
 	struct platform_device *mikrobus_id_eeprom_w1_device;
 	static struct w1_gpio_platform_data *mikrobus_id_eeprom_w1_pdata;
-	char devname[MIKROBUS_NAME_SIZE];
-	char drvname[MIKROBUS_NAME_SIZE] = "w1-gpio";
+	char devname[MIKROBUS_NAME_SIZE], drvname[MIKROBUS_NAME_SIZE] = "w1-gpio";
 	int retval;
 
 	mikrobus_id_eeprom_w1_device = kzalloc(sizeof(*mikrobus_id_eeprom_w1_device), GFP_KERNEL);
@@ -586,8 +601,7 @@ static int mikrobus_port_id_eeprom_probe(struct mikrobus_port *port)
 
 	bm = (struct w1_bus_master *)platform_get_drvdata(mikrobus_id_eeprom_w1_device);
 	if (!bm) {
-		dev_err(&port->dev, "failed to find W1 GPIO master, port [%s]\n", port->name);
-		goto early_exit;
+		return 0;
 	}
 
 	port->w1_master = w1_find_master_device(bm);
@@ -609,8 +623,7 @@ early_exit:
 int mikrobus_port_register(struct mikrobus_port *port)
 {
 	struct device *dev = &port->dev;
-	int retval;
-	int id;
+	int retval, id;
 
 	if (WARN_ON(!is_registered))
 		return -EAGAIN;
@@ -633,8 +646,10 @@ int mikrobus_port_register(struct mikrobus_port *port)
 		mutex_unlock(&core_lock);
 		if (id < 0)
 			return id;
+
 		port->id = id;
 	}
+
 	port->dev.bus = &mikrobus_bus_type;
 	port->dev.type = &mikrobus_port_type;
 	strncpy(port->name, "mikrobus-port", sizeof(port->name) - 1);
@@ -646,9 +661,11 @@ int mikrobus_port_register(struct mikrobus_port *port)
 		put_device(&port->dev);
 		return retval;
 	}
+
 	retval = class_compat_create_link(mikrobus_port_compat_class, &port->dev, port->dev.parent);
 	if (retval)
 		dev_warn(&port->dev, "failed to create compatibility class link\n");
+
 	if (!port->w1_master) {
 		dev_info(&port->dev, "mikrobus port %d eeprom empty probing default eeprom\n",
 			 port->id);
@@ -656,6 +673,7 @@ int mikrobus_port_register(struct mikrobus_port *port)
 		retval = mikrobus_port_id_eeprom_probe(port);
 		mutex_unlock(&core_lock);
 	}
+
 	return retval;
 }
 EXPORT_SYMBOL_GPL(mikrobus_port_register);
@@ -671,6 +689,7 @@ void mikrobus_port_delete(struct mikrobus_port *port)
 		pr_err("port [%s] not registered", port->name);
 		return;
 	}
+
 	if (port->board) {
 		dev_err(&port->dev, "attempting to delete port with registered boards, port [%s]\n",
 			port->name);
@@ -700,13 +719,13 @@ static int mikrobus_port_probe_pinctrl_setup(struct mikrobus_port *port)
 	state = pinctrl_lookup_state(port->pinctrl, PINCTRL_STATE_DEFAULT);
 	if (!IS_ERR(state)) {
 		retval = pinctrl_select_state(port->pinctrl, state);
-		if (retval != 0) {
-			dev_err(dev, "Failed to select state %s\n", PINCTRL_STATE_DEFAULT);
-			return retval;
+		if (retval) {
+			return dev_err_probe(dev, retval, "Failed to select state %s\n",
+					     PINCTRL_STATE_DEFAULT);
 		}
 	} else {
-		dev_err(dev, "failed to find state %s\n", PINCTRL_STATE_DEFAULT);
-		return PTR_ERR(state);
+		return dev_err_probe(dev, PTR_ERR(state), "failed to find state %s\n",
+				     PINCTRL_STATE_DEFAULT);
 	}
 
 	for (i = 0; i < MIKROBUS_NUM_PINCTRL_STATE; i++) {
@@ -718,6 +737,7 @@ static int mikrobus_port_probe_pinctrl_setup(struct mikrobus_port *port)
 	retval = mikrobus_port_pinctrl_select(port);
 	if (retval)
 		dev_err(dev, "failed to select pinctrl states [%d]", retval);
+
 	return retval;
 }
 
@@ -725,9 +745,7 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 {
 	struct mikrobus_port *port;
 	struct device *dev = &pdev->dev;
-	struct device_node *i2c_adap_np;
-	struct device_node *uart_np;
-	struct device_node *spi_np;
+	struct device_node *i2c_adap_np, *uart_np, *spi_np;
 	struct platform_device *temp_pdev;
 	struct spi_device *spi_dev;
 	struct serdev_device *serdev_dev;
@@ -737,22 +755,22 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 	if (!port)
 		return -ENOMEM;
 
+	/* I2C setup */
 	i2c_adap_np = of_parse_phandle(dev->of_node, "i2c-adapter", 0);
 	if (!i2c_adap_np) {
 		dev_err(dev, "cannot parse i2c-adapter\n");
 		retval = -ENODEV;
 		goto err_port;
 	}
-
 	port->i2c_adap = of_find_i2c_adapter_by_node(i2c_adap_np);
 	of_node_put(i2c_adap_np);
 
-	spi_np = of_parse_phandle(dev->of_node, "spi-master", 0);
+	/* SPI setup */
+	spi_np = of_parse_phandle(dev->of_node, "spi-controller", 0);
 	if (!spi_np) {
-		retval = dev_err_probe(dev, -ENODEV, "cannot parse spi-master");
+		retval = dev_err_probe(dev, -ENODEV, "cannot parse spi-controller");
 		goto err_port;
 	}
-
 	temp_pdev = of_find_device_by_node(spi_np);
 	of_node_put(spi_np);
 	if (!temp_pdev) {
@@ -766,6 +784,7 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 	}
 	port->spi_ctrl = spi_dev->controller;
 
+	/* UART setup */
 	uart_np = of_parse_phandle(dev->of_node, "uart", 0);
 	if (!uart_np) {
 		dev_err(dev, "cannot parse uart\n");
@@ -785,6 +804,7 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 	}
 	port->ser_ctrl = serdev_dev->ctrl;
 
+	/* GPIO setup */
 	port->gpios = gpiod_get_array(dev, "mikrobus", GPIOD_OUT_LOW);
 	if (IS_ERR(port->gpios)) {
 		retval = PTR_ERR(port->gpios);
@@ -792,16 +812,15 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 		goto err_port;
 	}
 
+	/* pinctrl setup */
 	port->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(port->pinctrl)) {
 		retval = PTR_ERR(port->pinctrl);
 		dev_err(dev, "failed to get pinctrl [%d]\n", retval);
 		goto err_port;
 	}
-
 	port->dev.parent = dev;
 	port->dev.of_node = pdev->dev.of_node;
-
 	retval = mikrobus_port_probe_pinctrl_setup(port);
 	if (retval) {
 		dev_err(dev, "failed to setup pinctrl [%d]\n", retval);
@@ -855,12 +874,14 @@ static int __init mikrobus_init(void)
 		pr_err("bus_register failed (%d)\n", retval);
 		return retval;
 	}
+
 	mikrobus_port_compat_class = class_compat_register("mikrobus-port");
 	if (!mikrobus_port_compat_class) {
 		pr_err("class_compat register failed (%d)\n", retval);
 		retval = -ENOMEM;
 		goto class_err;
 	}
+
 	retval = of_alias_get_highest_id("mikrobus");
 	if (retval >= __mikrobus_first_dynamic_bus_num)
 		__mikrobus_first_dynamic_bus_num = retval + 1;
@@ -869,6 +890,7 @@ static int __init mikrobus_init(void)
 	retval = platform_driver_register(&mikrobus_port_driver);
 	if (retval)
 		pr_err("driver register failed [%d]\n", retval);
+
 	return retval;
 
 class_err:

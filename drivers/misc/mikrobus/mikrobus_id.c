@@ -30,13 +30,11 @@ static ssize_t mikrobus_manifest_store(struct device *device, struct device_attr
 				       const char *buf, size_t count)
 {
 	u8 status = 0;
-	u16 pos = 0, crc, crc_read;
+	u16 crc, crc_read, pos = 0;
 	int cnt;
-
+	u8 release_command = W1_MIKROBUS_ID_RELEASE_EEPROM;
 	u8 write_request[] = { W1_MIKROBUS_ID_WRITE_EEPROM,
 			       W1_MIKROBUS_EEPROM_MANIFEST_START_PAGE };
-	u8 release_command = W1_MIKROBUS_ID_RELEASE_EEPROM;
-
 	struct w1_slave *sl = dev_to_w1_slave(device);
 
 	if (count > W1_MIKROBUS_ID_EEPROM_SIZE)
@@ -59,6 +57,7 @@ static ssize_t mikrobus_manifest_store(struct device *device, struct device_attr
 		for (cnt = 0; cnt < W1_MIKROBUS_ID_EEPROM_PAGE_SIZE; cnt++) {
 			w1_write_8(sl->master, (u8)buf[cnt]);
 		}
+
 		crc = crc16(0, buf, W1_MIKROBUS_ID_EEPROM_PAGE_SIZE) ^ 0xFFFF;
 		msleep(1);
 		w1_read_block(sl->master, (u8 *)&crc_read, sizeof(crc_read));
@@ -67,9 +66,7 @@ static ssize_t mikrobus_manifest_store(struct device *device, struct device_attr
 			break;
 
 		w1_write_8(sl->master, release_command);
-
 		msleep(10);
-
 		status = w1_read_8(sl->master);
 		w1_read_block(sl->master, (u8 *)&crc_read, sizeof(crc_read));
 		crc = crc16(0, (u8 *)&release_command, sizeof(release_command)) ^ 0xFFFF;
@@ -84,6 +81,7 @@ static ssize_t mikrobus_manifest_store(struct device *device, struct device_attr
 		pos += W1_MIKROBUS_ID_EEPROM_PAGE_SIZE;
 		write_request[1]++;
 	}
+
 	pr_info("mikrobus_id: manifest written bytes: %d", pos);
 	mutex_unlock(&sl->master->bus_mutex);
 
@@ -110,13 +108,14 @@ static int w1_mikrobus_id_readpage(struct w1_slave *sl, int pageaddr, char *buf)
 	w1_read_block(sl->master, crc_rdbuf, 1);
 	w1_read_block(sl->master, buf, W1_MIKROBUS_ID_EEPROM_PAGE_SIZE);
 	w1_read_block(sl->master, crc_rdbuf, 2);
+
 	return 0;
 }
 
 static int w1_mikrobus_id_readbuf(struct w1_slave *sl, int count, int off, char *buf)
 {
-	u8 pageaddr = off / W1_MIKROBUS_ID_EEPROM_PAGE_SIZE;
 	int iter, index, ret;
+	u8 pageaddr = off / W1_MIKROBUS_ID_EEPROM_PAGE_SIZE;
 	int len = count - (count % W1_MIKROBUS_ID_EEPROM_PAGE_SIZE);
 	u8 temp_rdbuf[W1_MIKROBUS_ID_EEPROM_PAGE_SIZE];
 
@@ -141,21 +140,24 @@ static int w1_mikrobus_id_readblock(struct w1_slave *sl, int off, int count, cha
 {
 	u8 *cmp;
 	int tries = W1_MIKROBUS_ID_EEPROM_READ_RETRIES;
+	int ret = -EINVAL;
+
+	cmp = kzalloc(count, GFP_KERNEL);
+	if (!cmp)
+		return -ENOMEM;
 
 	do {
 		w1_mikrobus_id_readbuf(sl, count, off, buf);
-		cmp = kzalloc(count, GFP_KERNEL);
-		if (!cmp)
-			return -ENOMEM;
+
 		w1_mikrobus_id_readbuf(sl, count, off, cmp);
 		if (!memcmp(cmp, buf, count)) {
-			kfree(cmp);
-			return 0;
+			ret = 0;
+			break;
 		}
 	} while (--tries);
 
 	kfree(cmp);
-	return -EINVAL;
+	return ret;
 }
 
 static int w1_mikrobus_id_nvmem_read(void *priv, unsigned int off, void *buf, size_t count)
@@ -191,7 +193,7 @@ static int w1_mikrobus_id_add_slave(struct w1_slave *sl)
 
 	nvmem_cfg.name = port->name;
 	nvmem = devm_nvmem_register(&sl->dev, &nvmem_cfg);
-	if(IS_ERR(nvmem))
+	if (IS_ERR(nvmem))
 		return PTR_ERR(nvmem);
 
 	port->eeprom = nvmem;
