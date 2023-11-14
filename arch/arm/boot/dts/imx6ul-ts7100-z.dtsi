@@ -64,8 +64,6 @@
 		"",              "",              "",              "",
 		"",              "",              "",              "",
 		"",              "",              "",              "",
-		"",              "",              "",              "",
-		"",              "",              "",              "",
 		"",              "",              "",              "";
 };
 
@@ -75,11 +73,7 @@
 		"DIO_1_OUT", "DIO_2_OUT", "DIO_1_IN",  "DIO_2_IN",
 		"DIO_3_IN",  "DIO_6",     "DIG_IN_1",  "DIG_IN_2",
 		"DIG_IN_3",  "EN_CL_1",   "EN_CL_2",   "EN_CL_3",
-		"",          "",          "EN_CL_4",   "EN_HS_SW",
-		"",          "",          "",          "",
-		"",          "",          "",          "",
-		"",          "",          "",          "",
-		"",          "",          "",          "";
+		"",          "",          "EN_CL_4",   "EN_HS_SW";
 };
 
 /* gpiochip6; FPGA dio2: */
@@ -88,11 +82,7 @@
 		"EN_EMMC_3V3#",   "EN_ADC1_12V",    "EN_ADC2_12V",    "EN_ADC3_12V",
 		"EN_ADC4_12V",    "EN_USB_HOST_5V", "PHY_RESET#",     "WIFI_RESET#",
 		"IO_RED_LED#",    "IO_GREEN_LED#",  "",               "",
-		"EN_PROG_SILAB",  "DIO_3_OUT",      "EN_HSPWM",       "EN_LSPWM",
-		"",               "",               "",               "",
-		"",               "",               "",               "",
-		"",               "",               "",               "",
-		"",               "",               "",               "";
+		"EN_PROG_SILAB",  "DIO_3_OUT",      "EN_HSPWM",       "EN_LSPWM";
 };
 
 /* gpiochip7; FPGA dio3: */
@@ -101,11 +91,7 @@
 		"CPU_TOUCH_IRQ#", "",               "C6_PAD",         "B8_PAD",
 		"C9_PAD",         "C8_PAD",         "NIM_3V3#_4V",    "DIO_16_PAD",
 		"NIM_PWR_ON",     "SEL_NIM_USB",    "DIO_FAULT#",     "",
-		"",               "",               "EN_BK_LT#",      "",
-		"",               "",               "",               "",
-		"",               "",               "",               "",
-		"",               "",               "",               "",
-		"",               "",               "",               "";
+		"",               "",               "EN_BK_LT#",      "";
 };
 
 &iomuxc {
