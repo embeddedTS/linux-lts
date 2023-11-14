@@ -45,7 +45,7 @@
 	gpio-line-names =
 		"RS485_5_TXEN",  "RTC_BATT_FAIL", "I2C_1_CLK",     "I2C_1_DAT",
 		"AN_CH0",        "AN_CH1",        "",              "",
-		"",              "AN_CH2",        "RS485_2_TXEN",  "",
+		"AN_CH2",        "RS485_2_TXEN",  "",              "",
 		"",              "",              "",              "",
 		"",              "",              "",              "",
 		"",              "",              "",              "",
