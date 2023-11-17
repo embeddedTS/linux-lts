@@ -71,7 +71,7 @@
 &gpio5 {
 	gpio-line-names =
 		"POWER_FAIL_3V", "FPGA_IRQ",      "",              "",
-		"EN_RELAY_1",    "EN_RELAY_2",    "",              "",
+		"EN_RELAY_1",    "EN_RELAY_2",    "NIM_RESET",     "",
 		"",              "",              "",              "",
 		"",              "",              "",              "",
 		"",              "",              "",              "",
@@ -120,24 +120,25 @@
 				 * 0x1a020 == no pull resistor
 				 * 0x13020 == 100k PD
 				 */
+
 				 /* REV B Strap */
 				MX6UL_PAD_JTAG_TDO__GPIO1_IO12		0x1b020
 
+				/* NIM_STATUS - set to drop when modem is no longer driving it high */
+				MX6UL_PAD_LCD_DATA09__GPIO3_IO14	0x13020
+
+				/* POWER_FAIL */
+				MX6UL_PAD_SNVS_TAMPER0__GPIO5_IO00	0x1b020
 				/* EN_RELAY 1 */
 				MX6UL_PAD_SNVS_TAMPER4__GPIO5_IO04	0x1a020
 				/* EN_RELAY 2 */
 				MX6UL_PAD_SNVS_TAMPER5__GPIO5_IO05	0x1a020
 				/* NIM_RESET */
 				MX6UL_PAD_SNVS_TAMPER6__GPIO5_IO06	0x1b020
-				/* NIM Status */
-				MX6UL_PAD_LCD_DATA09__GPIO3_IO14	0x1b020
 				/* FPGA Spares */
 				MX6UL_PAD_SNVS_TAMPER7__GPIO5_IO07	0x1b020
 				MX6UL_PAD_SNVS_TAMPER8__GPIO5_IO08	0x1b020
 				MX6UL_PAD_SNVS_TAMPER9__GPIO5_IO09	0x1b020
-
-				/* POWER_FAIL */
-				MX6UL_PAD_SNVS_TAMPER0__GPIO5_IO00	0x1b020
 			>;
 		};
 
