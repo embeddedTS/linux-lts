@@ -41,6 +41,7 @@
 	};
 };
 
+/* CPU GPIO1: 209c000.gpio */
 &gpio1 {
 	gpio-line-names =
 		"RS485_5_TXEN",  "RTC_BATT_FAIL", "I2C_1_CLK",     "I2C_1_DAT",
