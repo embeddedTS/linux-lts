@@ -54,6 +54,59 @@
 		"",              "",              "",              "";
 };
 
+/* CPU GPIO3: 20a4000.gpio */
+&gpio3 {
+	gpio-line-names =
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "NIM_STATUS",    "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "";
+};
+
+/* CPU GPIO5: 20ac000.gpio */
+&gpio5 {
+	gpio-line-names =
+		"POWER_FAIL_3V", "FPGA_IRQ",      "",              "",
+		"EN_RELAY_1",    "EN_RELAY_2",    "NIM_RESET",     "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "";
+};
+
+/* FPGA dio: 50004010.gpio */
+&gpio6 {
+	gpio-line-names =
+		"DIO_1_OUT", "DIO_2_OUT", "DIO_1_IN",  "DIO_2_IN",
+		"DIO_3_IN",  "DIO_6",     "DIG_IN_1",  "DIG_IN_2",
+		"DIG_IN_3",  "EN_CL_1",   "EN_CL_2",   "EN_CL_3",
+		"",          "",          "EN_CL_4",   "EN_HS_SW";
+};
+
+/* FPGA dio2: 50004040.gpio */
+&gpio7 {
+	gpio-line-names =
+		"EN_EMMC_3V3#",   "EN_ADC1_12V",    "EN_ADC2_12V",    "EN_ADC3_12V",
+		"EN_ADC4_12V",    "EN_USB_HOST_5V", "PHY_RESET#",     "WIFI_RESET#",
+		"IO_RED_LED#",    "IO_GREEN_LED#",  "",               "",
+		"EN_PROG_SILAB",  "DIO_3_OUT",      "EN_HSPWM",       "EN_LSPWM";
+};
+
+/* FPGA dio3: 50004050.gpio */
+&gpio8 {
+	gpio-line-names =
+		"CPU_TOUCH_IRQ#", "",               "C6_PAD",         "B8_PAD",
+		"C9_PAD",         "C8_PAD",         "NIM_3V3#_4V",    "DIO_16_PAD",
+		"NIM_PWR_ON",     "SEL_NIM_USB",    "DIO_FAULT#",     "",
+		"",               "",               "EN_BK_LT#",      "";
+};
+
 &iomuxc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&ts7100_3_pinctrl_hog>;
