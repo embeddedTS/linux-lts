@@ -42,9 +42,9 @@
 /* CPU GPIO1: 209c000.gpio */
 &gpio1 {
 	gpio-line-names =
-		"AN_CH4",        "RTC_BATT_FAIL", "I2C_1_CLK",     "I2C_1_DAT",
+		"RS485_5_TXEN",  "RTC_BATT_FAIL", "I2C_1_CLK",     "I2C_1_DAT",
 		"AN_CH0",        "AN_CH1",        "",              "",
-		"AN_CH2",        "AN_CH3",        "",              "",
+		"AN_CH2",        "RS485_2_TXEN",  "",              "",
 		"",              "",              "",              "",
 		"",              "",              "",              "",
 		"",              "",              "",              "",
@@ -107,10 +107,10 @@
 
 &iomuxc {
 	pinctrl-names = "default";
-	pinctrl-0 = <&ts7100z_pinctrl_hog>;
+	pinctrl-0 = <&ts7100_3_pinctrl_hog>;
 
-	imx6ul-ts7100z {
-		ts7100z_pinctrl_hog: ts7100zhoggrp {
+	imx6ul-ts7100-3 {
+		ts7100_3_pinctrl_hog: hoggrp {
 			fsl,pins = <
 				/*
 				 * All GPIO should be 0x1b020 unless special
@@ -140,14 +140,12 @@
 			>;
 		};
 
-		pinctrl_adc1: adc1grp{
+		pinctrl_adc1: adc1grp {
 			fsl,pins = <
-				MX6UL_PAD_GPIO1_IO00__GPIO1_IO00	0x1a020
 				MX6UL_PAD_GPIO1_IO01__GPIO1_IO01	0x1a020
 				MX6UL_PAD_GPIO1_IO04__GPIO1_IO04	0x1a020
 				MX6UL_PAD_GPIO1_IO05__GPIO1_IO05	0x1a020
 				MX6UL_PAD_GPIO1_IO08__GPIO1_IO08	0x1a020
-				MX6UL_PAD_GPIO1_IO09__GPIO1_IO09	0x1a020
 			>;
 		};
 
@@ -164,11 +162,11 @@
 
 		pinctrl_uart2: uart2grp {
 			fsl,pins = <
+				MX6UL_PAD_GPIO1_IO09__GPIO1_IO09	0x13020
 				MX6UL_PAD_UART2_RX_DATA__UART2_DCE_RX	0x1b0b1
 				MX6UL_PAD_UART2_TX_DATA__UART2_DCE_TX	0x1b0b1
 			>;
 		};
-
 		pinctrl_uart3: uart3grp {
 			fsl,pins = <
 				MX6UL_PAD_UART3_CTS_B__UART3_DCE_CTS	0x1b0b1
@@ -188,6 +186,7 @@
 
 		pinctrl_uart5: uart5grp {
 			fsl,pins = <
+				MX6UL_PAD_GPIO1_IO00__GPIO1_IO00	0x13020
 				MX6UL_PAD_UART5_RX_DATA__UART5_DCE_RX	0x1b0b1
 				MX6UL_PAD_UART5_TX_DATA__UART5_DCE_TX	0x1b0b1
 			>;
@@ -198,7 +197,10 @@
 &uart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart2>;
-	status = "okay";
+	uart-has-rtscts;
+	rts-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
+	linux,rs485-enabled-at-boot-time;
+	dma-names = "", "";
 };
 
 &uart3 {
@@ -218,7 +220,9 @@
 &uart5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart5>;
-	status = "okay";
+	uart-has-rtscts;
+	linux,rs485-enabled-at-boot-time;
+	dma-names = "", "";
 };
 
 &usbotg1 {

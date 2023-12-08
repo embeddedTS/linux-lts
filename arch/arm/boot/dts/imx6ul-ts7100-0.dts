@@ -1,9 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0+ or X11
 /*
- * Copyright 2019-2022 Technologic Systems, Inc. dba embeddedTS
+ * Copyright (C) 2019-2023 Technologic Systems, Inc. dba embeddedTS
+ */
+
+/*
+ * This is the device tree for standard TS-7100-Z board option 0.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * imx6ul-ts7100.dtsi   : common to all TS-7100s
+ * imx6ul-ts7100-z.dtsi : common to all TS-7100-Zs and boards based on it 
+ * imx6ul-ts7100-0.dts  : io_model == 0 (pre-RevA boards)
  */
 
 
@@ -12,7 +17,7 @@
 #include "imx6ul-ts7100-z.dtsi"
 
 / {
-	model = "embeddedTS i.MX6UL TS-7100 (TS-7100-Z)";
+	model = "embeddedTS i.MX6UL TS-7100";
 	compatible = "technologic,ts7100", "technologic,ts7100z", "fsl,imx6ul";
 };
 
