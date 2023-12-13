@@ -14,8 +14,6 @@
 	compatible = "fsl,imx28-ts7400v2", "fsl,imx28";
 
 	aliases {
-		mmc0 = &ssp0;
-		mmc2 = &ssp1;
 		spi0 = &ssp2;
 		i2c0 = &i2c0;
 	};
