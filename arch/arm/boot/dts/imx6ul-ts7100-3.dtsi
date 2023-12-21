@@ -21,24 +21,6 @@
 	};
 };
 
-&ecspi3 {
-	num-cs = <1>;
-	cs-gpios = <&gpio4 12 GPIO_ACTIVE_LOW>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ecspi3>;
-	status = "okay";
-
-	wilc3000: wifi@0 {
-		compatible = "microchip,wilc3000";
-		reg = <0>;
-		spi-max-frequency = <20000000>;
-		reset-gpios = <&gpio7 7 GPIO_ACTIVE_HIGH>;
-		chip_en-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
-		interrupt-parent = <&gpio1>;
-		interrupts = <11 GPIO_ACTIVE_HIGH>;
-	};
-};
-
 /* CPU GPIO1: 209c000.gpio */
 &gpio1 {
 	gpio-line-names =
@@ -103,95 +85,6 @@
 		"C9_PAD",         "C8_PAD",         "NIM_3V3#_4V",    "DIO_16_PAD",
 		"NIM_PWR_ON",     "SEL_NIM_USB",    "DIO_FAULT#",     "",
 		"",               "",               "EN_BK_LT#",      "";
-};
-
-&iomuxc {
-	pinctrl-names = "default";
-	pinctrl-0 = <&ts7100_3_pinctrl_hog>;
-
-	imx6ul-ts7100-3 {
-		ts7100_3_pinctrl_hog: hoggrp {
-			fsl,pins = <
-				/*
-				 * All GPIO should be 0x1b020 unless special
-				 * 0x1b020 == Hyst., 100k PU, 50 mA drive
-				 * 0x1a020 == no pull resistor
-				 * 0x13020 == 100k PD
-				 */
-
-				 /* REV B Strap */
-				MX6UL_PAD_JTAG_TDO__GPIO1_IO12		0x1b020
-
-				/* NIM_STATUS - set to drop when modem is no longer driving it high */
-				MX6UL_PAD_LCD_DATA09__GPIO3_IO14	0x13020
-
-				/* POWER_FAIL */
-				MX6UL_PAD_SNVS_TAMPER0__GPIO5_IO00	0x1b020
-				/* EN_RELAY 1 */
-				MX6UL_PAD_SNVS_TAMPER4__GPIO5_IO04	0x1a020
-				/* EN_RELAY 2 */
-				MX6UL_PAD_SNVS_TAMPER5__GPIO5_IO05	0x1a020
-				/* NIM_RESET */
-				MX6UL_PAD_SNVS_TAMPER6__GPIO5_IO06	0x1b020
-				/* FPGA Spares */
-				MX6UL_PAD_SNVS_TAMPER7__GPIO5_IO07	0x1b020
-				MX6UL_PAD_SNVS_TAMPER8__GPIO5_IO08	0x1b020
-				MX6UL_PAD_SNVS_TAMPER9__GPIO5_IO09	0x1b020
-			>;
-		};
-
-		pinctrl_adc1: adc1grp {
-			fsl,pins = <
-				MX6UL_PAD_GPIO1_IO01__GPIO1_IO01	0x1a020
-				MX6UL_PAD_GPIO1_IO04__GPIO1_IO04	0x1a020
-				MX6UL_PAD_GPIO1_IO05__GPIO1_IO05	0x1a020
-				MX6UL_PAD_GPIO1_IO08__GPIO1_IO08	0x1a020
-			>;
-		};
-
-		pinctrl_ecspi3: ecspi3grp {
-			fsl,pins = <
-				MX6UL_PAD_JTAG_TCK__GPIO1_IO14		0x1b020
-				MX6UL_PAD_JTAG_TMS__GPIO1_IO11		0x1b020
-				MX6UL_PAD_NAND_CE0_B__ECSPI3_SCLK	0x1b020
-				MX6UL_PAD_NAND_CE1_B__ECSPI3_MOSI	0x1b020
-				MX6UL_PAD_NAND_CLE__ECSPI3_MISO		0x1b020
-				MX6UL_PAD_NAND_READY_B__GPIO4_IO12	0x1b020
-			>;
-		};
-
-		pinctrl_uart2: uart2grp {
-			fsl,pins = <
-				MX6UL_PAD_GPIO1_IO09__GPIO1_IO09	0x13020
-				MX6UL_PAD_UART2_RX_DATA__UART2_DCE_RX	0x1b0b1
-				MX6UL_PAD_UART2_TX_DATA__UART2_DCE_TX	0x1b0b1
-			>;
-		};
-		pinctrl_uart3: uart3grp {
-			fsl,pins = <
-				MX6UL_PAD_UART3_CTS_B__UART3_DCE_CTS	0x1b0b1
-				MX6UL_PAD_UART3_RTS_B__UART3_DCE_RTS	0x1b0b1
-				MX6UL_PAD_UART3_RX_DATA__UART3_DCE_RX	0x1b0b1
-				MX6UL_PAD_UART3_TX_DATA__UART3_DCE_TX	0x1b0b1
-			>;
-		};
-
-		pinctrl_uart4: uart4grp {
-			fsl,pins = <
-				MX6UL_PAD_JTAG_TDI__GPIO1_IO13		0x1b020
-				MX6UL_PAD_UART4_RX_DATA__UART4_DCE_RX	0x1b0b1
-				MX6UL_PAD_UART4_TX_DATA__UART4_DCE_TX	0x1b0b1
-			>;
-		};
-
-		pinctrl_uart5: uart5grp {
-			fsl,pins = <
-				MX6UL_PAD_GPIO1_IO00__GPIO1_IO00	0x13020
-				MX6UL_PAD_UART5_RX_DATA__UART5_DCE_RX	0x1b0b1
-				MX6UL_PAD_UART5_TX_DATA__UART5_DCE_TX	0x1b0b1
-			>;
-		};
-	};
 };
 
 &uart2 {
