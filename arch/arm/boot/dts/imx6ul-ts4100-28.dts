@@ -1,0 +1,340 @@
+// SPDX-License-Identifier: GPL-2.0 OR X11
+/*
+ * Copyright (C) 2024 Technologic Systems, Inc. dba embeddedTS
+ */
+
+/dts-v1/;
+#include "imx6ul-ts4100.dtsi"
+
+/ {
+	model = "embeddedTS i.MX6UL TS-4100 (Custom)";
+	compatible = "fsl,imx6ul-ts4100", "fsl,imx6ul";
+};
+
+/ {
+	adc_ansel_mux: mux-controller {
+		compatible = "gpio-mux";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ansel_mux_gpio>;
+		#mux-control-cells = <0>;
+
+		/* While there are 32 addresses muxable, only the lower 24 are used */
+		mux-gpios = <&gpio3 7 GPIO_ACTIVE_HIGH>,
+			    <&gpio3 8 GPIO_ACTIVE_HIGH>,
+			    <&gpio3 9 GPIO_ACTIVE_HIGH>,
+			    <&gpio3 10 GPIO_ACTIVE_HIGH>,
+			    <&gpio3 11 GPIO_ACTIVE_HIGH>;
+	};
+
+	adc_mux: adc-mux {
+		compatible = "io-channel-mux";
+		io-channels = <&adc121c_muxed 0>;
+		io-channel-names = "parent";
+		#io-channel-cells = <1>;
+		mux-controls = <&adc_ansel_mux>;
+		settle-time-us = <1000>;
+
+		channels = "JF_1", "JF_3", "JF_5", "JF_7",		// U22 0-3
+			   "JG_1", "JG_3", "JG_5", "JG_7",		// U22 4-7
+			   "JE_3", "JE_5", "AN_RAW_30V", "AN_24V",	// U20 0-3
+			   "AN_12V", "AN5_V", "SBC_3V3", "AN_LCD_BIAS",	// U20 4-7
+			   "KN_1", "KN_3", "KN_5", "KN_7",		// U21 0-3
+			   "KF_1", "KF_3", "KF_5", "KF_7";		// U21 4-7
+	};
+
+	/* This can be used to create a /dev/lcd device which can just have
+	 * characters echo'ed to it to draw to the screen.
+	 */
+	/*
+	auxdisplay {
+		compatible = "hit,hd44780";
+		data-gpios = <&pca9555_lcd 0 GPIO_ACTIVE_HIGH>,
+			     <&pca9555_lcd 1 GPIO_ACTIVE_HIGH>,
+			     <&pca9555_lcd 2 GPIO_ACTIVE_HIGH>,
+			     <&pca9555_lcd 3 GPIO_ACTIVE_HIGH>,
+			     <&pca9555_lcd 4 GPIO_ACTIVE_HIGH>,
+			     <&pca9555_lcd 5 GPIO_ACTIVE_HIGH>,
+			     <&pca9555_lcd 6 GPIO_ACTIVE_HIGH>,
+			     <&pca9555_lcd 7 GPIO_ACTIVE_HIGH>;
+		enable-gpios = <&pca9555_lcd 10 GPIO_ACTIVE_HIGH>;
+		rs-gpios = <&pca9555_lcd 9 GPIO_ACTIVE_HIGH>;
+		rw-gpios = <&pca9555_lcd 8 GPIO_ACTIVE_HIGH>;
+
+		// Adjust these as needed
+		display-height-chars = <2>;
+		display-width-chars = <16>;
+	};
+	*/
+
+
+	i2c_can1: i2c_can1 {
+		compatible = "i2c-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c_can1_gpio>;
+		sda-gpios = <&gpio3 14 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
+		scl-gpios = <&gpio3 13 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pca9555_mode: gpio@21 {
+			compatible = "nxp,pca9555";
+			gpio-controller;
+			vcc-supply = <&reg_5v>;
+			#gpio-cells = <2>;
+
+			reg = <0x21>;
+
+			gpio-line-names =
+				"MODE.1.1",
+				"MODE.1.2",
+				"MODE.1.3",
+				"MODE.1.4",
+				"MODE.1.5",
+				"MODE.1.6",
+				"MODE.2.1",
+				"MODE.2.2",
+				"MODE.2.3",
+				"MODE.2.4",
+				"MODE.2.5",
+				"MODE.2.6",
+				"NO_CHRG_JP#",
+				"EN_30V_HS_SW",
+				"EN_BLK_24V",
+				"SW_24V";
+		};
+
+		pca9555_dc: gpio@23 {
+			compatible = "nxp,pca9555";
+			gpio-controller;
+			vcc-supply = <&reg_5v>;
+			#gpio-cells = <2>;
+	
+			reg = <0x23>;
+
+			gpio-line-names =
+				"DC_01",
+				"DC_02",
+				"DC_03",
+				"DC_04",
+				"DC_05",
+				"DC_06",
+				"DC_07",
+				"DC_08",
+				"DC_09",
+				"DC_10",
+				"DC_11",
+				"FWD_1#",
+				"REV_1#",
+				"FWD_2#",
+				"REV_2#",
+				"EN_24V_SUPPLY";
+		};
+
+		adc121c_muxed: adc@5a {
+			compatible = "ti,adc121c";
+			#io-channel-cells = <1>;
+			vref-supply = <&vref_vdd_adc_3v3>;
+			reg = <0x5a>;
+		/* HAS GPIO MUX! */
+		/* MUST WAIT 1 ms AFTER CHANGING MUX BEFORE READ! */
+		};
+
+		m41t00s: rtc@68 {
+			compatible = "st,m41t00";
+			reg = <0x68>;
+		};
+
+	};
+
+	reg_5v: regulator-5v {
+		compatible = "regulator-fixed";
+		regulator-name = "5V";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+};
+
+&can1 {
+	status = "disabled";
+};
+
+&can2 {
+	status = "disabled";
+};
+
+&gpio1 {
+	gpio-line-names = "USB_OTG_ID", "GPIO_1_ADC", "I2C_1_CLK", "I2C_1_DAT",
+		"EN_OTG1_5V", "", "", "", "GPIO_8_PWM", "GPIO_9_ADC", "",
+		"ONBD_ROTARY_A", "", "", "", "", "", "", "SPARE_1", "SPARE_2",
+		"", "ROTARY_PUSH#", "", "", "", "FREQ_2_CBAR", "", "WIND_CBAR",
+		"", "", "", "JB_5";
+};
+
+&gpio3 {
+	gpio-line-names = "LCD_PIX_CLK", "EN_LCD_3.3V", "LCD_HSYNC", "LCD_VSYNC",
+		"", "I2C_3_DAT", "I2C_3_CLK", "AN_MUX_A0", "AN_MUX_A1", "AN_MUX_A2",
+		"AN_MUX_A3", "AN_MUX_A6", "LCD_D07", "", "", "60_SECOND#", "PEAK_AC#",
+		"LCD_D12", "LCD_D13", "JB_3", "JB_7", "", "JB_1", "LCD_D18_PWM5",
+		"LCD_D19_PWM6", "LCD_D20", "LCD_D21", "BUF_FREQ1", "LCD_D23";
+};
+
+&gpio4 {
+	gpio-line-names = "", "", "", "", "", "", "", "", "", "", "", "FPGA_RESET#",
+		"", "", "", "", "", "CAM_MCLK", "CAM_PIX_CLK", "CAM_VSYNC",
+		"CAM_HSYNC", "ONBD_ROTARY_B", "OFFBD_ROTARY_A", "OFFBD_ROTARY_B",
+		"CAM_D_3", "CAM_D_4", "CAM_D_5", "CAM_D_6", "CAM_D_7";
+};
+
+&i2c3 {
+	pca9555_lcd: gpio@22 {
+		compatible = "nxp,pca9555";
+		gpio-controller;
+		vcc-supply = <&reg_5v>;
+		#gpio-cells = <2>;
+
+		reg = <0x22>;
+
+		gpio-line-names =
+			"CHAR_LCD_D0",
+			"CHAR_LCD_D1",
+			"CHAR_LCD_D2",
+			"CHAR_LCD_D3",
+			"CHAR_LCD_D4",
+			"CHAR_LCD_D5",
+			"CHAR_LCD_D6",
+			"CHAR_LCD_D7",
+			"CHAR_LCD_RW",
+			"CHAR_LCD_RS",
+			"CHAR_LCD_EN",
+			"TP_20",
+			"JA_1",
+			"JA_3",
+			"JA_5",
+			"JA_7";
+	};
+
+	pca9555_triac: gpio@20 {
+		compatible = "nxp,pca9555";
+		gpio-controller;
+		vcc-supply = <&reg_5v>;
+		#gpio-cells = <2>;
+
+		reg = <0x20>;
+
+		gpio-line-names =
+			"TRIAC_01",
+			"TRIAC_02",
+			"TRIAC_03",
+			"TRIAC_04",
+			"TRIAC_05",
+			"TRIAC_06",
+			"TRIAC_07",
+			"TRIAC_08",
+			"TRIAC_09",
+			"TRIAC_10",
+			"TRIAC_11",
+			"TRIAC_12",
+			"TRIAC_13",
+			"TRIAC_14",
+			"TRIAC_15",
+			"TRIAC_16";
+	};
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+        pinctrl-0 = <&ts4100_pinctrl_hog &pinctrl_hog28 &pinctrl_onboard_encoder &pinctrl_offboard_encoder &pinctrl_onoffboard_encoder_push>;
+	imx6ul-ts4100-28 {
+		pinctrl_hog28: hog28grp {
+			fsl,pins = <
+				/* ttymxc2 rx passthrough from CN2_100/UARTD RX */
+				MX6UL_PAD_UART3_RX_DATA__GPIO1_IO25	0x1b020
+				/* ttymxc2 rts passed through from CN2_96/UARTC RX */
+				MX6UL_PAD_UART3_RTS_B__GPIO1_IO27	0x1a020
+				/* 60 second */
+				MX6UL_PAD_LCD_DATA10__GPIO3_IO15	0x1b020
+				/* Peak AC two locations */
+				MX6UL_PAD_LCD_DATA11__GPIO3_IO16	0x1b020
+				MX6UL_PAD_UART2_RTS_B__GPIO1_IO23	0x1b020
+				/* JB pin 1 */
+				MX6UL_PAD_LCD_DATA17__GPIO3_IO22	0x1b020
+				/* JB pin 3 */
+				MX6UL_PAD_LCD_DATA14__GPIO3_IO19	0x1b020
+				/* JB pin 5 */
+				MX6UL_PAD_UART5_RX_DATA__GPIO1_IO31	0x1b020
+				/* JB pin 7 */
+				MX6UL_PAD_LCD_DATA15__GPIO3_IO20	0x1b020
+				/* BUF_FREQ_1 non-CBAR */
+				MX6UL_PAD_LCD_DATA22__GPIO3_IO27	0x1b020
+				/* Loopback cable detection for internal test */
+				MX6UL_PAD_LCD_HSYNC__GPIO3_IO02		0x1b020
+				
+			>;
+		};
+
+		pinctrl_i2c_can1_gpio: i2ccan1gpiogrp {
+			fsl,pins = <
+				MX6UL_PAD_LCD_DATA08__GPIO3_IO13	0x1a020
+				MX6UL_PAD_LCD_DATA09__GPIO3_IO14	0x1a020
+			>;
+		};
+
+		pinctrl_ansel_mux_gpio: anselmuxgpiogrp {
+			fsl,pins = <
+				MX6UL_PAD_LCD_DATA02__GPIO3_IO07	0x13020
+				MX6UL_PAD_LCD_DATA03__GPIO3_IO08	0x13020
+				MX6UL_PAD_LCD_DATA04__GPIO3_IO09	0x13020
+				MX6UL_PAD_LCD_DATA05__GPIO3_IO10	0x13020
+				MX6UL_PAD_LCD_DATA06__GPIO3_IO11	0x13020
+			>;
+		};
+
+		pinctrl_onboard_encoder: onboardencodergrp {
+			fsl,pins = <
+				MX6UL_PAD_CSI_DATA00__GPIO4_IO21	0x1a020
+				MX6UL_PAD_JTAG_TMS__GPIO1_IO11		0x1a020
+			>;
+		};
+
+		pinctrl_offboard_encoder: offboardencodergrp {
+			fsl,pins = <
+				MX6UL_PAD_CSI_DATA01__GPIO4_IO22	0x1a020
+				MX6UL_PAD_CSI_DATA02__GPIO4_IO23	0x1a020
+			>;
+		};
+
+		pinctrl_onoffboard_encoder_push: encoderpushgrp {
+			fsl,pins = <
+				MX6UL_PAD_UART2_RX_DATA__GPIO1_IO21	0x1b020
+			>;
+		};
+	};
+};
+
+&uart4 {
+	uart-has-rtscts;
+	/* gpio 1_18 is initialized by the hog group in 4100.dtsi
+	 * It is the SPARE_1 pin, needs to be set up in FPGA to pass to TXEN
+	 * with the command 'tshwctl --out 0x31 --in 0x1'
+	 */
+	rts-gpios = <&gpio1 18 GPIO_ACTIVE_HIGH>;
+	dma-names = "", "";
+	linux,rs485-enabled-at-boot-time;
+};
+
+&uart2 {
+	status = "disabled";
+};
+
+&uart3 {
+	status = "disabled";
+};
+
+&uart7 {
+	status = "disabled";
+};
+
+&uart5 {
+	status = "disabled";
+};
