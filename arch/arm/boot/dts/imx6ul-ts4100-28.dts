@@ -45,7 +45,6 @@
 	/* This can be used to create a /dev/lcd device which can just have
 	 * characters echo'ed to it to draw to the screen.
 	 */
-	/*
 	auxdisplay {
 		compatible = "hit,hd44780";
 		data-gpios = <&pca9555_lcd 0 GPIO_ACTIVE_HIGH>,
@@ -61,10 +60,9 @@
 		rw-gpios = <&pca9555_lcd 8 GPIO_ACTIVE_HIGH>;
 
 		// Adjust these as needed
-		display-height-chars = <2>;
-		display-width-chars = <16>;
+		display-height-chars = <4>;
+		display-width-chars = <20>;
 	};
-	*/
 
 
 	i2c_can1: i2c_can1 {
