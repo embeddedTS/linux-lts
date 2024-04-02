@@ -898,7 +898,6 @@ static int max3100_probe(struct spi_device *spi)
 	mutex_lock(&max3100ts_common.max3100ts_lock);
 
 	if (!uart_driver_registered) {
-		uart_driver_registered = 1;
 		retval = uart_register_driver(&max3100_uart_driver);
 		if (retval) {
 			printk(KERN_ERR
@@ -906,6 +905,8 @@ static int max3100_probe(struct spi_device *spi)
 			mutex_unlock(&max3100ts_common.max3100ts_lock);
 			return retval;
 		}
+
+		uart_driver_registered = 1;
 	}
 
 	pdata = max3100_probe_dt(&spi->dev);
@@ -1027,6 +1028,7 @@ static void max3100_remove(struct spi_device *spi)
 
 	pr_debug("removing max3100 driver\n");
 	uart_unregister_driver(&max3100_uart_driver);
+	uart_driver_registered = 0;
 
 	mutex_unlock(&max3100ts_common.max3100ts_lock);
 }
