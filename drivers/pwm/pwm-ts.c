@@ -16,7 +16,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/pwm.h>
 #include <linux/slab.h>
-#include <linux/spinlock.h>
 
 /* Enabled bit is the only one that applies immediately.  All other registers
  * take effect when apply is set
@@ -37,11 +36,6 @@
 struct ts_pwm {
 	struct pwm_chip chip;
 	void __iomem *base;
-	spinlock_t lock;
-	u16 duty;
-	u16 period;
-	u8 shift;
-	struct pwm_state state;
 	struct clk *clk;
 };
 
@@ -56,7 +50,9 @@ static int ts_pwm_calc(struct ts_pwm *ts,
 {
 	unsigned long clk_rate = clk_get_rate(ts->clk);
 	unsigned long long cycle;
-	unsigned int shift, cnt, duty_cnt;
+	unsigned int  cnt, duty_cnt;
+	u16 duty_reg;
+	u8 shift;
 
 	/* Calc shift & period reg */
 	for (shift = 0; shift < SHIFT_MAX; shift++) {
@@ -73,14 +69,11 @@ static int ts_pwm_calc(struct ts_pwm *ts,
 	dev_dbg(ts->chip.dev, "cycle=%llu shift=%u cnt=%u\n",
 		cycle, shift, cnt);
 
+
 	if (duty == period) {
-		ts->shift = shift;
-		ts->period = cnt;
-		ts->duty = cnt;
+		duty_reg = cnt;
 	} else if (duty == 0) {
-		ts->shift = shift;
-		ts->period = cnt;
-		ts->duty = 0;
+		duty_reg = 0;
 	} else {
 		duty_cnt = DIV_ROUND_CLOSEST(duty * 100, (unsigned int)cycle);
 		if (duty_cnt > CYCLE_MASK) {
@@ -90,11 +83,12 @@ static int ts_pwm_calc(struct ts_pwm *ts,
 
 		dev_dbg(ts->chip.dev, "shift=%u cnt=%u duty_cnt=%u\n",
 			shift, cnt, duty_cnt);
-
-		ts->shift = shift;
-		ts->period = cnt;
-		ts->duty = cnt - duty_cnt;
+		duty_reg = cnt - duty_cnt;
 	}
+
+	writew(cnt, ts->base + REG_PERIOD);
+	writew(duty_reg, ts->base + REG_DUTY);
+	writew(shift, ts->base + REG_SHIFT);
 
 	return 0;
 }
@@ -103,36 +97,22 @@ static int ts_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			const struct pwm_state *state)
 {
 	struct ts_pwm *ts = to_ts_pwm(chip);
-	u16 value = 0;
 	int err;
-
-	BUG_ON(!state);
-
-	if (!state->enabled) {
-		writel(0x0, ts->base + REG_CONFIG);
-		ts->state.enabled = false;
-		return 0;
-	}
+	u16 ctrl = 0;
 
 	if (state->polarity == PWM_POLARITY_NORMAL)
-		value &= ~(INVERSED);
+		ctrl &= ~INVERSED;
 	else
-		value |= INVERSED;
+		ctrl |= INVERSED;
 
+	if (state->enabled)
+		ctrl |= ENABLED;
 
 	err = ts_pwm_calc(ts, state->duty_cycle, state->period);
 	if (err < 0)
 		return err;
 
-	ts->state.polarity = state->polarity;
-	ts->state.period = state->period;
-	ts->state.duty_cycle = state->duty_cycle;
-	ts->state.enabled = true;
-
-	writew(ts->period, ts->base + REG_PERIOD);
-	writew(ts->duty, ts->base + REG_DUTY);
-	writew(ts->shift, ts->base + REG_SHIFT);
-	writew(value | ENABLED, ts->base + REG_CONFIG);
+	writew(ctrl, ts->base + REG_CONFIG);
 
 	return 0;
 }
@@ -171,7 +151,6 @@ static int ts_pwm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ts);
 
-	spin_lock_init(&ts->lock);
 	ts->chip.dev = &pdev->dev;
 	ts->chip.ops = &ts_pwm_ops;
 	ts->chip.base = -1;
