@@ -32,6 +32,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/device.h>
+#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/serial_core.h>
 #include <linux/serial.h>
@@ -830,28 +831,13 @@ static struct uart_driver max3100_uart_driver = {
 
 static int uart_driver_registered;
 
-#ifdef CONFIG_OF
-static const struct of_device_id max3100_dt_ids[] = {
-	{.compatible = "technologic,max3100-ts"},
-	{}
-};
-
-MODULE_DEVICE_TABLE(of, max3100_dt_ids);
-
 static const struct plat_max3100 *max3100_probe_dt(struct device *dev)
 {
 	struct plat_max3100 *pdata;
 	struct device_node *node = dev->of_node;
-	const struct of_device_id *match;
 
 	if (!node) {
 		dev_err(dev, "Device does not have associated DT data\n");
-		return ERR_PTR(-EINVAL);
-	}
-
-	match = of_match_device(max3100_dt_ids, dev);
-	if (!match) {
-		dev_err(dev, "Unknown device model\n");
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -867,16 +853,6 @@ static const struct plat_max3100 *max3100_probe_dt(struct device *dev)
 	of_property_read_u32(node, "poll-time", &pdata->poll_time);
 	return pdata;
 }
-
-#else
-
-static const struct plat_max3100 *max3100_probe_dt(struct device *dev)
-{
-	dev_err(dev, "no platform data defined\n");
-	return ERR_PTR(-EINVAL);
-}
-
-#endif
 
 static int max3100_probe(struct spi_device *spi)
 {
@@ -1078,14 +1054,29 @@ static SIMPLE_DEV_PM_OPS(max3100_pm_ops, max3100_suspend, max3100_resume);
 #define MAX3100_PM_OPS NULL
 #endif
 
+static const struct spi_device_id max3100ts_spi_id[] = {
+	{ "max3100-ts" },
+	{ }
+};
+
+MODULE_DEVICE_TABLE(spi, max3100ts_spi_id);
+
+static const struct of_device_id max3100ts_of_match[] = {
+	{ .compatible = "technologic,max3100-ts"},
+	{ }
+};
+
+MODULE_DEVICE_TABLE(of, max3100ts_of_match);
+
 static struct spi_driver max3100_driver = {
 	.driver = {
 		   .name = "max3100-ts",
-		   .owner = THIS_MODULE,
+		   .of_match_table = max3100ts_of_match,
 		   .pm = MAX3100_PM_OPS,
 		   },
 	.probe = max3100_probe,
 	.remove = max3100_remove,
+	.id_table = max3100ts_spi_id,
 };
 
 module_spi_driver(max3100_driver);
@@ -1093,4 +1084,3 @@ module_spi_driver(max3100_driver);
 MODULE_DESCRIPTION("MAX3100 driver");
 MODULE_AUTHOR("Christian Pellegrin <chripell@evolware.org>");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("spi:max3100");
