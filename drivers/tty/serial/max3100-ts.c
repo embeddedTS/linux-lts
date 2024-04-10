@@ -155,7 +155,10 @@ struct max3100ts_port {
 	struct timer_list timer;
 };
 
-#define to_max3100_port(port) container_of(port, struct max3100ts_port, port)
+static inline struct max3100ts_port *to_max3100_port(struct uart_port *port)
+{
+	return container_of(port, struct max3100ts_port, port);
+}
 
 static struct s_max3100ts_common {
 	struct max3100ts_port *max3100ts[MAX_MAX3100];	/* the chip */
