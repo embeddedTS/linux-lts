@@ -200,7 +200,7 @@
 	phy-supply = <&reg_enet_3v3>;
 	phy-handle = <&ethphy0>;
 	phy-reset-gpios = <&gpio2 9 GPIO_ACTIVE_LOW>;
-	phy-reset-duration = <26>;
+	phy-reset-duration = <100>;
 	phy-reset-post-delay = <1>;
 	status = "okay";
 
@@ -210,6 +210,9 @@
 
 		ethphy0: ethernet-phy@0 {
 			compatible = "ethernet-phy-ieee802.3-c22";
+			/* magic number "64" is enet out from CPU */
+			clocks = <&clks 64>;
+			clock-names = "rmii-ref";
 			reg = <0>;
 		};
 	};
