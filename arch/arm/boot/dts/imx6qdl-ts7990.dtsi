@@ -262,9 +262,13 @@
 };
 
 &i2c1 {
-	status = "okay";
-	pinctrl-names = "default";
+	clock-frequency = <100000>;
+	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&pinctrl_i2c1>;
+	pinctrl-1 = <&pinctrl_i2c1_gpio>;
+	scl-gpios = <&gpio3 21 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio3 28 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	status = "okay";
 
 	pixcir_tangoc: touchscreen@5c {
 		compatible = "pixcir,pixcir_tangoc";
@@ -284,7 +288,6 @@
 		 */
 		invert-int-output;
 		wakeup-source;
-		status = "disabled";
 	};
 
 	/* Only present on REV E and above */
@@ -361,10 +364,13 @@
 };
 
 &i2c2 {
-	status = "okay";
 	clock-frequency = <100000>;
-	pinctrl-names = "default";
+	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&pinctrl_i2c2>;
+	pinctrl-1 = <&pinctrl_i2c2_gpio>;
+	scl-gpios = <&gpio4 12 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio4 13 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	status = "okay";
 };
 
 &iomuxc {
