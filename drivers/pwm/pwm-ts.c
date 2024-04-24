@@ -100,9 +100,7 @@ static int ts_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	int err;
 	u16 ctrl = 0;
 
-	if (state->polarity == PWM_POLARITY_NORMAL)
-		ctrl &= ~INVERSED;
-	else
+	if (state->polarity != PWM_POLARITY_NORMAL)
 		ctrl |= INVERSED;
 
 	if (state->enabled)
