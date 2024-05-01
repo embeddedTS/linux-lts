@@ -5599,6 +5599,16 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
 		if (IS_ERR(&chip->reset_deassert_us))
 			chip->reset_deassert_us = 10000;
 	}
+	/* In the case where the chip may be in an invalid state, we issue a
+	 * hardware reset. We cannot use the mv88e6xxx_switch_reset() function
+	 * as this queries the EEPROM interface. Doing so requires the switch IC
+	 * to have been properly reset previously.
+	 */
+	if (chip->reset && of_property_read_bool(np, "switch-needs-reset")) {
+		gpiod_set_value_cansleep(chip->reset, 1);
+		fsleep(chip->reset_assert_us);
+		gpiod_set_value_cansleep(chip->reset, 0);
+	}
 	if (chip->reset)
 		fsleep(chip->reset_deassert_us);
 
