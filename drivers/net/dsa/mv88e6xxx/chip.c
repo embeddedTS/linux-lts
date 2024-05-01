@@ -11,6 +11,7 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/etherdevice.h>
 #include <linux/ethtool.h>
@@ -5575,6 +5576,13 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
 	if (err)
 		goto out;
 
+	chip->clk = devm_clk_get_optional(dev, "switch");
+	if (IS_ERR(chip->clk)) {
+		err = PTR_ERR(chip->clk);
+		goto out;
+	}
+	clk_prepare_enable(chip->clk);
+
 	chip->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(chip->reset)) {
 		err = PTR_ERR(chip->reset);
@@ -5697,6 +5705,8 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
 		mv88e6xxx_g1_irq_free(chip);
 	else
 		mv88e6xxx_irq_poll_free(chip);
+
+	clk_disable_unprepare(chip->clk);
 }
 
 static const struct of_device_id mv88e6xxx_of_match[] = {
