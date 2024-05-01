@@ -4557,6 +4557,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
 		.g2_irqs = 5,
 		.atu_move_port_mask = 0xf,
 		.dual_chip = true,
+		.tag_protocol = DSA_TAG_PROTO_DSA,
 		.ops = &mv88e6250_ops,
 	},
 
