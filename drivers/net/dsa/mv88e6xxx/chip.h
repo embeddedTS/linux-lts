@@ -294,6 +294,9 @@ struct mv88e6xxx_chip {
 	 */
 	struct gpio_desc *reset;
 
+	/* Optional clock to drive the switch */
+	struct clk *clk;
+
 	/* set to size of eeprom if supported by the switch */
 	u32 eeprom_len;
 
