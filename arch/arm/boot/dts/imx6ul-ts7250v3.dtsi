@@ -123,7 +123,7 @@
 		compatible = "iio-hwmon";
 		io-channels = <&supervisor_temp>;
 		io-channel-names = "Supervisor Temp";
-		status = "okay";
+		status = "disabled";
 	};
 };
 
@@ -134,7 +134,7 @@
 	pinctrl-1 = <&pinctrl_i2c1_gpio>;
 	scl-gpios = <&gpio1 2 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio1 3 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-	status = "okay";
+	status = "disabled";
 
 	magnet: magnetometer@1e {
 		compatible = "st,lis2mdl";
@@ -184,8 +184,15 @@
 		status = "disabled";
 	};
 
-	ism330: gyro@6a {
+	gyro@6a {
 		compatible = "st,ism330dlc";
+		reg = <0x6a>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	gyro-1@6a {
+		compatible = "st,ism330dhcx";
 		reg = <0x6a>;
 		interrupt-parent = <&gpio5>;
 		interrupts = <0 IRQ_TYPE_LEVEL_HIGH>;
@@ -196,19 +203,19 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_adc1>;
 	vref-supply = <&vref_adc_2v5>;
-	status = "okay";
+	status = "disabled";
 };
 
 &can1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_flexcan1>;
-	status = "okay";
+	status = "disabled";
 };
 
 &can2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_flexcan2>;
-	status = "okay";
+	status = "disabled";
 };
 
 &ecspi3 {
@@ -337,7 +344,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart4>;
 	uart-has-rtscts;
-	status = "okay";
+	status = "disabled";
 };
 
 &usdhc1 {

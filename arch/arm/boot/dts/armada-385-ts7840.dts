@@ -160,6 +160,7 @@
 
 		vendor = <0x1e6d>;
 		device = <0x7840>;
+		status = "disabled"
 
 		/* <ranges> is set in the driver at runtime */
 

@@ -136,14 +136,14 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_flexcan1>;
 	xceiver-supply = <&reg_can1_3v3>;
-	status = "okay";
+	status = "disabled";
 };
 
 &can2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_flexcan2>;
 	xceiver-supply = <&reg_can2_3v3>;
-	status = "okay";
+	status = "disabled";
 };
 
 &ecspi1 {
@@ -151,7 +151,7 @@
 	cs-gpios = <&gpio3 19 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi1>;
-	status = "okay";
+	status = "disabled";
 
 	spiboot: flash@0 {
 		compatible = "jedec,spi-nor";
