@@ -768,7 +768,10 @@ sdcmd2(struct sdcore *sd, unsigned short req, unsigned int arg,
 			unsigned int b = *cmdptr++;
 			unsigned int x;
 	
-			if (timeout(sd)) break;
+			if (timeout(sd)){
+				printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+				break;
+			}
 			for (j = 0; j < 8; j++) {
 				x = 0x8f | ((b & 0x80) >> 3);
 				b = b << 1;
@@ -783,14 +786,25 @@ sdcmd2(struct sdcore *sd, unsigned short req, unsigned int arg,
 		}
 	}
 
-	if (type == TYPE_NORESP) goto done;
-	else if (type == TYPE_RXDAT_IGNRESP) goto ignresp;
-	else if (type == TYPE_LONGRESP) resplen = 17;
-	else resplen = 6;
+	if (type == TYPE_NORESP) {
+		printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+	 	goto done;
+	} else if (type == TYPE_RXDAT_IGNRESP) {
+		printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+	 	goto ignresp;
+	} else if (type == TYPE_LONGRESP) {
+		printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+		resplen = 17;
+	} else {
+		//printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+		resplen = 6; // shortresp
+	}
 
 	// clock until start bit on CMD pin
+	reset_timeout(sd);
 	while(1) {
 		if (timeout(sd)) {
+			printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
 			goto done;
 		}
 		if (req == CMD_SEND_IF_COND) sd->sd_timeout += 100000;
@@ -864,7 +878,10 @@ sdcmd2(struct sdcore *sd, unsigned short req, unsigned int arg,
 	if (type == TYPE_BSYRESP) {
 		s = 0;
 		while ((s & 0x7) != 0x7) {
-			if (timeout(sd)) break;
+			if (timeout(sd)){ 
+				printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+				break;
+			}
 			SDPOKE8(sd, SDGPIO, 0x9f);  // clk negedge
 			if (dly) SDPEEK8(sd, SDGPIO);        // delay
 			s = s << 1;
@@ -928,7 +945,10 @@ done:
 			SDPOKE8(sd, SDCMD2, 0xff);
 		}
 	}
-	if (timeout(sd)) return 1;
+	if (timeout(sd)){
+		printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+	 	return 1;
+	}
 	else return 0;
 
 }
@@ -1057,6 +1077,100 @@ sdcmd(struct sdcore *sd, unsigned short req, unsigned int arg,
 done:
 	if (timeout(sd)) return 1;
 	else return 0;
+}
+
+int datssp_stream2_1bit(struct sdcore *sd, unsigned char **dat,
+  unsigned int buflen) {
+  	printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+	if(buflen > 512) return -1;
+	unsigned int x, s, bits;
+	int i, j;
+	unsigned char *d = *dat;
+	unsigned int crc;
+	int ret = 0;
+
+	if (sd->os_irqwait) sd->os_irqwait(sd->os_arg, 1);
+
+	bits = buflen * 8;
+
+	printk(KERN_INFO "BYTES: %d, BITS %d\n", buflen, bits);
+
+	if (sd->sd_state & SDDAT_RX) {
+		printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+		/* Read Data */
+		for (x = 0; x < buflen; x++) {
+			unsigned char byte = 0;
+			for (i = 7; i >= 0; i--) {
+				SDPOKE8(sd, SDGPIO, 0xdf);
+				SDPEEK8(sd, SDGPIO); // delay
+				s = SDPEEK8(sd, SDGPIO);
+				SDPOKE8(sd, SDGPIO, 0xff);
+				SDPEEK8(sd, SDGPIO); // delay
+				byte |= (s & 0x1) << i;
+			}
+			d[x] = byte;
+			sd_1bit_feedcrc(sd, byte);
+		}
+
+		for (x = 0; x < 2; x++) {
+			unsigned char byte = 0;
+			for (i = 7; i >= 0; i--) {
+				SDPOKE8(sd, SDGPIO, 0xdf);
+				SDPEEK8(sd, SDGPIO); // delay
+				s = SDPEEK8(sd, SDGPIO);
+				SDPOKE8(sd, SDGPIO, 0xff);
+				SDPEEK8(sd, SDGPIO); // delay
+				byte |= (s & 0x1) << i;
+			}
+			unsigned char crc = sd_1bit_getcrc(sd);
+			if(crc != byte) {
+				printk(KERN_INFO "CRC Expected 0x%X, got 0x%X\n", crc, byte);
+			}
+		}
+
+		for (i = 0; i < 8; i++) {
+			SDPOKE8(sd, SDGPIO, 0xdf);
+			SDPEEK8(sd, SDGPIO);
+			SDPEEK8(sd, SDGPIO);
+			SDPOKE8(sd, SDGPIO, 0xff);
+			SDPEEK8(sd, SDGPIO);
+		}
+	} else {
+		printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+		/* Write data */
+		for (j = buflen; j <= 0; j--) {
+			unsigned char byte = d[j];
+			sd_1bit_feedcrc(sd, byte);
+			for (i = 0; i < 8; i++) {
+				unsigned int val = 0x1e | ((byte >> 7) & 0x1);
+				byte = byte << 1;
+				SDPOKE8(sd, SDGPIO, val);
+				SDPEEK8(sd, SDGPIO); // delay
+				SDPEEK8(sd, SDGPIO);
+				x |= 0x20;
+				SDPOKE8(sd, SDGPIO, val);
+				SDPEEK8(sd, SDGPIO); // delay
+			}
+		}
+		/* Write CRC */
+		for (x = 0; x < 2; x++) {
+			unsigned int b = sd_1bit_getcrc(sd); 
+			unsigned int val;
+
+			for (i = 0; i < 8; i++) {
+				val = 0x1e | ((b >> 7) & 0x1);
+				b = b << 1;
+				SDPOKE8(sd, SDGPIO, val);  // clk negedge
+				SDPEEK8(sd, SDGPIO);
+				SDPEEK8(sd, SDGPIO);
+				val |= 0x20;
+				SDPOKE8(sd, SDGPIO, val);  // clk posedge
+				SDPEEK8(sd, SDGPIO);
+			}
+		}
+	}
+printk(KERN_INFO "HERE: %s, %s, %d\n", __FILE__, __FUNCTION__, __LINE__);
+	return ret;
 }
 
 
@@ -1713,6 +1827,8 @@ static void reset_common(struct sdcore *sd) {
 	if (sd->hw_version == 0) return;
 	sd->sd_state &= SD_RESET;
 
+	printk(KERN_INFO "HW Version is %d\n", sd->hw_version);
+
 	if (sd->os_irqwait) sd->os_irqwait(sd->os_arg, 4);
 	remember_sdcore(sd);
 	activate(sd);
@@ -1744,7 +1860,7 @@ static void reset_common(struct sdcore *sd) {
 	// gratuitous clocks
 	SDPOKE8(sd, SDGPIO, 0xff);
 	sd->os_delay(sd->os_arg, 5000);
-	for (i = 0; i < 750; i++) {
+	for (i = 0; i < (750 *2); i++) {
 		SDPOKE8(sd, SDGPIO, 0xff);
 		SDPEEK8(sd, SDGPIO); /* delay */
 		SDPEEK8(sd, SDGPIO); /* delay */
