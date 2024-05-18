@@ -8,6 +8,7 @@
  * modern paradigms and does not behave quite the same as the original.
  */
 
+#include <asm/system_misc.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/watchdog.h>
@@ -21,6 +22,7 @@ MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started default="
 
 /* Global for ts_wdt_poweroff to access needed data */
 static struct i2c_client *ts_wdt_poweroff_dev;
+static struct watchdog_device *ts_wdt_restart_wdd;
 
 /* The WDT expects 3 values:
  * 0 (command to feed)
@@ -90,12 +92,17 @@ static int ts_wdt_restart(struct watchdog_device *wdd,
 	struct i2c_client *client = to_i2c_client(wdd->parent);
 
 	dev_dbg(&client->dev, "%s\n", __func__);
+	printk(KERN_ERR "KRIS: wdt reboot hit\n");
 
 	ts_wdt_write(client, 0);
-	while (1)
-		;
+	while (1);
 
 	return 0;
+}
+
+static void ts_wdt_restart_shim(enum reboot_mode mode, const char *cmd)
+{
+	ts_wdt_restart(ts_wdt_restart_wdd, 0, NULL);
 }
 
 void ts_wdt_poweroff(void)
@@ -126,8 +133,7 @@ void ts_wdt_poweroff(void)
 	}
 
 
-	while (1)
-		;
+	while (1);
 }
 
 static int ts_set_timeout(struct watchdog_device *wdd,
@@ -212,7 +218,24 @@ static int ts_wdt_probe(struct i2c_client *client,
 			__func__);
 	}
 	pm_power_off = ts_wdt_poweroff;
+
+	/* While the watchdog subsystem has hooks for running a restart through
+	 * the WDT itself with varying levels of priority, the imx28 plat registers
+	 * its own reboot handler under arm_pm_restart. Which the arm reboot core
+	 * will use instead of the reboot handler chain that this watchdog driver
+	 * would register with.
+	 *
+	 * The watchdog restart handler worked in 4.9, but, appears to have changed
+	 * going in to 5.10.
+	 */
+	if (arm_pm_restart != NULL) {
+		dev_err(&client->dev,
+			 "%s: arm_pm_restart function already registered, overwriting",
+			__func__);
+	}
+	arm_pm_restart = ts_wdt_restart_shim;
 	ts_wdt_poweroff_dev = client;
+	ts_wdt_restart_wdd = wdd;
 
 	err = watchdog_register_device(wdd);
 	if (err)
