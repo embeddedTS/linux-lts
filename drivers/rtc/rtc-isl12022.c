@@ -41,8 +41,10 @@
 /* ISL register bits */
 #define ISL12022_HR_MIL		(1 << 7)	/* military or 24 hour time */
 
+#define ISL12022_SR_OSCF	(1 << 7)
 #define ISL12022_SR_LBAT85	(1 << 2)
 #define ISL12022_SR_LBAT75	(1 << 1)
+#define ISL12022_SR_RTCF	(1 << 0)
 
 #define ISL12022_INT_WRTC	(1 << 6)
 #define ISL12022_INT_FO_MASK	GENMASK(3, 0)
@@ -374,6 +376,7 @@ static int isl12022_probe(struct i2c_client *client)
 {
 	struct rtc_device *rtc;
 	struct regmap *regmap;
+	unsigned int sr;
 	int ret;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
@@ -386,6 +389,13 @@ static int isl12022_probe(struct i2c_client *client)
 	}
 
 	dev_set_drvdata(&client->dev, regmap);
+
+	regmap_read(regmap, ISL12022_REG_SR, &sr);
+	if (sr & ISL12022_SR_RTCF)
+		dev_warn(&client->dev, "rtc power failure detected, "
+			 "please set clock.\n");
+	if (sr & ISL12022_SR_OSCF)
+		dev_warn(&client->dev, "rtc oscillator failure detected\n");
 
 	ret = isl12022_register_clock(&client->dev);
 	if (ret)
