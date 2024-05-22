@@ -70,6 +70,8 @@
 #define ISL12022_ALARM_ENABLE	(1 << 7)	/* for all ALARM registers  */
 
 #define ISL12022_BETA_TSE	(1 << 7)
+#define ISL12022_BETA_BTSE	(1 << 6)
+#define ISL12022_BETA_BTSR	(1 << 5)
 
 static struct i2c_driver isl12022_driver;
 
@@ -547,6 +549,51 @@ static void isl12022_set_trip_levels(struct device *dev)
 			  ISL12022_BETA_TSE, ISL12022_BETA_TSE);
 }
 
+static void isl12022_set_battery_mode_compensation(struct device *dev)
+{
+	struct regmap *regmap = dev_get_drvdata(dev);
+	u32 minutes;
+	unsigned int beta_reg;
+	u8 val;
+	int ret;
+
+	/*
+	 * As a shortcut, we assume the value will be not present, 1, or 10.
+	 * Later it is assumed that if the value is not 1, then it must be 10.
+	 *
+	 * When battery mode compensation is enabled, expect an overall average
+	 * increase in battery draw of 25 nA at 10 minutes, and 250 nA at 1 minute.
+	 */
+	ret = device_property_read_u32(dev, "isil,compensation-in-battery-mode-mins",
+				       &minutes);
+	if (ret)
+		return;
+
+	dev_dbg(dev, "Enable temp. compensation in battery mode every %d minutes\n",
+		minutes == 1 ? 1 : 10);
+
+	/*
+	 * Disable TSE, modifications to the BETA register need to happen with
+	 * TSE disabled. Save the TSE value in case it was not enabled. The datasheet
+	 * is not clear on if TSE needs to be enabled for BTSE to be effective.
+	 */
+	regmap_read(regmap, ISL12022_REG_BETA, &beta_reg);
+	regmap_write_bits(regmap, ISL12022_REG_BETA, ISL12022_BETA_TSE, 0);
+
+	val = ISL12022_BETA_BTSE;
+	if (minutes == 1)
+		val |= ISL12022_BETA_BTSR;
+
+	regmap_write_bits(regmap, ISL12022_REG_BETA,
+			  (ISL12022_BETA_BTSE | ISL12022_BETA_BTSR), val);
+
+	if (beta_reg & ISL12022_BETA_TSE)
+		regmap_write_bits(regmap, ISL12022_REG_BETA,
+				  ISL12022_BETA_TSE, ISL12022_BETA_TSE);
+}
+
+
+
 static int isl12022_probe(struct i2c_client *client)
 {
 	struct isl12022 *isl12022;
@@ -574,6 +621,7 @@ static int isl12022_probe(struct i2c_client *client)
 		return ret;
 
 	isl12022_set_trip_levels(&client->dev);
+	isl12022_set_battery_mode_compensation(&client->dev);
 	isl12022_hwmon_register(&client->dev);
 
 	rtc = devm_rtc_allocate_device(&client->dev);
