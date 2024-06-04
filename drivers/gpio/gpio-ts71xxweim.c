@@ -133,6 +133,7 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 	priv->gpio_chip = template_chip;
 	priv->gpio_chip.label = dev_name(dev);
 	priv->gpio_chip.ngpio = TSWEIM_NR_DIO;
+	priv->gpio_chip.parent = dev;
 	pdev->dev.platform_data = &priv;
 
 	return devm_gpiochip_add_data(&pdev->dev, &priv->gpio_chip, &priv);
