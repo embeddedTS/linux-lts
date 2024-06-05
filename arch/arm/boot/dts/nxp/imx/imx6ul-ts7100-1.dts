@@ -3,6 +3,7 @@
  * Copyright (C) 2023 Technologic Systems, Inc. dba embeddedTS
  */
 /dts-v1/;
+#include "imx6ul.dtsi"
 #include "imx6ul-ts7100.dtsi"
 #include "imx6ul-ts7100-z.dtsi"
 
