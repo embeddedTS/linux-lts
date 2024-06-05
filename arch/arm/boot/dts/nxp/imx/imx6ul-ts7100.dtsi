@@ -5,7 +5,6 @@
 
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/leds/common.h>
-#include "imx6ul.dtsi"
 
 / {
 	chosen {
@@ -13,11 +12,12 @@
 	};
 
 	memory {
+		device_type = "memory";
 		/* Set by u-boot */
 		reg = <0x80000000 0>;
 	};
 
-	leds {
+	led-controller {
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_cpu_leds>;
 		compatible = "gpio-leds";
@@ -37,31 +37,37 @@
 		};
 	};
 
-	reg_3v3: rev_3v3 {
+	reg_3v3: regulator-3v3 {
 		compatible = "regulator-fixed";
 		regulator-name = "3V3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 	};
 
-	reg_lcdif_enable: en-lcdif {
+	reg_lcdif_enable: regulator-lcdif-en {
 		compatible = "regulator-fixed";
 		regulator-name = "LCDIF_EN";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&gpio8 1 GPIO_ACTIVE_HIGH>;
+		gpio = <&fpga_gpio2 1 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		regulator-boot-on;
 		regulator-always-on;
 	};
 
-	vref_adc_2v5: adc {
+	reg_adc_vref_2v5: regulator-adc-vref {
 		compatible = "regulator-fixed";
 		regulator-name = "ADC_VREF";
 		regulator-min-microvolt = <2500000>;
 		regulator-max-microvolt = <2500000>;
 		regulator-boot-on;
 		regulator-always-on;
+	};
+
+	fpga_clk_weim_bclk: fpga_clk_weim_bclk {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <49500000>;
 	};
 
 	panel {
@@ -93,7 +99,7 @@
 &adc1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_adc1>;
-	vref-supply = <&vref_adc_2v5>;
+	vref-supply = <&reg_adc_vref_2v5>;
 	status = "okay";
 };
 
@@ -151,12 +157,17 @@
 
 	st_magn: magnetometer@1e {
 		compatible = "st,lis2mdl";
-		reg = <0x1e>;
+		/* This option isn't valid on this part as it only supports
+		 * a single drdy pin. However, the driver defaults to int2 if
+		 * not drdy pin is specified which the driver errors on if int2
+		 * is set for this specific part.
+		 */
 		st,drdy-int-pin = <1>;
+		reg = <0x1e>;
 	};
 
 	m41t00s: rtc@68 {
-		compatible = "m41t00";
+		compatible = "st,m41t00";
 		reg = <0x68>;
 	};
 
@@ -365,7 +376,7 @@
 	pinctrl-0 = <&pinctrl_usdhc1>;
 	no-1-8-v;
 	disable-wp;
-	broken-cd = <1>;
+	broken-cd;
 	bus-width = <4>;
 	status = "okay";
 };
@@ -387,7 +398,7 @@
 	#address-cells = <2>;
 	#size-cells = <1>;
 
-	fpga: fpgabus@50000000 {
+	fpga: bus@50000000 {
 		compatible = "simple-bus";
 		reg = <0 0x50000000 0x00010000>;
 		#address-cells = <1>;
@@ -403,20 +414,14 @@
 			0		// EIM_CSnWCR2 @ 0x021b8014
 		>;
 
-		fpga_clk_weim_bclk: fpga_clk_weim_bclk {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <49500000>;
-		};
-
-		syscon: syscon@50004000 {
+		fpga_syscon: bus@50004000 {
 			compatible = "simple-bus";
 			#address-cells = <0x2>;
 			#size-cells = <0x1>;
 			reg = <0x4000 0x58>;
 			ranges = <0 0 0x4000 0x58>;
 
-			gpio6: gpio@50004010 {
+			fpga_gpio0: gpio@50004010 {
 				compatible = "technologic,ts71xxweim-gpio";
 				reg = <0 0x10 0x08>;
 				gpio-controller;
@@ -425,7 +430,7 @@
 				#interrupt-cells = <1>;
 			};
 
-			gpio7: gpio@50004040 {
+			fpga_gpio1: gpio@50004040 {
 				compatible = "technologic,ts71xxweim-gpio";
 				reg = <0 0x40 0x08>;
 				gpio-controller;
@@ -434,7 +439,7 @@
 				#interrupt-cells = <1>;
 			};
 
-			gpio8: gpio@50004050 {
+			fpga_gpio2: gpio@50004050 {
 				compatible = "technologic,ts71xxweim-gpio";
 				reg = <0 0x50 0x08>;
 				gpio-controller;
@@ -488,7 +493,7 @@
 				pagesize = <64>;
 			};
 
-			spisplash: spi@1 {
+			spisplash: flash@1 {
 				compatible = "jedec,spi-nor";
 				reg = <1>;
 				spi-max-frequency = <20000000>;
@@ -514,7 +519,7 @@
 				spi-max-frequency = <1000000>;
 				interrupt-parent = <&fpga_intc>;
 				interrupts = <16>;
-				pendown-gpio = <&gpio8 0 GPIO_ACTIVE_HIGH>;
+				pendown-gpio = <&fpga_gpio2 0 GPIO_ACTIVE_HIGH>;
 
 				ti,vref-mv = /bits/ 16 <3300>;
 				ti,keep-vref-on;

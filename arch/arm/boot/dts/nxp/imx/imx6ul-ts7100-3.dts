@@ -4,6 +4,7 @@
  */
 
 /dts-v1/;
+#include "imx6ul.dtsi"
 #include "imx6ul-ts7100.dtsi"
 #include "imx6ul-ts7100-3.dtsi"
 

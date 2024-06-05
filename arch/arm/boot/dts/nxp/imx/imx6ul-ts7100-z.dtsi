@@ -4,20 +4,26 @@
  */
 
 / {
-	leds {
+	aliases {
+		gpio5 = &fpga_gpio0;
+		gpio6 = &fpga_gpio1;
+		gpio7 = &fpga_gpio2;
+	};
+
+	led-controller {
 		compatible = "gpio-leds";
 
 		led-2 {
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_INDICATOR;
-			gpios = <&gpio7 9 GPIO_ACTIVE_LOW>;
+			gpios = <&fpga_gpio1 9 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
 		led-3 {
 			color = <LED_COLOR_ID_RED>;
 			function = LED_FUNCTION_INDICATOR;
-			gpios = <&gpio7 8 GPIO_ACTIVE_LOW>;
+			gpios = <&fpga_gpio1 8 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 	};
@@ -34,7 +40,7 @@
 		compatible = "microchip,wilc3000";
 		reg = <0>;
 		spi-max-frequency = <20000000>;
-		reset-gpios = <&gpio7 7 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&fpga_gpio1 7 GPIO_ACTIVE_HIGH>;
 		chip_en-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
 		interrupt-parent = <&gpio1>;
 		interrupts = <11 GPIO_ACTIVE_HIGH>;
@@ -81,7 +87,7 @@
 };
 
 /* FPGA dio: 50004010.gpio */
-&gpio6 {
+&fpga_gpio0 {
 	gpio-line-names =
 		"DIO_1_OUT", "DIO_2_OUT", "DIO_1_IN",  "DIO_2_IN",
 		"DIO_3_IN",  "DIO_6",     "DIG_IN_1",  "DIG_IN_2",
@@ -90,7 +96,7 @@
 };
 
 /* FPGA dio2: 50004040.gpio */
-&gpio7 {
+&fpga_gpio1 {
 	gpio-line-names =
 		"EN_EMMC_3V3#",   "EN_ADC1_12V",    "EN_ADC2_12V",    "EN_ADC3_12V",
 		"EN_ADC4_12V",    "EN_USB_HOST_5V", "PHY_RESET#",     "WIFI_RESET#",
@@ -99,7 +105,7 @@
 };
 
 /* FPGA dio3: 50004050.gpio */
-&gpio8 {
+&fpga_gpio2 {
 	gpio-line-names =
 		"CPU_TOUCH_IRQ#", "",               "C6_PAD",         "B8_PAD",
 		"C9_PAD",         "C8_PAD",         "NIM_3V3#_4V",    "DIO_16_PAD",
