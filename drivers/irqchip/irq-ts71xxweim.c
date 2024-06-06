@@ -2,10 +2,12 @@
 
 #include <linux/types.h>
 #include <linux/module.h>
+#include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/of_device.h>
+#include <linux/seq_file.h>
 
 #define TSWEIM_IRQ_STATUS	0x24
 #define TSWEIM_IRQ_POLARITY	0x28
@@ -15,18 +17,13 @@
 struct tsweim_intc {
 	void __iomem  *syscon;
 	struct irq_domain *irqdomain;
-	struct irq_chip chip;
+	struct platform_device *pdev;
 	u32 mask;
 };
 
-static struct tsweim_intc *irq_data_to_priv(struct irq_data *data)
-{
-	return data->domain->host_data;
-}
-
 static void tsweim_intc_mask(struct irq_data *d)
 {
-	struct tsweim_intc *priv = irq_data_to_priv(d);
+	struct tsweim_intc *priv = irq_data_get_irq_chip_data(d);
 
 	priv->mask = readl(priv->syscon + TSWEIM_IRQ_MASK) & ~BIT(d->hwirq);
 	writel(priv->mask, priv->syscon + TSWEIM_IRQ_MASK);
@@ -34,15 +31,22 @@ static void tsweim_intc_mask(struct irq_data *d)
 
 static void tsweim_intc_unmask(struct irq_data *d)
 {
-	struct tsweim_intc *priv = irq_data_to_priv(d);
+	struct tsweim_intc *priv = irq_data_get_irq_chip_data(d);
 
 	priv->mask = readl(priv->syscon + TSWEIM_IRQ_MASK) | BIT(d->hwirq);
 	writel(priv->mask, priv->syscon + TSWEIM_IRQ_MASK);
 }
 
+static void tsweim_intc_print_chip(struct irq_data *d, struct seq_file *p)
+{
+	struct tsweim_intc *priv = irq_data_get_irq_chip_data(d);
+
+	seq_printf(p, "%s", dev_name(&priv->pdev->dev));
+}
+
 static int tsweim_intc_set_type(struct irq_data *d, unsigned int flow_type)
 {
-	struct tsweim_intc *priv = irq_data_to_priv(d);
+	struct tsweim_intc *priv = irq_data_get_irq_chip_data(d);
 	uint32_t polarity = readl(priv->syscon + TSWEIM_IRQ_POLARITY);
 	uint32_t bit = BIT_MASK(d->hwirq);
 
@@ -62,6 +66,12 @@ static int tsweim_intc_set_type(struct irq_data *d, unsigned int flow_type)
 	return 0;
 }
 
+static struct irq_chip tsweim_intc_chip = {
+	.irq_mask	= tsweim_intc_mask,
+	.irq_unmask	= tsweim_intc_unmask,
+	.irq_print_chip	= tsweim_intc_print_chip,
+};
+
 static void tsweim_irq_handler(struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
@@ -75,10 +85,8 @@ static void tsweim_irq_handler(struct irq_desc *desc)
 	  (priv->mask & readl(priv->syscon + TSWEIM_IRQ_STATUS)))) {
 		irq = 0;
 		do {
-			if (status & 1) {
-				generic_handle_irq(irq_linear_revmap(
-				  priv->irqdomain, irq));
-			}
+			if (status & 1)
+				generic_handle_domain_irq(priv->irqdomain, irq);
 			status >>= 1;
 			irq++;
 		} while (status);
@@ -90,9 +98,8 @@ static void tsweim_irq_handler(struct irq_desc *desc)
 static int tsweim_intc_irqdomain_map(struct irq_domain *d,
 		unsigned int irq, irq_hw_number_t hwirq)
 {
-	struct tsweim_intc *priv = d->host_data;
-
-	irq_set_chip_and_handler(irq, &priv->chip, handle_level_irq);
+	irq_set_chip_and_handler(irq, &tsweim_intc_chip, handle_level_irq);
+	irq_set_chip_data(irq, d->host_data);
 	irq_clear_status_flags(irq, IRQ_NOREQUEST | IRQ_NOPROBE);
 	irq_set_status_flags(irq, IRQ_LEVEL);
 
@@ -108,8 +115,11 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct tsweim_intc *priv;
-	struct resource *irq = 0;
-	struct irq_chip *chip;
+	int irq = 0;
+
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0)
+		return irq;
 
 	priv = devm_kzalloc(dev, sizeof(struct tsweim_intc), GFP_KERNEL);
 	if (!priv)
@@ -119,30 +129,25 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->syscon))
 		return PTR_ERR(priv->syscon);
 
-	irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-	if (irq == NULL) {
-		pr_err("Can't get interrupt\n");
-		return -EFAULT;
-	}
-
-	chip = &priv->chip;
-	chip->name = dev->of_node->name;
-	chip->irq_mask = tsweim_intc_mask;
-	chip->irq_unmask = tsweim_intc_unmask;
+	priv->pdev = pdev;
 
 	if (of_property_read_bool(dev->of_node, "ts,haspolarity"))
-		chip->irq_set_type = tsweim_intc_set_type;
+		tsweim_intc_chip.irq_set_type = tsweim_intc_set_type;
 
 	priv->irqdomain = irq_domain_add_linear(dev->of_node,
 		TSWEIM_NUM_FPGA_IRQ, &tsweim_intc_irqdomain_ops, priv);
-
 	if (!priv->irqdomain) {
 		pr_err("unable to add irq domain\n");
 		return -ENOMEM;
 	}
 
-	irq_set_handler_data(irq->start, priv);
-	irq_set_chained_handler(irq->start, tsweim_irq_handler);
+	if (devm_request_irq(dev, irq, no_action, IRQF_NO_THREAD,
+			     dev_name(dev), NULL)) {
+		irq_domain_remove(priv->irqdomain);
+		return -ENOENT;
+	}
+
+	irq_set_chained_handler_and_data(irq, tsweim_irq_handler, priv);
 
 	platform_set_drvdata(pdev, priv);
 
