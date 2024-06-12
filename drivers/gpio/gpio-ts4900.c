@@ -162,7 +162,7 @@ static int ts4900_gpio_probe(struct i2c_client *client,
 		return -ENOMEM;
 
 	priv->gpio_chip = template_chip;
-	priv->gpio_chip.label = "ts4900-gpio";
+	priv->gpio_chip.label = dev_name(&client->dev);
 	priv->gpio_chip.ngpio = ngpio;
 	priv->gpio_chip.base = base;
 	priv->gpio_chip.parent = &client->dev;
