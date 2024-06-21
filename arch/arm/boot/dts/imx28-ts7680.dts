@@ -49,14 +49,14 @@
 		led-2 {
 			color = <LED_COLOR_ID_YELLOW>;
 			function = LED_FUNCTION_INDICATOR;
-			gpios = <&gpio1 26 GPIO_ACTIVE_LOW>;
+			gpios = <&gpio1 58 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
 		led-3 {
 			color = <LED_COLOR_ID_BLUE>;
 			function = LED_FUNCTION_INDICATOR;
-			gpios = <&gpio1 24 GPIO_ACTIVE_HIGH>;
+			gpios = <&gpio1 56 GPIO_ACTIVE_HIGH>;
 			default-state = "off";
 		};
 
