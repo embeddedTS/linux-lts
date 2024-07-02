@@ -253,6 +253,20 @@ config PINCTRL_LANTIQ
 	select PINMUX
 	select PINCONF
 
+config PINCTRL_TS7250V3_MIKRO
+	tristate "Pinctrl driver for TS-7250-V3 Mikrobus socket"
+	depends on OF
+	depends on SOC_IMX6UL
+	select GENERIC_PINCONF
+	help
+	  The TS-7250-V3 has a Mikrobus socket for Click boards. The
+	  experimental Mikrobus driver needs to be able to switch the
+	  function of these pins, however, the FPGA implementation used
+	  on the TS-7250-V3 doesn't have any kind of standardized control.
+	  This driver provides pinmux control for these pins to allow
+	  the Mikrobus driver to handle ClickID and greybus configuration
+	  of the pins.
+
 config PINCTRL_FALCON
 	bool
 	depends on SOC_FALCON
