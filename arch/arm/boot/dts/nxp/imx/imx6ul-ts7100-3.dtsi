@@ -1,0 +1,246 @@
+// SPDX-License-Identifier: GPL-2.0 OR X11
+/*
+ * Copyright (C) 2023 Technologic Systems, Inc. dba embeddedTS
+ */
+
+/ {
+	aliases {
+		gpio5 = &fpga_gpio0;
+		gpio6 = &fpga_gpio1;
+		gpio7 = &fpga_gpio2;
+	};
+
+	led-controller {
+		compatible = "gpio-leds";
+
+		led-2 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_INDICATOR;
+			gpios = <&fpga_gpio1 9 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+
+		led-3 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_INDICATOR;
+			gpios = <&fpga_gpio1 8 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
+};
+
+&ecspi3 {
+	num-cs = <1>;
+	cs-gpios = <&gpio4 12 GPIO_ACTIVE_LOW>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi3>;
+	status = "okay";
+
+	wilc3000: wifi@0 {
+		compatible = "microchip,wilc3000";
+		reg = <0>;
+		spi-max-frequency = <20000000>;
+		reset-gpios = <&fpga_gpio1 7 GPIO_ACTIVE_HIGH>;
+		chip_en-gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <11 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+/* CPU GPIO1: 209c000.gpio */
+&gpio1 {
+	gpio-line-names =
+		"RS485_5_TXEN",  "RTC_BATT_FAIL", "I2C_1_CLK",     "I2C_1_DAT",
+		"AN_CH0",        "AN_CH1",        "",              "",
+		"AN_CH2",        "RS485_2_TXEN",  "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "";
+};
+
+/* CPU GPIO3: 20a4000.gpio */
+&gpio3 {
+	gpio-line-names =
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "NIM_STATUS",    "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "";
+};
+
+/* CPU GPIO5: 20ac000.gpio */
+&gpio5 {
+	gpio-line-names =
+		"POWER_FAIL_3V", "FPGA_IRQ",      "",              "",
+		"EN_RELAY_1",    "EN_RELAY_2",    "NIM_RESET",     "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "",
+		"",              "",              "",              "";
+};
+
+/* FPGA dio: 50004010.gpio */
+&fpga_gpio0 {
+	gpio-line-names =
+		"DIO_1_OUT", "DIO_2_OUT", "DIO_1_IN",  "DIO_2_IN",
+		"DIO_3_IN",  "DIO_6",     "DIG_IN_1",  "DIG_IN_2",
+		"DIG_IN_3",  "EN_CL_1",   "EN_CL_2",   "EN_CL_3",
+		"",          "",          "EN_CL_4",   "EN_HS_SW";
+};
+
+/* FPGA dio2: 50004040.gpio */
+&fpga_gpio1 {
+	gpio-line-names =
+		"EN_EMMC_3V3#",   "EN_ADC1_12V",    "EN_ADC2_12V",    "EN_ADC3_12V",
+		"EN_ADC4_12V",    "EN_USB_HOST_5V", "PHY_RESET#",     "WIFI_RESET#",
+		"IO_RED_LED#",    "IO_GREEN_LED#",  "",               "",
+		"EN_PROG_SILAB",  "DIO_3_OUT",      "EN_HSPWM",       "EN_LSPWM";
+};
+
+/* FPGA dio3: 50004050.gpio */
+&fpga_gpio2 {
+	gpio-line-names =
+		"CPU_TOUCH_IRQ#", "",               "C6_PAD",         "B8_PAD",
+		"C9_PAD",         "C8_PAD",         "NIM_3V3#_4V",    "DIO_16_PAD",
+		"NIM_PWR_ON",     "SEL_NIM_USB",    "DIO_FAULT#",     "",
+		"",               "",               "EN_BK_LT#",      "";
+};
+
+&iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ts7100_3_pinctrl_hog>;
+
+	imx6ul-ts7100-3 {
+		ts7100_3_pinctrl_hog: hoggrp {
+			fsl,pins = <
+				/*
+				 * All GPIO should be 0x1b020 unless special
+				 * 0x1b020 == Hyst., 100k PU, 50 mA drive
+				 * 0x1a020 == no pull resistor
+				 * 0x13020 == 100k PD
+				 */
+
+				 /* REV B Strap */
+				MX6UL_PAD_JTAG_TDO__GPIO1_IO12		0x1b020
+
+				/* NIM_STATUS - set to drop when modem is no longer driving it high */
+				MX6UL_PAD_LCD_DATA09__GPIO3_IO14	0x13020
+
+				/* POWER_FAIL */
+				MX6UL_PAD_SNVS_TAMPER0__GPIO5_IO00	0x1b020
+				/* EN_RELAY 1 */
+				MX6UL_PAD_SNVS_TAMPER4__GPIO5_IO04	0x1a020
+				/* EN_RELAY 2 */
+				MX6UL_PAD_SNVS_TAMPER5__GPIO5_IO05	0x1a020
+				/* NIM_RESET */
+				MX6UL_PAD_SNVS_TAMPER6__GPIO5_IO06	0x1b020
+				/* FPGA Spares */
+				MX6UL_PAD_SNVS_TAMPER7__GPIO5_IO07	0x1b020
+				MX6UL_PAD_SNVS_TAMPER8__GPIO5_IO08	0x1b020
+				MX6UL_PAD_SNVS_TAMPER9__GPIO5_IO09	0x1b020
+			>;
+		};
+
+		pinctrl_adc1: adc1grp {
+			fsl,pins = <
+				MX6UL_PAD_GPIO1_IO01__GPIO1_IO01	0x1a020
+				MX6UL_PAD_GPIO1_IO04__GPIO1_IO04	0x1a020
+				MX6UL_PAD_GPIO1_IO05__GPIO1_IO05	0x1a020
+				MX6UL_PAD_GPIO1_IO08__GPIO1_IO08	0x1a020
+			>;
+		};
+
+		pinctrl_ecspi3: ecspi3grp {
+			fsl,pins = <
+				MX6UL_PAD_JTAG_TCK__GPIO1_IO14		0x1b020
+				MX6UL_PAD_JTAG_TMS__GPIO1_IO11		0x1b020
+				MX6UL_PAD_NAND_CE0_B__ECSPI3_SCLK	0x1b020
+				MX6UL_PAD_NAND_CE1_B__ECSPI3_MOSI	0x1b020
+				MX6UL_PAD_NAND_CLE__ECSPI3_MISO		0x1b020
+				MX6UL_PAD_NAND_READY_B__GPIO4_IO12	0x1b020
+			>;
+		};
+
+		pinctrl_uart2: uart2grp {
+			fsl,pins = <
+				MX6UL_PAD_GPIO1_IO09__GPIO1_IO09	0x13020
+				MX6UL_PAD_UART2_RX_DATA__UART2_DCE_RX	0x1b0b1
+				MX6UL_PAD_UART2_TX_DATA__UART2_DCE_TX	0x1b0b1
+			>;
+		};
+		pinctrl_uart3: uart3grp {
+			fsl,pins = <
+				MX6UL_PAD_UART3_CTS_B__UART3_DCE_CTS	0x1b0b1
+				MX6UL_PAD_UART3_RTS_B__UART3_DCE_RTS	0x1b0b1
+				MX6UL_PAD_UART3_RX_DATA__UART3_DCE_RX	0x1b0b1
+				MX6UL_PAD_UART3_TX_DATA__UART3_DCE_TX	0x1b0b1
+			>;
+		};
+
+		pinctrl_uart4: uart4grp {
+			fsl,pins = <
+				MX6UL_PAD_JTAG_TDI__GPIO1_IO13		0x1b020
+				MX6UL_PAD_UART4_RX_DATA__UART4_DCE_RX	0x1b0b1
+				MX6UL_PAD_UART4_TX_DATA__UART4_DCE_TX	0x1b0b1
+			>;
+		};
+
+		pinctrl_uart5: uart5grp {
+			fsl,pins = <
+				MX6UL_PAD_GPIO1_IO00__GPIO1_IO00	0x13020
+				MX6UL_PAD_UART5_RX_DATA__UART5_DCE_RX	0x1b0b1
+				MX6UL_PAD_UART5_TX_DATA__UART5_DCE_TX	0x1b0b1
+			>;
+		};
+	};
+};
+
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart2>;
+	uart-has-rtscts;
+	rts-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
+	linux,rs485-enabled-at-boot-time;
+	dma-names = "", "";
+};
+
+&uart3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart3>;
+	status = "okay";
+	uart-has-rtscts;
+};
+
+&uart4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart4>;
+	status = "okay";
+	rts-gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
+};
+
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart5>;
+	uart-has-rtscts;
+	linux,rs485-enabled-at-boot-time;
+	dma-names = "", "";
+};
+
+&usbotg1 {
+	dr_mode = "host";
+	disable-over-current;
+	status = "okay";
+};
+
+&usbotg2 {
+	dr_mode = "host";
+	disable-over-current;
+	status = "okay";
+};
