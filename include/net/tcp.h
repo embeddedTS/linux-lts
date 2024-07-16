@@ -723,6 +723,8 @@ static inline void tcp_fast_path_check(struct sock *sk)
 		tcp_fast_path_on(tp);
 }
 
+u32 tcp_delack_max(const struct sock *sk);
+
 /* Compute the actual rto_min value */
 static inline u32 tcp_rto_min(struct sock *sk)
 {
@@ -1458,13 +1460,14 @@ static inline int tcp_space_from_win(const struct sock *sk, int win)
 	return __tcp_space_from_win(tcp_sk(sk)->scaling_ratio, win);
 }
 
+/* Assume a 50% default for skb->len/skb->truesize ratio.
+ * This may be adjusted later in tcp_measure_rcv_mss().
+ */
+#define TCP_DEFAULT_SCALING_RATIO (1 << (TCP_RMEM_TO_WIN_SCALE - 1))
+
 static inline void tcp_scaling_ratio_init(struct sock *sk)
 {
-	/* Assume a conservative default of 1200 bytes of payload per 4K page.
-	 * This may be adjusted later in tcp_measure_rcv_mss().
-	 */
-	tcp_sk(sk)->scaling_ratio = (1200 << TCP_RMEM_TO_WIN_SCALE) /
-				    SKB_TRUESIZE(4096);
+	tcp_sk(sk)->scaling_ratio = TCP_DEFAULT_SCALING_RATIO;
 }
 
 /* Note: caller must be prepared to deal with negative returns */
@@ -2341,7 +2344,7 @@ struct tcp_ulp_ops {
 	/* cleanup ulp */
 	void (*release)(struct sock *sk);
 	/* diagnostic */
-	int (*get_info)(const struct sock *sk, struct sk_buff *skb);
+	int (*get_info)(struct sock *sk, struct sk_buff *skb);
 	size_t (*get_info_size)(const struct sock *sk);
 	/* clone ulp */
 	void (*clone)(const struct request_sock *req, struct sock *newsk,
