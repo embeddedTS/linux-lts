@@ -8,6 +8,8 @@
 #include <linux/serial_8250.h>
 #include <linux/tspc104_bus.h>
 
+#include "8250.h"
+
 static unsigned int tsisa_serial_in(struct uart_port *p, int offset)
 {
 	struct tspc104_bus *bus = (struct tspc104_bus *)p->private_data;
@@ -52,6 +54,9 @@ static int technologic_ts16550_probe(struct platform_device *pdev)
 	port->type = PORT_16550A;
 	port->serial_in = tsisa_serial_in;
 	port->serial_out = tsisa_serial_out;
+	port->rs485_config = serial8250_em485_config;
+	uport.rs485_start_tx = serial8250_em485_start_tx;
+	uport.rs485_stop_tx = serial8250_em485_stop_tx;
 
 	line = serial8250_register_8250_port(&uport);
 
