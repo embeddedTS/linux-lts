@@ -779,7 +779,7 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 	}
 	spi_dev = platform_get_drvdata(temp_pdev);
 	if (!spi_dev) {
-		retval = dev_err_probe(dev, -ENODEV, "cannot find spi device");
+		retval = dev_err_probe(dev, -EPROBE_DEFER, "cannot find spi device");
 		goto err_port;
 	}
 	port->spi_ctrl = spi_dev->controller;
@@ -799,7 +799,7 @@ static int mikrobus_port_probe(struct platform_device *pdev)
 	}
 	serdev_dev = platform_get_drvdata(temp_pdev);
 	if (!serdev_dev) {
-		retval = dev_err_probe(dev, -ENODEV, "cannot find serdev device");
+		retval = dev_err_probe(dev, -EPROBE_DEFER, "cannot find serdev device");
 		goto err_port;
 	}
 	port->ser_ctrl = serdev_dev->ctrl;
