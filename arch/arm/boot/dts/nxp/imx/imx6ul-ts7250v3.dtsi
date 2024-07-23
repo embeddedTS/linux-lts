@@ -125,6 +125,43 @@
 		io-channel-names = "Supervisor Temp";
 		status = "okay";
 	};
+
+	mikrobus-0 {
+		compatible = "mikrobus-connector";
+		pinctrl-names = "default", "pwm_default", "pwm_gpio", "uart_default",
+				"uart_gpio", "i2c_default", "i2c_gpio", "spi_default",
+				"spi_gpio";
+		pinctrl-0 = <&mikro_pwm_gpio_pinctrl &mikro_uart_gpio_pinctrl
+				&mikro_i2c_gpio_pinctrl &mikro_spi_gpio_pinctrl>;
+		pinctrl-1 = <&mikro_pwm_pinctrl>;
+		pinctrl-2 = <&mikro_pwm_gpio_pinctrl>;
+		pinctrl-3 = <&mikro_uart_pinctrl>;
+		pinctrl-4 = <&mikro_uart_gpio_pinctrl>;
+		pinctrl-5 = <&mikro_i2c_pinctrl>;
+		pinctrl-6 = <&mikro_i2c_gpio_pinctrl>;
+		pinctrl-7 = <&mikro_spi_pinctrl>;
+		pinctrl-8 = <&mikro_spi_gpio_pinctrl>;
+
+		i2c-adapter = <&mikro_i2c>;
+		spi-controller = <&opencores_spi1>;
+		uart = <&fpga_uart5>;
+		pwms = <&mikro_pwm>;
+		/* While this is not well documented, the pin ordering is:
+		 * PWM, INT, RX, TX, SCL, SDA, PICO, POCI, SCK, CS, RST, AN (optional)
+		 */
+		mikrobus-gpios = <&fpga_bank2 4 GPIO_ACTIVE_HIGH>,
+				 <&fpga_bank2 2 GPIO_ACTIVE_HIGH>,
+				 <&fpga_bank2 10 GPIO_ACTIVE_HIGH>,
+				 <&fpga_bank2 9 GPIO_ACTIVE_HIGH>,
+				 <&fpga_bank2 12 GPIO_ACTIVE_HIGH>,
+				 <&fpga_bank2 11 GPIO_ACTIVE_HIGH>,
+				 <&fpga_bank2 8 GPIO_ACTIVE_HIGH>,
+				 <&fpga_bank2 7 GPIO_ACTIVE_HIGH>,
+				 <&fpga_bank2 6 GPIO_ACTIVE_HIGH>,
+				 <&fpga_bank2 5 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>,
+				 <&fpga_bank2 0 GPIO_ACTIVE_HIGH>,
+				 <&fpga_bank2 1 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &i2c1 {
@@ -415,6 +452,51 @@
 			reg = <0x4000 0x100>;
 			ranges = <0 0x4000 0x100>;
 
+			mikro_pinctrl: fpga_pinctrl@8 {
+				compatible = "technologic,ts7250v3-mikro-pinctrl";
+				reg = <0x08 0x04>;
+
+				mikro_pwm_gpio_pinctrl: mikro_pwm_gpiogrp {
+					groups = "pwm_grp";
+					function = "gpio";
+				};
+
+				mikro_pwm_pinctrl: mikro_pwmgrp {
+					groups = "pwm_grp";
+					function = "pwm";
+				};
+
+				mikro_uart_gpio_pinctrl: mikro_uart_gpiogrp {
+					groups = "uart_grp";
+					function = "gpio";
+				};
+
+				mikro_uart_pinctrl: mikro_uartgrp {
+					groups = "uart_grp";
+					function = "uart";
+				};
+
+				mikro_i2c_gpio_pinctrl: mikro_i2c_gpiogrp {
+					groups = "i2c_grp";
+					function = "gpio";
+				};
+
+				mikro_i2c_pinctrl: mikro_i2cgrp {
+					groups = "i2c_grp";
+					function = "i2c";
+				};
+
+				mikro_spi_gpio_pinctrl: mikro_spi_gpiogrp {
+					groups = "spi_grp";
+					function = "gpio";
+				};
+
+				mikro_spi_pinctrl: mikro_spigrp {
+					groups = "spi_grp";
+					function = "spi";
+				};
+			};
+
 			fpga_intc: fpga_intc@0 {
 				compatible = "technologic,ts71xxweim-intc";
 				reg = <0x0 0x50>;
@@ -449,6 +531,8 @@
 				#gpio-cells = <2>;
 				interrupt-controller;
 				#interrupt-cells = <1>;
+
+				gpio-ranges = <&mikro_pinctrl 0 0 16>;
 
 				gpio-line-names = "ISA_AEN", "ISA_BALE",
 					"ISA_TC", "ISA_ENDX", "EN_NIMBEL_3V3",
@@ -715,12 +799,6 @@
 			clock-names = "spi-oc-clk";
 			opencores-spi,idx = <0>;
 			opencores-spi,num-chipselects = <1>;
-
-			mikrobus: spi@0 {
-				compatible = "technologic,spi-header";
-				spi-max-frequency = <19800000>;
-				reg = <0>;
-			};
 		};
 
 		mikro_adc0: mikro_adc@180 {
