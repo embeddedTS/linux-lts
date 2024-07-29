@@ -11,6 +11,7 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/etherdevice.h>
 #include <linux/ethtool.h>
@@ -2320,9 +2321,9 @@ static void mv88e6xxx_hardware_reset(struct mv88e6xxx_chip *chip)
 			mv88e6xxx_g2_eeprom_wait(chip);
 
 		gpiod_set_value_cansleep(gpiod, 1);
-		usleep_range(10000, 20000);
+		fsleep(chip->reset_assert_us);
 		gpiod_set_value_cansleep(gpiod, 0);
-		usleep_range(10000, 20000);
+		fsleep(chip->reset_deassert_us);
 
 		if (chip->info->ops->get_eeprom)
 			mv88e6xxx_g2_eeprom_wait(chip);
@@ -4535,6 +4536,31 @@ static const struct mv88e6xxx_ops mv88e6390x_ops = {
 };
 
 static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+	[MV88E6020] = {
+		.prod_num = MV88E6XXX_PORT_SWITCH_ID_PROD_6020,
+		.family = MV88E6XXX_FAMILY_6250,
+		.name = "Marvell 88E6020",
+		.num_databases = 64,
+		/* Ports 2-4 are not routed to pins
+		 * => usable ports 0, 1, 5, 6
+		 */
+		.num_ports = 7,
+		.num_internal_phys = 2,
+		.invalid_port_mask = BIT(2) | BIT(3) | BIT(4),
+		.max_vid = 4095,
+		.port_base_addr = 0x8,
+		.phy_base_addr = 0x0,
+		.global1_addr = 0xf,
+		.global2_addr = 0x7,
+		.age_time_coeff = 15000,
+		.g1_irqs = 9,
+		.g2_irqs = 5,
+		.atu_move_port_mask = 0xf,
+		.dual_chip = true,
+		.tag_protocol = DSA_TAG_PROTO_DSA,
+		.ops = &mv88e6250_ops,
+	},
+
 	[MV88E6085] = {
 		.prod_num = MV88E6XXX_PORT_SWITCH_ID_PROD_6085,
 		.family = MV88E6XXX_FAMILY_6097,
@@ -5551,13 +5577,40 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
 	if (err)
 		goto out;
 
+	chip->clk = devm_clk_get_optional(dev, "switch");
+	if (IS_ERR(chip->clk)) {
+		err = PTR_ERR(chip->clk);
+		goto out;
+	}
+	clk_prepare_enable(chip->clk);
+
 	chip->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(chip->reset)) {
 		err = PTR_ERR(chip->reset);
 		goto out;
 	}
+	if (chip->reset) {
+		of_property_read_u32(np, "reset-assert-us",
+				     &chip->reset_assert_us);
+		if (IS_ERR(&chip->reset_assert_us))
+			chip->reset_assert_us = 10000;
+		of_property_read_u32(np, "reset-deassert-us",
+				     &chip->reset_deassert_us);
+		if (IS_ERR(&chip->reset_deassert_us))
+			chip->reset_deassert_us = 10000;
+	}
+	/* In the case where the chip may be in an invalid state, we issue a
+	 * hardware reset. We cannot use the mv88e6xxx_switch_reset() function
+	 * as this queries the EEPROM interface. Doing so requires the switch IC
+	 * to have been properly reset previously.
+	 */
+	if (chip->reset && of_property_read_bool(np, "switch-needs-reset")) {
+		gpiod_set_value_cansleep(chip->reset, 1);
+		fsleep(chip->reset_assert_us);
+		gpiod_set_value_cansleep(chip->reset, 0);
+	}
 	if (chip->reset)
-		usleep_range(10000, 20000);
+		fsleep(chip->reset_deassert_us);
 
 	err = mv88e6xxx_detect(chip);
 	if (err)
@@ -5673,6 +5726,8 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
 		mv88e6xxx_g1_irq_free(chip);
 	else
 		mv88e6xxx_irq_poll_free(chip);
+
+	clk_disable_unprepare(chip->clk);
 }
 
 static const struct of_device_id mv88e6xxx_of_match[] = {
