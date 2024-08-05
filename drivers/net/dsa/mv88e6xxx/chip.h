@@ -360,6 +360,13 @@ struct mv88e6xxx_chip {
 	 */
 	struct gpio_desc *reset;
 
+	/* Optional reset assertion and deassertion delays */
+	int reset_assert_us;
+	int reset_deassert_us;
+
+	/* Optional clock to drive the switch */
+	struct clk *clk;
+
 	/* set to size of eeprom if supported by the switch */
 	u32 eeprom_len;
 

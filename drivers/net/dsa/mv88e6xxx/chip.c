@@ -11,6 +11,7 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/dsa/mv88e6xxx.h>
 #include <linux/etherdevice.h>
@@ -3041,9 +3042,9 @@ static void mv88e6xxx_hardware_reset(struct mv88e6xxx_chip *chip)
 		}
 
 		gpiod_set_value_cansleep(gpiod, 1);
-		usleep_range(10000, 20000);
+		fsleep(chip->reset_assert_us);
 		gpiod_set_value_cansleep(gpiod, 0);
-		usleep_range(10000, 20000);
+		fsleep(chip->reset_deassert_us);
 
 		if (chip->info->ops->hardware_reset_post) {
 			err = chip->info->ops->hardware_reset_post(chip);
@@ -7078,13 +7079,40 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
 
 	chip->info = compat_info;
 
+	chip->clk = devm_clk_get_optional(dev, "switch");
+	if (IS_ERR(chip->clk)) {
+		err = PTR_ERR(chip->clk);
+		goto out;
+	}
+	clk_prepare_enable(chip->clk);
+
 	chip->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(chip->reset)) {
 		err = PTR_ERR(chip->reset);
 		goto out;
 	}
+	if (chip->reset) {
+		of_property_read_u32(np, "reset-assert-us",
+				     &chip->reset_assert_us);
+		if (IS_ERR(&chip->reset_assert_us))
+			chip->reset_assert_us = 10000;
+		of_property_read_u32(np, "reset-deassert-us",
+				     &chip->reset_deassert_us);
+		if (IS_ERR(&chip->reset_deassert_us))
+			chip->reset_deassert_us = 10000;
+	}
+	/* In the case where the chip may be in an invalid state, we issue a
+	 * hardware reset. We cannot use the mv88e6xxx_switch_reset() function
+	 * as this queries the EEPROM interface. Doing so requires the switch IC
+	 * to have been properly reset previously.
+	 */
+	if (chip->reset && of_property_read_bool(np, "switch-needs-reset")) {
+		gpiod_set_value_cansleep(chip->reset, 1);
+		fsleep(chip->reset_assert_us);
+		gpiod_set_value_cansleep(chip->reset, 0);
+	}
 	if (chip->reset)
-		usleep_range(10000, 20000);
+		fsleep(chip->reset_deassert_us);
 
 	/* Detect if the device is configured in single chip addressing mode,
 	 * otherwise continue with address specific smi init/detection.
@@ -7213,6 +7241,8 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
 		mv88e6xxx_g1_irq_free(chip);
 	else
 		mv88e6xxx_irq_poll_free(chip);
+
+	clk_disable_unprepare(chip->clk);
 }
 
 static void mv88e6xxx_shutdown(struct mdio_device *mdiodev)
