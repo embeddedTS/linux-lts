@@ -329,7 +329,7 @@
 
 	/* Only present on REV E and above */
 	ism330: gyro@6a {
-		compatible = "st,ism330dlc";
+		compatible = "st,ism330dhcx";
 		reg = <0x6a>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <15 IRQ_TYPE_LEVEL_HIGH>;
