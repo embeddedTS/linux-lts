@@ -92,7 +92,6 @@ static int ts_wdt_restart(struct watchdog_device *wdd,
 	struct i2c_client *client = to_i2c_client(wdd->parent);
 
 	dev_dbg(&client->dev, "%s\n", __func__);
-	printk(KERN_ERR "KRIS: wdt reboot hit\n");
 
 	ts_wdt_write(client, 0);
 	while (1);
