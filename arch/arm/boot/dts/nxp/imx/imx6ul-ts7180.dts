@@ -100,7 +100,16 @@
 		regulator-name = "CAN_EN";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&gpio6 20 GPIO_ACTIVE_HIGH>;
+		gpio = <&gpio6 20 GPIO_ACTIVE_LOW>;
+	};
+
+	reg_gps_3v3: regulator-gps-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "GPS_3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio6 19 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
 	};
 };
 
@@ -710,6 +719,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart8>;
 	status = "okay";
+
+	gnss {
+		compatible = "gnss,nmea-serial";
+		current-speed = <9600>;
+		vcc-supply = <&reg_gps_3v3>;
+		timepulse-gpios = <&gpio5 1 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &usbotg1 {
