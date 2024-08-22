@@ -144,7 +144,7 @@
 		interrupt-parent = <&gpio4>;
 		interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
 		spi-max-frequency = <2000000>;
-		pendown-gpio = <&gpio4 25 GPIO_ACTIVE_HIGH>;
+		pendown-gpio = <&gpio4 25 GPIO_ACTIVE_LOW>;
 		vcc-supply = <&reg_3v3>;
 		ti,swap-xy;
 		ti,keep-vref-on;

@@ -165,7 +165,7 @@
 			interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
 			vcc-supply = <&reg_3v3>;
 			spi-max-frequency = <100000>;
-			pendown-gpio = <&gpio3 11 GPIO_ACTIVE_HIGH>;
+			pendown-gpio = <&gpio3 11 GPIO_ACTIVE_LOW>;
 			touchscreen-swapped-x-y;
 			ti,vref-mv = /bits/ 16 <3300>;
 			ti,keep-vref-on;
