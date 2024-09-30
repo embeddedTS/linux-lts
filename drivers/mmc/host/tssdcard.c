@@ -10,7 +10,6 @@
 #include <linux/irq.h>
 #include <linux/blkdev.h>
 #include <linux/dma-mapping.h>
-#include <linux/major.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/of.h>
@@ -79,7 +78,6 @@ struct tssdcard_dev {
 	unsigned long lasttimeout;
 	int cardpresent;
 	int lasterr;
-	int major;
 };
 
 struct tssdcard_host {
@@ -426,7 +424,7 @@ static void tssdcard_alloc_disk(struct tssdcard_dev *dev)
 {
 	dev->bio = dev->biotail = NULL;
 
-	dev->gd = blk_alloc_disk(CONFIG_MMC_BLOCK_MINORS);
+	dev->gd = blk_alloc_disk(NUMA_NO_NODE);
 	if (dev->gd == NULL) {
 		pr_err(DRIVER_NAME ": Failed to alloc_disk");
 		return;
@@ -500,7 +498,6 @@ static int setup_device(struct tssdcard_host *host, int lun)
 	dev->tssdcore.sd_writeparking = 1;
 	dev->tssdcore.debug = tssdcard_debug;
 	dev->tssdcore.debug_arg = dev;
-	dev->major = register_blkdev(UNNAMED_MAJOR, DRIVER_NAME);
 
 	dev->devname = kmalloc(32, GFP_KERNEL);
 	if (!dev->devname)
@@ -586,7 +583,6 @@ static int tssdcard_remove(struct platform_device *pdev)
 		if (dev->gd)
 			put_disk(dev->gd);
 
-		unregister_blkdev(NBD_MAJOR, "nbd");
 		kfree(dev->devname);
 	}
 	return 0;
