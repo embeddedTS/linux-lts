@@ -408,7 +408,9 @@ static int st7565p_mmap(struct fb_info *info,
 			size = 0;
 	}
 
-	vma->vm_flags |= (VM_DONTEXPAND | VM_DONTDUMP);	/* avoid to swap out this VMA */
+	/* Avoid swapping out this VMA */
+	vm_flags_set(vma, (VM_DONTEXPAND | VM_DONTDUMP));
+
 	return 0;
 
 }
@@ -469,7 +471,6 @@ static int __init st7565p_probe(struct platform_device *dev)
 	info->fix = st7565p_fix;
 	info->pseudo_palette = info->par;
 	info->par = NULL;
-	info->flags = FBINFO_FLAG_DEFAULT;
 
 	retval = fb_alloc_cmap(&info->cmap, 256, 0);
 	if (retval < 0)
