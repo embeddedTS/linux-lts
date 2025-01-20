@@ -12,7 +12,7 @@
 
 / {
 	model = "embeddedTS TS-7800-V2";
-	compatible = "embeddedts,a385-ts7800-v2", "marvell,armada385", "marvell,armada380";
+	compatible = "technologic,a385-ts7800-v2", "marvell,armada385", "marvell,armada380";
 
 	aliases {
 		ethernet0 = &eth0;
