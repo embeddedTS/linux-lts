@@ -13,13 +13,48 @@
 	model = "embeddedTS i.MX28 TS-7400-V2 (Default Device Tree)";
 	compatible = "fsl,imx28-ts7400v2", "fsl,imx28";
 
-	aliases {
-		spi0 = &ssp2;
-		i2c0 = &i2c0;
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0x40000000 0x08000000>;   /* 128MB */
 	};
 
-	memory {
-		reg = <0x40000000 0x08000000>;   /* 128MB */
+	aliases {
+		spi0 = &ssp2;
+		i2c0 = &i2c0_gpio;
+	};
+
+	i2c0_gpio: i2c {
+		compatible = "i2c-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&i2c0_pins_gpio>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		scl-gpios = <&gpio3 24 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		sda-gpios = <&gpio3 25 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		clock-frequency = <100000>;
+
+		isl12022: rtc@6f {
+			compatible = "isil,isl12022";
+			btse-minutes = <1>;
+			isil,battery-trip-levels-microvolt = <2550000>, <2250000>;
+			reg = <0x6f>;
+		};
+
+		isl12022_sram: eeprom@57 {
+			compatible = "atmel,24c01";
+			reg = <0x57>;
+			label = "isl12022-SRAM";
+			pagesize = <128>;
+			size = <128>;
+			address-width = <8>;
+		};
+
+		silabs: watchdog@78 {
+			compatible = "ts-wdt";
+			timeout-sec = <500>;
+			enable-early;
+			reg = <0x78>;
+		};
 	};
 
 	led-controller {
@@ -158,36 +193,6 @@
 		"I2S_TXD", "I2C_CLK", "I2C_DAT", "I2S_RXD", "", "", "DIO_15";
 };
 
-&i2c0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c0_pins_a>;
-	clock-frequency = <100000>;
-	status = "okay";
-
-	isl12022: rtc@6f {
-		compatible = "isil,isl12022";
-		btse-minutes = <1>;
-		isil,battery-trip-levels-microvolt = <2550000>, <2250000>;
-		reg = <0x6f>;
-	};
-
-	isl12022_sram: eeprom@57 {
-		compatible = "atmel,24c01";
-		reg = <0x57>;
-		label = "isl12022-SRAM";
-		pagesize = <128>;
-		size = <128>;
-		address-width = <8>;
-	};
-
-	silabs: watchdog@78 {
-		compatible = "ts-wdt";
-		timeout-sec = <500>;
-		enable-early;
-		reg = <0x78>;
-	};
-};
-
 &lradc {
 	status = "okay";
 };
@@ -240,6 +245,18 @@
 		>;
 		fsl,drive-strength = <MXS_DRIVE_4mA>;
 		fsl,voltage = <MXS_VOLTAGE_HIGH>;
+		fsl,pull-up = <MXS_PULL_DISABLE>;
+	};
+
+	i2c0_pins_gpio: i2c-gpio-pins@0 {
+		reg = <0>;
+		fsl,pinmux-ids = <
+			MX28_PAD_I2C0_SCL__GPIO_3_24
+			MX28_PAD_I2C0_SDA__GPIO_3_25
+		>;
+		fsl,drive-strength = <MXS_DRIVE_8mA>;
+		fsl,voltage = <MXS_VOLTAGE_HIGH>;
+		/* This pin uses PULL_DISABLE == 0 == Enable Keeper */
 		fsl,pull-up = <MXS_PULL_DISABLE>;
 	};
 
