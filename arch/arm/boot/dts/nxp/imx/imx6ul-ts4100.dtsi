@@ -36,8 +36,9 @@
 		};
 	};
 
-	memory {
+	memory@80000000 {
 		/* Memory size to be filled in by U-Boot */
+		device_type = "memory";
 		reg = <0x80000000 0>;
 	};
 
