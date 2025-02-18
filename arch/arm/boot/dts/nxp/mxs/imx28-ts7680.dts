@@ -15,15 +15,66 @@
 	model = "embeddedTS i.MX28 TS-7680 (Default Device Tree)";
 	compatible = "fsl,imx28-ts7680", "fsl,imx28";
 
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0x40000000 0x0>; // Filled in by U-Boot
+	};
+
 	aliases {
 		mmc0 = &ssp0;
 		mmc2 = &ssp1;
-		i2c0 = &i2c0;
+		i2c0 = &i2c0_gpio;
 		mdio-gpio0 = &mdio_gpio;
 	};
 
-	memory {
-		reg = <0x40000000 0x0>; // Filled in by U-Boot
+	i2c0_gpio: i2c {
+		compatible = "i2c-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c0_pins_gpio>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		scl-gpios = <&gpio3 24 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		sda-gpios = <&gpio3 25 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		clock-frequency = <100000>;
+
+		m41t00s: rtc@68 {
+			compatible = "st,m41t00";
+			reg = <0x68>;
+		};
+
+		gpio8: gpio-controller@28 {
+			compatible = "technologic,ts7970-gpio";
+			ngpios = <64>;
+			reg = <0x28>;
+			#gpio-cells = <2>;
+			gpio-controller;
+
+			gpio-line-names = "HD4_22", "HD4_23", "HD4_24", "HD4_25", "HD4_26",
+				"HD4_27", "HD4_28", "HD4_29", "HD4_30", "HD4_31", "HD4_32",
+				"HD4_33", "HD4_34", "HD4_35", "", "HD4_13/T_4 LS Out",
+				"HD4_11/T_5 LS Out", "HD4_9/T_6 LS Out", "RELAY1", "RELAY2",
+				"", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+				"AD0_PU#", "AD1_PU#", "AD2_PU#", "AD3_PU#", "AD01_CL",
+				"AD23_CL", "EN_DC_5V";
+		};
+
+		silabs: watchdog@78 {
+			compatible = "ts-wdt";
+			reg = <0x78>;
+			timeout-sec = <500>;
+			enable-early;
+		};
+
+		mma8451: accelerometer@1c {
+			compatible = "fsl,mma8451";
+			reg = <0x1c>;
+			position = <0>;
+			vdd-supply = <&reg_3v3>;
+			vddio-supply = <&reg_3v3>;
+			interrupt-parent = <&gpio0>;
+			interrupts = <20 IRQ_TYPE_NONE>;
+			interrupt-names = "INT1";
+		};
 	};
 
 	led-controller {
@@ -41,7 +92,7 @@
 
 		led-1 {
 			color = <LED_COLOR_ID_RED>;
-			function = LED_FUNCTION_STATUS;
+			function = LED_FUNCTION_INDICATOR;
 			gpios = <&gpio0 7 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
@@ -70,8 +121,10 @@
 		regulator-always-on;
 	};
 
-	reg_can_3v3: regulator-can-en@0 {
+	reg_can_3v3: regulator-can-en {
 		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_flexcan_3v3>;
 		regulator-name = "CAN_EN";
 		regulator-min-microvolt = <3000000>;
 		regulator-max-microvolt = <3000000>;
@@ -259,52 +312,6 @@
 		"HD4_21";
 };
 
-&i2c0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c0_pins_a>;
-	clock-frequency = <100000>;
-	status = "okay";
-
-	rtc: m41t00s@68 {
-		compatible = "m41t00";
-		reg = <0x68>;
-	};
-
-	gpio8: ts7680gpio@28 {
-		compatible = "technologic,ts7970-gpio";
-		ngpios = <64>;
-		reg = <0x28>;
-		#gpio-cells = <2>;
-		gpio-controller;
-
-		gpio-line-names = "HD4_22", "HD4_23", "HD4_24", "HD4_25", "HD4_26",
-			"HD4_27", "HD4_28", "HD4_29", "HD4_30", "HD4_31", "HD4_32",
-			"HD4_33", "HD4_34", "HD4_35", "", "HD4_13/T_4 LS Out",
-			"HD4_11/T_5 LS Out", "HD4_9/T_6 LS Out", "RELAY1", "RELAY2",
-			"", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
-			"AD0_PU#", "AD1_PU#", "AD2_PU#", "AD3_PU#", "AD01_CL",
-			"AD23_CL", "EN_DC_5V";
-	};
-
-	silabs: silabs@78 {
-		compatible = "ts-wdt";
-		reg = <0x78>;
-		timeout-sec = <500>;
-		enable-early;
-	};
-
-	accel: mma8451@1c {
-		compatible = "fsl,mma8451";
-		reg = <0x1c>;
-		position = <0>;
-		vdd-supply = <&reg_3v3>;
-		vddio-supply = <&reg_3v3>;
-		interrupt-parent = <&gpio0>;
-		interrupts = <20 6>;
-		interrupt-route = <1>;
-	};
-};
-
 &lradc {
 	status = "okay";
 };
@@ -393,6 +400,18 @@
 		fsl,pull-up = <MXS_PULL_DISABLE>;
 	};
 
+	pinctrl_i2c0_pins_gpio: i2c-gpiogrp {
+		reg = <0>;
+		fsl,pinmux-ids = <
+			MX28_PAD_I2C0_SCL__GPIO_3_24
+			MX28_PAD_I2C0_SDA__GPIO_3_25
+		>;
+		fsl,drive-strength = <MXS_DRIVE_8mA>;
+		fsl,voltage = <MXS_VOLTAGE_HIGH>;
+		/* This pin uses PULL_DISABLE == 0 == Enable Keeper */
+		fsl,pull-up = <MXS_PULL_DISABLE>;
+	};
+
 	pinctrl_mac0: mac0grp {
 		reg = <0>;
 		fsl,pinmux-ids = <
@@ -417,7 +436,7 @@
 		 >;
 		 fsl,drive-strength = <MXS_DRIVE_8mA>;
 		 fsl,voltage = <MXS_VOLTAGE_HIGH>;
-		 fsp,pull-up = <MXS_PULL_ENABLE>;
+		 fsl,pull-up = <MXS_PULL_ENABLE>;
 	};
 
 	pinctrl_mmc0_4bit: mmc0-4bitgrp {
@@ -525,7 +544,7 @@
 	cap-power-off-card;
 	status = "okay";
 
-	wlcore: wlcore@2 {
+	wlcore: wifi@2 {
 		compatible = "ti,wl1271";
 		reg = <2>;
 		interrupt-parent = <&gpio1>;
