@@ -13,6 +13,11 @@
 	model = "embeddedTS i.MX28 TS-7670 (Default Device Tree)";
 	compatible = "fsl,imx28-ts7670", "fsl,imx28";
 
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0x40000000 0x08000000>;   /* 128MB */
+	};
+
 	aliases {
 		i2c0 = &i2c0_gpio;
 	};
@@ -49,10 +54,6 @@
 			enable-early;
 			reg = <0x78>;
 		};
-	};
-
-	memory {
-		reg = <0x40000000 0x08000000>;   /* 128MB */
 	};
 
 	led-controller {
