@@ -218,6 +218,13 @@ config HW_RANDOM_PASEMI
 
 	  If unsure, say Y.
 
+config HW_RANDOM_TS7840
+	tristate "TS-7840 FPGA based RNG"
+	depends on HAS_IOMEM
+	help
+	  This driver provides kernel support for the FPGA based RNG which
+	  returns a constant random 32-bit value based on metastability.
+
 config HW_RANDOM_VIRTIO
 	tristate "VirtIO Random Number Generator support"
 	depends on VIRTIO
