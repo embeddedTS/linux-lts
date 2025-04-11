@@ -404,12 +404,21 @@ config RTC_DRV_ISL1208
 
 config RTC_DRV_ISL12022
 	tristate "Intersil ISL12022"
+	select REGMAP_I2C
 	help
 	  If you say yes here you get support for the
 	  Intersil ISL12022 RTC chip.
 
 	  This driver can also be built as a module. If so, the module
 	  will be called rtc-isl12022.
+
+config RTC_DRV_ISL12022_HWMON
+	bool "HWMON support for Intersil ISL12022"
+	depends on RTC_DRV_ISL12022 && HWMON && !(RTC_DRV_ISL12022=y && HWMON=m)
+	default y
+	help
+	  Say Y here if you want to expose temperature sensor data on
+	  rtc-isl12022
 
 config RTC_DRV_ISL12026
 	tristate "Intersil ISL12026"
@@ -524,6 +533,12 @@ config RTC_DRV_DM355EVM
 	depends on MFD_DM355EVM_MSP
 	help
 	  Supports the RTC firmware in the MSP430 on the DM355 EVM.
+
+config RTC_DRV_TSSUPERVISOR
+	tristate "embeddedTS Supervisory Microcontroller RTC"
+	select REGMAP_I2C
+	help
+	  Supports the RTC on embeddedTS Supervisory microcontroller
 
 config RTC_DRV_TWL92330
 	bool "TI TWL92330/Menelaus"

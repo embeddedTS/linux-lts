@@ -226,6 +226,13 @@ config HW_RANDOM_VIRTIO
 	  To compile this driver as a module, choose M here: the
 	  module will be called virtio-rng.  If unsure, say N.
 
+config HW_RANDOM_TS7840
+	tristate "TS-7840 FPGA based RNG"
+	depends on HAS_IOMEM
+	help
+	  This driver provides kernel support for the FPGA based RNG which
+	  returns a constant random 32-bit value based on metastability.
+
 config HW_RANDOM_TX4939
 	tristate "TX4939 Random Number Generator support"
 	depends on SOC_TX4939
