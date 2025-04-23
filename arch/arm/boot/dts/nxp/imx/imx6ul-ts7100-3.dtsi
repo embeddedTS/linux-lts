@@ -205,10 +205,10 @@
 &uart2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart2>;
-	uart-has-rtscts;
-	rts-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
+	rts-gpios = <&gpio1 9 GPIO_ACTIVE_HIGH>;
 	linux,rs485-enabled-at-boot-time;
 	dma-names = "", "";
+	status = "okay";
 };
 
 &uart3 {
@@ -228,9 +228,10 @@
 &uart5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart5>;
-	uart-has-rtscts;
+	rts-gpios = <&gpio1 0 GPIO_ACTIVE_HIGH>;
 	linux,rs485-enabled-at-boot-time;
 	dma-names = "", "";
+	status = "okay";
 };
 
 &usbotg1 {
