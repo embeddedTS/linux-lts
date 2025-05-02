@@ -5,6 +5,13 @@
 
 comment "MMC/SD/SDIO Host Controller Drivers"
 
+config TS_SDCARD
+        tristate "SD Card support for embeddedTS sdcore v2"
+        depends on MFD_TS78XX
+        help
+          SD Card support for embeddedTS SD Card core
+          on TS-7800-V2 platform.
+
 config MMC_DEBUG
 	bool "MMC host drivers debugging"
 	depends on MMC != n

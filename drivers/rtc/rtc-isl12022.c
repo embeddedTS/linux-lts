@@ -38,11 +38,30 @@
 #define ISL12022_REG_BETA	0x0d
 #define ISL12022_REG_TEMP_L	0x28
 
+#define ISL12022_REG_FATR	0x0e
+
+#define ISL12022_REG_FDTR	0x0f
+/* Detect embeddedTS emulated ISL12022.  This is always 0 on the real RTC. */
+#define ISL12022_FDTR_EMULATED	(1 << 7)
+
+/*
+ * These registers only exist in the emulated device, they are unused dst
+ * registers on the real RTC.
+ */
+#define ISL12022_REG_OFF_VAL	0x21
+
+#define ISL12022_REG_OFF_CTL	0x25
+#define ISL12022_OFF_CTL_APPLY	(1 << 0) /* Make value take affect now */
+#define ISL12022_OFF_CTL_ADD	(1 << 1) /* 1 if the value is add, 0 if subtract */
+#define ISL12022_OFF_CTL_FLASH	(1 << 2) /* 1 to commit to flash, 0 to just ram */
+
 /* ISL register bits */
 #define ISL12022_HR_MIL		(1 << 7)	/* military or 24 hour time */
 
+#define ISL12022_SR_OSCF	(1 << 7)
 #define ISL12022_SR_LBAT85	(1 << 2)
 #define ISL12022_SR_LBAT75	(1 << 1)
+#define ISL12022_SR_RTCF	(1 << 0)
 
 #define ISL12022_INT_WRTC	(1 << 6)
 #define ISL12022_INT_FO_MASK	GENMASK(3, 0)
@@ -53,6 +72,8 @@
 #define ISL12022_REG_VB75_MASK	GENMASK(2, 0)
 
 #define ISL12022_BETA_TSE	(1 << 7)
+#define ISL12022_BETA_BTSE	(1 << 6)
+#define ISL12022_BETA_BTSR	(1 << 5)
 
 static umode_t isl12022_hwmon_is_visible(const void *data,
 					 enum hwmon_sensor_types type,
@@ -208,6 +229,51 @@ static int isl12022_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	return regmap_bulk_write(regmap, ISL12022_REG_SC, buf, sizeof(buf));
 }
 
+static int emulated_isl12022_set_offset(struct device *dev, long offset)
+{
+	struct regmap *regmap = dev_get_drvdata(dev);
+	uint32_t ppb = abs(offset);
+	uint8_t data;
+	int ret;
+
+	ret = regmap_bulk_write(regmap, ISL12022_REG_OFF_VAL, &ppb, sizeof(ppb));
+	if (ret)
+		return ret;
+
+	data = ISL12022_OFF_CTL_APPLY |
+	       ((offset > 0) ? ISL12022_OFF_CTL_ADD : 0) |
+	       ISL12022_OFF_CTL_FLASH;
+
+	ret = regmap_bulk_write(regmap, ISL12022_REG_OFF_CTL, &data, 1);
+	if (ret)
+		return ret;
+
+	return ret;
+}
+
+static int emulated_isl12022_read_offset(struct device *dev, long *offset)
+{
+	struct regmap *regmap = dev_get_drvdata(dev);
+	int ret;
+	uint32_t ppb;
+	uint8_t data;
+
+	ret = regmap_bulk_read(regmap, ISL12022_REG_OFF_VAL, &ppb, sizeof(ppb));
+	if (ret)
+		return ret;
+
+	ret = regmap_bulk_read(regmap, ISL12022_REG_OFF_CTL, &data, 1);
+	if (ret)
+		return -EIO;
+
+	*offset = ppb;
+
+	if ((data & ISL12022_OFF_CTL_ADD) == 0)
+		*offset *= -1;
+
+	return ret;
+}
+
 static int isl12022_rtc_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 {
 	struct regmap *regmap = dev_get_drvdata(dev);
@@ -238,6 +304,13 @@ static const struct rtc_class_ops isl12022_rtc_ops = {
 	.ioctl		= isl12022_rtc_ioctl,
 	.read_time	= isl12022_rtc_read_time,
 	.set_time	= isl12022_rtc_set_time,
+};
+
+static const struct rtc_class_ops emulated_isl12022_rtc_ops = {
+	.read_time	= isl12022_rtc_read_time,
+	.set_time	= isl12022_rtc_set_time,
+	.set_offset	= emulated_isl12022_set_offset,
+	.read_offset	= emulated_isl12022_read_offset,
 };
 
 static const struct regmap_config regmap_config = {
@@ -323,10 +396,57 @@ static void isl12022_set_trip_levels(struct device *dev)
 			  ISL12022_BETA_TSE, ISL12022_BETA_TSE);
 }
 
+static void isl12022_set_battery_mode_compensation(struct device *dev)
+{
+	struct regmap *regmap = dev_get_drvdata(dev);
+	u32 minutes;
+	unsigned int beta_reg;
+	u8 val;
+	int ret;
+
+	/*
+	 * As a shortcut, we assume the value will be not present, 1, or 10.
+	 * Later it is assumed that if the value is not 1, then it must be 10.
+	 *
+	 * When battery mode compensation is enabled, expect an overall average
+	 * increase in battery draw of 25 nA at 10 minutes, and 250 nA at 1 minute.
+	 */
+	ret = device_property_read_u32(dev, "isil,compensation-in-battery-mode-mins",
+				       &minutes);
+	if (ret)
+		return;
+
+	dev_dbg(dev, "Enable temp. compensation in battery mode every %d minutes\n",
+		minutes == 1 ? 1 : 10);
+
+	/*
+	 * Disable TSE, modifications to the BETA register need to happen with
+	 * TSE disabled. Save the TSE value in case it was not enabled. The datasheet
+	 * is not clear on if TSE needs to be enabled for BTSE to be effective.
+	 */
+	regmap_read(regmap, ISL12022_REG_BETA, &beta_reg);
+	regmap_write_bits(regmap, ISL12022_REG_BETA, ISL12022_BETA_TSE, 0);
+
+	val = ISL12022_BETA_BTSE;
+	if (minutes == 1)
+		val |= ISL12022_BETA_BTSR;
+
+	regmap_write_bits(regmap, ISL12022_REG_BETA,
+			  (ISL12022_BETA_BTSE | ISL12022_BETA_BTSR), val);
+
+	if (beta_reg & ISL12022_BETA_TSE)
+		regmap_write_bits(regmap, ISL12022_REG_BETA,
+				  ISL12022_BETA_TSE, ISL12022_BETA_TSE);
+}
+
+
+
 static int isl12022_probe(struct i2c_client *client)
 {
 	struct rtc_device *rtc;
 	struct regmap *regmap;
+	unsigned int sr;
+	uint32_t data;
 	int ret;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
@@ -340,18 +460,36 @@ static int isl12022_probe(struct i2c_client *client)
 
 	dev_set_drvdata(&client->dev, regmap);
 
+	regmap_read(regmap, ISL12022_REG_SR, &sr);
+	if (sr & ISL12022_SR_RTCF)
+		dev_warn(&client->dev, "rtc power failure detected, "
+			 "please set clock.\n");
+	if (sr & ISL12022_SR_OSCF)
+		dev_warn(&client->dev, "rtc oscillator failure detected\n");
+
 	ret = isl12022_register_clock(&client->dev);
 	if (ret)
 		return ret;
 
 	isl12022_set_trip_levels(&client->dev);
+	isl12022_set_battery_mode_compensation(&client->dev);
 	isl12022_hwmon_register(&client->dev);
 
 	rtc = devm_rtc_allocate_device(&client->dev);
 	if (IS_ERR(rtc))
 		return PTR_ERR(rtc);
 
-	rtc->ops = &isl12022_rtc_ops;
+	/* Detect emulated isl12022 */
+	ret = regmap_bulk_read(regmap, ISL12022_REG_FDTR, &data, 1);
+	if (ret)
+		return ret;
+
+	if (data & ISL12022_FDTR_EMULATED) {
+		dev_info(&client->dev, "Emulated isl12022 detected");
+		rtc->ops = &emulated_isl12022_rtc_ops;
+	} else {
+		rtc->ops = &isl12022_rtc_ops;
+	}
 	rtc->range_min = RTC_TIMESTAMP_BEGIN_2000;
 	rtc->range_max = RTC_TIMESTAMP_END_2099;
 

@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: GPL-2.0 OR X11
+/*
+ * Copyright 2017-2022 Technologic Systems, Inc. dba embeddedTS
+ */
+
+/dts-v1/;
+#include "imx6q.dtsi"
+#include "imx6qdl-ts7990.dtsi"
+
+/ {
+	model = "embeddedTS i.MX6 Quad TS-7990 (Okaya)";
+	compatible = "fsl,imx6q-ts7990", "fsl,imx6q";
+
+	lcd_display: disp0 {
+		compatible = "fsl,imx-parallel-display";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interface-pix-fmt = "rgb24";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ipu>;
+
+		display-timings {
+			OKAYA-WVGA {
+				clock-frequency = <30066000>;
+				hactive = <800>;
+				vactive = <480>;
+				hfront-porch = <50>;
+				hback-porch = <70>;
+				hsync-len = <50>;
+				vback-porch = <2>;
+				vfront-porch = <2>;
+				vsync-len = <50>;
+
+				de-active = <1>;
+				pixelclk-active = <1>;
+			};
+		};
+
+		port@0 {
+			lcd_display_in: endpoint {
+				remote-endpoint = <&ipu1_di0_disp0>;
+			};
+		};
+	};
+};
+
+&ecspi5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi5>;
+	num-cs = <1>;
+	cs-gpios = <&gpio1 17 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	wilc3000: wifi@0 {
+		compatible = "microchip,wilc3000";
+		reg = <0>;
+		spi-max-frequency = <18000000>;
+		reset-gpios = <&gpio8 13 GPIO_ACTIVE_HIGH>;
+		chip_en-gpios = <&gpio8 14 GPIO_ACTIVE_HIGH>;
+		interrupt-parent = <&gpio1>;
+		interrupts = <26 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
+
+&iomuxc {
+	imx6-ts7990 {
+		pinctrl_ecspi5: ecspi5grp {
+			fsl,pins = <
+				MX6QDL_PAD_SD1_CMD__ECSPI5_MOSI		0x100b1
+				MX6QDL_PAD_SD1_CLK__ECSPI5_SCLK		0x100b1
+				MX6QDL_PAD_SD1_DAT0__ECSPI5_MISO	0x100b1
+				MX6QDL_PAD_SD1_DAT1__GPIO1_IO17		0x1b088 /* SPI_1_CS# */
+				MX6QDL_PAD_ENET_RXD1__GPIO1_IO26	0x1b088 /* WIFI_IRQ# */
+				/* XXX: Add chip-en and reset GPIOS */
+			>;
+		};
+	};
+};
+
+&ipu1_di0_disp0 {
+	remote-endpoint = <&lcd_display_in>;
+};
+
+&sata {
+	status = "okay";
+};
+
+&touch_spi {
+	status = "okay";
+};

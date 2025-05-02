@@ -81,6 +81,7 @@ struct pixcir_i2c_ts_data {
 	struct gpio_desc *gpio_wake;
 	const struct pixcir_i2c_chip_data *chip;
 	struct touchscreen_properties prop;
+	int irq_polarity;
 	bool running;
 };
 
@@ -345,7 +346,8 @@ static int pixcir_start(struct pixcir_i2c_ts_data *ts)
 	}
 
 	/* LEVEL_TOUCH interrupt with active low polarity */
-	error = pixcir_set_int_mode(ts, PIXCIR_INT_LEVEL_TOUCH, 0);
+	error = pixcir_set_int_mode(ts, PIXCIR_INT_LEVEL_TOUCH,
+					ts->irq_polarity);
 	if (error) {
 		dev_err(dev, "Failed to set interrupt mode: %d\n", error);
 		return error;
@@ -513,6 +515,8 @@ static int pixcir_i2c_ts_probe(struct i2c_client *client)
 	}
 
 	input_set_drvdata(input, tsdata);
+
+	tsdata->irq_polarity = device_property_read_bool(dev, "invert-int-output");
 
 	tsdata->gpio_attb = devm_gpiod_get(dev, "attb", GPIOD_IN);
 	if (IS_ERR(tsdata->gpio_attb))
