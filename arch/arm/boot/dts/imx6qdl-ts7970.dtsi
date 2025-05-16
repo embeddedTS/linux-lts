@@ -23,6 +23,7 @@
 		compatible = "gpio-leds";
 
 		led-0 {
+			label = "green-led";
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_POWER;
 			gpios = <&gpio3 27 GPIO_ACTIVE_LOW>;
@@ -30,6 +31,7 @@
 		};
 
 		led-1 {
+			label = "red-led";
 			color = <LED_COLOR_ID_RED>;
 			function = LED_FUNCTION_STATUS;
 			gpios = <&gpio1 2 GPIO_ACTIVE_LOW>;
@@ -37,6 +39,7 @@
 		};
 
 		led-2 {
+			label = "yellow-led";
 			color = <LED_COLOR_ID_YELLOW>;
 			function = LED_FUNCTION_INDICATOR;
 			gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
@@ -44,6 +47,7 @@
 		};
 
 		led-3 {
+			label = "blue-led";
 			color = <LED_COLOR_ID_BLUE>;
 			function = LED_FUNCTION_INDICATOR;
 			gpios = <&gpio4 25 GPIO_ACTIVE_HIGH>;
