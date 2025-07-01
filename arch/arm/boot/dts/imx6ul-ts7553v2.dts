@@ -126,6 +126,17 @@
 		sda-gpios = <&gpio5 5 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
 		scl-gpios = <&gpio5 4 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
 
+		lis2mdl: magnetometer@1e {
+			compatible = "st,lis2mdl";
+			reg = <0x1e>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_magn_gpio>;
+			st,drdy-int-pin = <1>;
+			interrupt-parent = <&gpio1>;
+			interrupts = <13 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		/* Only present on REV D and below */
 		mpu9250a: imu@68 {
 			compatible = "invensense,mpu9250";
 			reg = <0x68>;
@@ -139,6 +150,13 @@
 					reg = <0xc>;
 				};
 			};
+		};
+
+		ism330: gyro@6a {
+			compatible = "st,ism330dhcx";
+			reg = <0x6a>;
+			interrupt-parent = <&gpio3>;
+			interrupts = <1 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 };
@@ -263,10 +281,10 @@
 };
 
 &gpio3 {
-	gpio-line-names = "USB_HUB_RESET#", "", "", "", "", "", "",
-		"USB_MUX_CPU_OTG", "", "", "", "NO_CHRG_JMP#", "", "", "", "",
-		"", "SD_BOOT_JMP#", "PUSH_SW_CPU#", "U_BOOT_JMP#", "XBEE_RESET#",
-		"", "", "RES_STRAP_0", "RES_STRAP_1", "", "",
+	gpio-line-names = "USB_HUB_RESET#", "", "NIMBEL_PIN13", "NIMBEL_PIN20",
+		"", "", "", "USB_MUX_CPU_OTG", "", "", "", "NO_CHRG_JMP#", "",
+		"", "", "", "", "SD_BOOT_JMP#", "PUSH_SW_CPU#", "U_BOOT_JMP#",
+		"XBEE_RESET#", "", "", "RES_STRAP_0", "RES_STRAP_1", "", "",
 		"RES_STRAP_2", "RES-STRAP_3";
 };
 
@@ -315,12 +333,10 @@
 			MX6UL_PAD_LCD_DATA05__GPIO3_IO10	0x1a020
 			MX6UL_PAD_CSI_DATA07__GPIO4_IO28	0x13020
 			MX6UL_PAD_JTAG_TCK__GPIO1_IO14		0x1b020
-			MX6UL_PAD_JTAG_TDI__GPIO1_IO13		0x1b020
 			MX6UL_PAD_JTAG_TDO__GPIO1_IO12		0x1b020
 			MX6UL_PAD_JTAG_TMS__GPIO1_IO11		0x1b020
 			MX6UL_PAD_JTAG_MOD__GPIO1_IO10		0x1a020
 			MX6UL_PAD_JTAG_TRST_B__GPIO1_IO15	0x1b020
-
 
 			/* Has hardware pull resistor */
 			MX6UL_PAD_LCD_DATA14__GPIO3_IO19	0x1a020 /* U_BOOT_JMP#_ */
@@ -349,6 +365,8 @@
 			MX6UL_PAD_LCD_DATA13__GPIO3_IO18	0x1a020 /* PUSH_SW_CPU# */
 			MX6UL_PAD_UART2_RTS_B__GPIO1_IO23	0x1b020 /* 232_TRANS_EN */
 			MX6UL_PAD_SNVS_TAMPER0__GPIO5_IO00	0x1b020 /* POWER_FAIL */
+			MX6UL_PAD_LCD_HSYNC__GPIO3_IO02		0x1b020 /* NIMBEL_PIN13 */
+			MX6UL_PAD_LCD_VSYNC__GPIO3_IO03		0x1a020 /* NIMBEL_PIN20 */
 		>;
 	};
 
@@ -455,6 +473,12 @@
 			MX6UL_PAD_SNVS_TAMPER4__GPIO5_IO04	0x4001a8b0
 			MX6UL_PAD_SNVS_TAMPER5__GPIO5_IO05	0x4001a8b0
 			MX6UL_PAD_LCD_ENABLE__GPIO3_IO01	0x13020 /* IMU IRQ */
+		>;
+	};
+
+	pinctrl_magn_gpio: magngrp {
+		fsl,pins = <
+			MX6UL_PAD_JTAG_TDI__GPIO1_IO13		0x13020
 		>;
 	};
 
