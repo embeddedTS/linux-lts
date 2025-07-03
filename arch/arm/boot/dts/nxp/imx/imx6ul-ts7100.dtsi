@@ -156,7 +156,7 @@
 	status = "okay";
 
 	st_magn: magnetometer@1e {
-		compatible = "st,lis2mdl";
+		compatible = "st,iis2mdc";
 		/* This option isn't valid on this part as it only supports
 		 * a single drdy pin. However, the driver defaults to int2 if
 		 * not drdy pin is specified which the driver errors on if int2
