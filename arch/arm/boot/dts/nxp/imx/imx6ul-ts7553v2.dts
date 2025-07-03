@@ -126,8 +126,8 @@
 		sda-gpios = <&gpio5 5 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
 		scl-gpios = <&gpio5 4 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
 
-		lis2mdl: magnetometer@1e {
-			compatible = "st,lis2mdl";
+		iis2mdc: magnetometer@1e {
+			compatible = "st,iis2mdc";
 			reg = <0x1e>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl_magn_gpio>;
