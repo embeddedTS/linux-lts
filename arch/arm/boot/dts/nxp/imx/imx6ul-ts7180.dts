@@ -290,7 +290,7 @@
 	status = "okay";
 
 	st_magn: magnetometer@1e {
-		compatible = "st,lis2mdl";
+		compatible = "st,iis2mdc";
 		reg = <0x1e>;
 		st,drdy-int-pin = <1>;
 		interrupt-parent = <&gpio4>;
