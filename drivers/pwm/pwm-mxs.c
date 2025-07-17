@@ -3,6 +3,8 @@
  * Copyright 2012 Freescale Semiconductor, Inc.
  */
 
+#include <linux/bits.h>
+#include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/io.h>
@@ -19,6 +21,8 @@
 #define TOG	0xc
 
 #define PWM_CTRL		0x0
+#define  CTRL_PRESENT_MASK	GENMASK(29, 22)
+#define  CTRL_ENABLE_MASK	GENMASK(7, 0)
 #define PWM_ACTIVE0		0x10
 #define PWM_PERIOD0		0x20
 #define  PERIOD_PERIOD(p)	((p) & 0xffff)
@@ -125,6 +129,7 @@ static int mxs_pwm_probe(struct platform_device *pdev)
 	struct pwm_chip *chip;
 	struct mxs_pwm_chip *mxs;
 	u32 npwm;
+	u32 ctrl_reg;
 	int ret;
 
 	ret = of_property_read_u32(np, "fsl,pwm-number", &npwm);
@@ -148,10 +153,18 @@ static int mxs_pwm_probe(struct platform_device *pdev)
 
 	chip->ops = &mxs_pwm_ops;
 
-	/* FIXME: Only do this if the PWM isn't already running */
-	ret = stmp_reset_block(mxs->base);
-	if (ret)
-		return dev_err_probe(&pdev->dev, ret, "failed to reset PWM\n");
+	/*
+	 * If any of the PWM channels are present and enabled, skip resetting
+	 * the PWM block as it can safely be assumed the bootloader configured
+	 * them.
+	 */
+	ctrl_reg = readl(mxs->base + PWM_CTRL);
+	if (!(FIELD_GET(CTRL_PRESENT_MASK, ctrl_reg) &
+	      FIELD_GET(CTRL_ENABLE_MASK, ctrl_reg))) {
+		ret = stmp_reset_block(mxs->base);
+		if (ret)
+			return dev_err_probe(&pdev->dev, ret, "failed to reset PWM\n");
+	}
 
 	ret = devm_pwmchip_add(&pdev->dev, chip);
 	if (ret < 0) {
