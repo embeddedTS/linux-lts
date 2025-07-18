@@ -184,7 +184,7 @@
 		#clock-cells = <0>;
 		clock-frequency = <12000000>;
 		clock-output-names = "fpga_12mhz";
-                pwms = <&pwm 2 83>; // 1 / 83 ns = 12ish MHz
+                pwms = <&pwm 2 83 0>; // 1 / 83 ns = 12ish MHz
         };
 };
 
