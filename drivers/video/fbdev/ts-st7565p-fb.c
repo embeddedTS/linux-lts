@@ -494,7 +494,7 @@ err:
 	return retval;
 }
 
-static int st7565p_remove(struct platform_device *dev)
+static void st7565p_remove(struct platform_device *dev)
 {
 	struct fb_info *info = platform_get_drvdata(dev);
 
@@ -503,7 +503,6 @@ static int st7565p_remove(struct platform_device *dev)
 		rvfree(videomemory, videomemorysize);
 		framebuffer_release(info);
 	}
-	return 0;
 }
 
 static struct platform_driver st7565p_driver = {
