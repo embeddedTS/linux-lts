@@ -5,6 +5,7 @@
  * io / mem cycles at 8/16 bit sizes.
  */
 
+#include <linux/device.h>
 #include <linux/module.h>
 #include <linux/gpio/consumer.h>
 #include <linux/delay.h>
@@ -12,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
+#include <linux/platform_device.h>
 #include <linux/types.h>
 #include <linux/tspc104_bus.h>
 
@@ -97,7 +99,7 @@ static int ts_pc104bus_init_pdata(struct platform_device *pdev,
 	return 0;
 }
 
-ssize_t isa_io8_read(struct file *filp, struct kobject *kobj,
+static ssize_t isa_io8_read(struct file *filp, struct kobject *kobj,
 		     struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
@@ -114,7 +116,7 @@ ssize_t isa_io8_read(struct file *filp, struct kobject *kobj,
 	return i;
 }
 
-ssize_t isa_io8_write(struct file *filp, struct kobject *kobj,
+static ssize_t isa_io8_write(struct file *filp, struct kobject *kobj,
 		      struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
@@ -131,7 +133,7 @@ ssize_t isa_io8_write(struct file *filp, struct kobject *kobj,
 	return i;
 }
 
-ssize_t isa_mem8_read(struct file *filp, struct kobject *kobj,
+static ssize_t isa_mem8_read(struct file *filp, struct kobject *kobj,
 		     struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
@@ -148,7 +150,7 @@ ssize_t isa_mem8_read(struct file *filp, struct kobject *kobj,
 	return i;
 }
 
-ssize_t isa_mem8_write(struct file *filp, struct kobject *kobj,
+static ssize_t isa_mem8_write(struct file *filp, struct kobject *kobj,
 		      struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
@@ -165,7 +167,7 @@ ssize_t isa_mem8_write(struct file *filp, struct kobject *kobj,
 	return i;
 }
 
-ssize_t isa_io16_read(struct file *filp, struct kobject *kobj,
+static ssize_t isa_io16_read(struct file *filp, struct kobject *kobj,
 		     struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
@@ -184,7 +186,7 @@ ssize_t isa_io16_read(struct file *filp, struct kobject *kobj,
 	return i;
 }
 
-ssize_t isa_io16_write(struct file *filp, struct kobject *kobj,
+static ssize_t isa_io16_write(struct file *filp, struct kobject *kobj,
 		      struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
@@ -204,7 +206,7 @@ ssize_t isa_io16_write(struct file *filp, struct kobject *kobj,
 	return i;
 }
 
-ssize_t isa_mem16_read(struct file *filp, struct kobject *kobj,
+static ssize_t isa_mem16_read(struct file *filp, struct kobject *kobj,
 		     struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
@@ -223,7 +225,7 @@ ssize_t isa_mem16_read(struct file *filp, struct kobject *kobj,
 	return i;
 }
 
-ssize_t isa_mem16_write(struct file *filp, struct kobject *kobj,
+static ssize_t isa_mem16_write(struct file *filp, struct kobject *kobj,
 		      struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
@@ -243,7 +245,7 @@ ssize_t isa_mem16_write(struct file *filp, struct kobject *kobj,
 	return i;
 }
 
-ssize_t isa_io16alt_read(struct file *filp, struct kobject *kobj,
+static ssize_t isa_io16alt_read(struct file *filp, struct kobject *kobj,
 		     struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
@@ -262,7 +264,7 @@ ssize_t isa_io16alt_read(struct file *filp, struct kobject *kobj,
 	return i;
 }
 
-ssize_t isa_io16alt_write(struct file *filp, struct kobject *kobj,
+static ssize_t isa_io16alt_write(struct file *filp, struct kobject *kobj,
 		      struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
@@ -282,7 +284,7 @@ ssize_t isa_io16alt_write(struct file *filp, struct kobject *kobj,
 	return i;
 }
 
-ssize_t isa_mem16alt_read(struct file *filp, struct kobject *kobj,
+static ssize_t isa_mem16alt_read(struct file *filp, struct kobject *kobj,
 		     struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
@@ -301,7 +303,7 @@ ssize_t isa_mem16alt_read(struct file *filp, struct kobject *kobj,
 	return i;
 }
 
-ssize_t isa_mem16alt_write(struct file *filp, struct kobject *kobj,
+static ssize_t isa_mem16alt_write(struct file *filp, struct kobject *kobj,
 		      struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
