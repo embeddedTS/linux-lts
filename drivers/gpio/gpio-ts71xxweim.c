@@ -5,8 +5,10 @@
  */
 
 #include <linux/gpio/driver.h>
+#include <linux/device.h>
 #include <linux/of_device.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
 #include <linux/delay.h>
 
 /* Most that this driver can currently support in a single bank is 16. This is
@@ -74,18 +76,20 @@ static int tsweim_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	return !!(reg & (1 << offset));
 }
 
-static void tsweim_gpio_set(struct gpio_chip *chip, unsigned int offset,
+static int tsweim_gpio_set(struct gpio_chip *chip, unsigned int offset,
 				 int value)
 {
 	struct tsweim_gpio_priv *priv = to_gpio_tsweim(chip);
 
 	if (!(offset < priv->gpio_chip.ngpio))
-		return;
+		return -EINVAL;
 
 	if (value)
 		writew((1 << offset), priv->syscon + TSWEIM_SET_REG);
 	else
 		writew((1 << offset), priv->syscon + TSWEIM_CLR_REG);
+
+	return 0;
 }
 
 static const struct gpio_chip template_chip = {
