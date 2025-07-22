@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 
+#include <linux/device.h>
 #include <linux/types.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
@@ -7,6 +8,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/of_device.h>
+#include <linux/platform_device.h>
 #include <linux/seq_file.h>
 
 #define TSWEIM_IRQ_STATUS	0x24
@@ -154,7 +156,7 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int tsweim_intc_remove(struct platform_device *pdev)
+static void tsweim_intc_remove(struct platform_device *pdev)
 {
 	struct tsweim_intc *priv = dev_get_platdata(&pdev->dev);
 
@@ -169,8 +171,6 @@ static int tsweim_intc_remove(struct platform_device *pdev)
 		irq_domain_remove(priv->irqdomain);
 		priv->irqdomain = NULL;
 	}
-
-	return 0;
 }
 
 static const struct of_device_id tsweim_intc_of_match_table[] = {
