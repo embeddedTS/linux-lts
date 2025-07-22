@@ -36,9 +36,9 @@
 
 /**
  * struct spioc - driver-specific context information
- * @master:	SPI master device
+ * @controller:	SPI controller device
  * @info:	pointer to platform data
- * @clk:	SPI master clock
+ * @clk:	SPI controller clock
  * @irq:	SPI controller interrupt
  * @mmio:	physical I/O memory resource
  * @base:	base of memory-mapped I/O
@@ -48,7 +48,7 @@
  * @queue:	SPI message queue
  */
 struct spioc {
-	struct spi_master *master;
+	struct spi_controller *controller;
 	struct clk *clk;
 	int irq;
 	u32 idx;
@@ -79,12 +79,12 @@ static inline void spioc_write(struct spioc *spioc, unsigned int offset,
 	writel(value, spioc->base + offset);
 }
 
-static void spioc_chipselect(struct spioc *master, struct spi_device *spi)
+static void spioc_chipselect(struct spioc *controller, struct spi_device *spi)
 {
 	if (spi)
-		spioc_write(master, SPIOC_SS, 1 << spi->chip_select);
+		spioc_write(controller, SPIOC_SS, 1 << spi->chip_select);
 	else
-		spioc_write(master, SPIOC_SS, 0);
+		spioc_write(controller, SPIOC_SS, 0);
 }
 
 /*
@@ -206,7 +206,7 @@ static void process_transfers(unsigned long data)
 
 static int spioc_setup(struct spi_device *spi)
 {
-	struct spioc *spioc = spi_master_get_devdata(spi->master);
+	struct spioc *spioc = spi_controller_get_devdata(spi->controller);
 	unsigned long clkdiv = 0x0000ffff;
 	u32 ctrl = spioc_read(spioc, SPIOC_CTRL);
 
@@ -255,8 +255,7 @@ static int spioc_setup(struct spi_device *spi)
 
 static int spioc_transfer(struct spi_device *spi, struct spi_message *message)
 {
-	struct spi_master *master = spi->master;
-	struct spioc *spioc = spi_master_get_devdata(master);
+	struct spioc *spioc = spi_controller_get_devdata(spi->controller);
 	unsigned long flags;
 
 	spin_lock_irqsave(&spioc->lock, flags);
@@ -300,9 +299,9 @@ static irqreturn_t spioc_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int init_queue(struct spi_master *master, const char *buf)
+static int init_queue(struct spi_controller *controller, const char *buf)
 {
-	struct spioc *spioc = spi_master_get_devdata(master);
+	struct spioc *spioc = spi_controller_get_devdata(controller);
 
 	if (spioc == NULL) {
 		pr_err("%s %d error\n", __func__, __LINE__);
@@ -319,7 +318,7 @@ static int init_queue(struct spi_master *master, const char *buf)
 			(unsigned long)spioc);
 
 	spioc->workqueue = create_singlethread_workqueue(
-			dev_name(master->dev.parent));
+			dev_name(controller->dev.parent));
 
 	if (!spioc->workqueue)
 		return -EBUSY;
@@ -327,9 +326,9 @@ static int init_queue(struct spi_master *master, const char *buf)
 	return 0;
 }
 
-static int start_queue(struct spi_master *master)
+static int start_queue(struct spi_controller *controller)
 {
-	struct spioc *spioc = spi_master_get_devdata(master);
+	struct spioc *spioc = spi_controller_get_devdata(controller);
 
 	WARN_ON(spioc->message  != NULL);
 	WARN_ON(spioc->transfer != NULL);
@@ -341,17 +340,17 @@ static int start_queue(struct spi_master *master)
 	return 0;
 }
 
-static int stop_queue(struct spi_master *master)
+static int stop_queue(struct spi_controller *controller)
 {
 	return 0;
 }
 
-static int destroy_queue(struct spi_master *master)
+static int destroy_queue(struct spi_controller *controller)
 {
-	struct spioc *spioc = spi_master_get_devdata(master);
+	struct spioc *spioc = spi_controller_get_devdata(controller);
 	int retval = 0;
 
-	retval = stop_queue(master);
+	retval = stop_queue(controller);
 	if (retval)
 		return retval;
 
@@ -372,7 +371,7 @@ static int  spioc_probe(struct platform_device *pdev)
 	struct resource *res = NULL;
 	void __iomem *mmio = NULL;
 	int retval = 0, irq;
-	struct spi_master *master = NULL;
+	struct spi_controller *controller = NULL;
 	struct spioc *spioc = NULL;
 	struct device_node *node = pdev->dev.of_node;
 	char buf[16];
@@ -389,13 +388,13 @@ static int  spioc_probe(struct platform_device *pdev)
 		num_chipselect = 1;
 	}
 
-	master = spi_alloc_master(&pdev->dev, sizeof(struct spioc));
-	if (master == NULL) {
-		dev_err(&pdev->dev, "unable to allocate SPI master\n");
+	controller = spi_alloc_host(&pdev->dev, sizeof(struct spioc));
+	if (controller == NULL) {
+		dev_err(&pdev->dev, "unable to allocate SPI controller\n");
 		return -ENOMEM;
 	}
-	spioc = spi_master_get_devdata(master);
-	platform_set_drvdata(pdev, master);
+	spioc = spi_controller_get_devdata(controller);
+	platform_set_drvdata(pdev, controller);
 
 	snprintf(buf, sizeof(buf), "spi_oc_%d", idx);
 
@@ -419,15 +418,15 @@ static int  spioc_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
-	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LSB_FIRST;
-	master->setup = spioc_setup;
-	master->transfer = spioc_transfer;
-	master->cleanup = spioc_cleanup;
-	master->dev.of_node = pdev->dev.of_node;
-	master->bus_num = pdev->id;
-	master->num_chipselect = num_chipselect;
+	controller->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LSB_FIRST;
+	controller->setup = spioc_setup;
+	controller->transfer = spioc_transfer;
+	controller->cleanup = spioc_cleanup;
+	controller->dev.of_node = pdev->dev.of_node;
+	controller->bus_num = pdev->id;
+	controller->num_chipselect = num_chipselect;
 
-	spioc->master = master;
+	spioc->controller = controller;
 	spioc->pdev = pdev;
 
 	spioc->idx = idx;
@@ -442,19 +441,19 @@ static int  spioc_probe(struct platform_device *pdev)
 
 	spioc->clk = devm_clk_get(&pdev->dev, "spi-oc-clk");
 	if (IS_ERR(spioc->clk)) {
-		dev_err(&pdev->dev, "unable to get SPI master clock\n");
+		dev_err(&pdev->dev, "unable to get SPI controller clock\n");
 		retval = PTR_ERR(spioc->clk);
 		spioc->clk = NULL;
 		goto err1;
 	}
 
-	retval = init_queue(master, buf);
+	retval = init_queue(controller, buf);
 	if (retval) {
 		dev_err(&pdev->dev, "unable to initialize workqueue\n");
 		goto free;
 	}
 
-	retval = start_queue(master);
+	retval = start_queue(controller);
 	if (retval) {
 		dev_err(&pdev->dev, "unable to start workqueue\n");
 		goto free;
@@ -471,38 +470,36 @@ static int  spioc_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "IRQ: %d, CLK: %ldHz\n",
 		irq, clk_get_rate(spioc->clk));
 
-	retval = devm_spi_register_master(&pdev->dev, master);
+	retval = devm_spi_register_controller(&pdev->dev, controller);
 	if (retval) {
-		dev_err(&pdev->dev, "unable to register SPI master\n");
+		dev_err(&pdev->dev, "unable to register SPI controller\n");
 		retval = -ENOMEM;
 		goto free;
 	}
 
-	dev_info(&pdev->dev, "SPI master %d registered\n", idx);
+	dev_info(&pdev->dev, "SPI controller %d registered\n", idx);
 
 out:
 	return retval;
 
 free:
-	destroy_queue(master);
+	destroy_queue(controller);
 
 err1:
-	spi_master_put(master);
+	spi_controller_put(controller);
 	goto out;
 }
 
-static int  spioc_remove(struct platform_device *pdev)
+static void spioc_remove(struct platform_device *pdev)
 {
-	struct spi_master *master = platform_get_drvdata(pdev);
+	struct spi_controller *controller = platform_get_drvdata(pdev);
 
-	if (master) {
-		spi_master_get(master);
+	if (controller) {
+		spi_controller_get(controller);
 		platform_set_drvdata(pdev, NULL);
-		destroy_queue(master);
-		spi_master_put(master);
+		destroy_queue(controller);
+		spi_master_put(controller);
 	}
-
-	return 0;
 }
 
 #ifdef CONFIG_PM
