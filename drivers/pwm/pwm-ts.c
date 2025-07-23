@@ -66,7 +66,7 @@ static int ts_pwm_calc(struct ts_pwm *ts,
 	if (cnt > CYCLE_MASK)
 		return -EINVAL;
 
-	dev_dbg(ts->chip.dev, "cycle=%llu shift=%u cnt=%u\n",
+	dev_dbg(pwmchip_parent(&ts->chip), "cycle=%llu shift=%u cnt=%u\n",
 		cycle, shift, cnt);
 
 
@@ -77,11 +77,11 @@ static int ts_pwm_calc(struct ts_pwm *ts,
 	} else {
 		duty_cnt = DIV_ROUND_CLOSEST(duty * 100, (unsigned int)cycle);
 		if (duty_cnt > CYCLE_MASK) {
-			dev_err(ts->chip.dev, "unable to get duty cycle\n");
+			dev_err(pwmchip_parent(&ts->chip), "unable to get duty cycle\n");
 			return -EINVAL;
 		}
 
-		dev_dbg(ts->chip.dev, "shift=%u cnt=%u duty_cnt=%u\n",
+		dev_dbg(pwmchip_parent(&ts->chip), "shift=%u cnt=%u duty_cnt=%u\n",
 			shift, cnt, duty_cnt);
 		duty_reg = cnt - duty_cnt;
 	}
@@ -117,7 +117,6 @@ static int ts_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 
 static const struct pwm_ops ts_pwm_ops = {
 	.apply = ts_pwm_apply,
-	.owner = THIS_MODULE,
 };
 
 static const struct of_device_id ts_pwm_matches[] = {
@@ -149,9 +148,8 @@ static int ts_pwm_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ts);
 
-	ts->chip.dev = &pdev->dev;
+	ts->chip.dev = pdev->dev;
 	ts->chip.ops = &ts_pwm_ops;
-	ts->chip.base = -1;
 	ts->chip.npwm = 1;
 
 	pm_runtime_enable(&pdev->dev);
