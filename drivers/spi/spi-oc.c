@@ -498,7 +498,7 @@ static void spioc_remove(struct platform_device *pdev)
 		spi_controller_get(controller);
 		platform_set_drvdata(pdev, NULL);
 		destroy_queue(controller);
-		spi_master_put(controller);
+		spi_controller_put(controller);
 	}
 }
 
