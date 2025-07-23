@@ -34,20 +34,14 @@
 #define SHIFT_MAX		12
 
 struct ts_pwm {
-	struct pwm_chip chip;
 	void __iomem *base;
 	struct clk *clk;
 };
 
-static inline struct ts_pwm *to_ts_pwm(struct pwm_chip *chip)
-{
-	return container_of(chip, struct ts_pwm, chip);
-}
-
-static int ts_pwm_calc(struct ts_pwm *ts,
-		       unsigned int duty,
+static int ts_pwm_calc(struct pwm_chip *chip, unsigned int duty,
 		       unsigned int period)
 {
+	struct ts_pwm *ts = pwmchip_get_drvdata(chip);
 	unsigned long clk_rate = clk_get_rate(ts->clk);
 	unsigned long long cycle;
 	unsigned int  cnt, duty_cnt;
@@ -66,7 +60,7 @@ static int ts_pwm_calc(struct ts_pwm *ts,
 	if (cnt > CYCLE_MASK)
 		return -EINVAL;
 
-	dev_dbg(ts->chip.dev, "cycle=%llu shift=%u cnt=%u\n",
+	dev_dbg(pwmchip_parent(chip), "cycle=%llu shift=%u cnt=%u\n",
 		cycle, shift, cnt);
 
 
@@ -77,11 +71,11 @@ static int ts_pwm_calc(struct ts_pwm *ts,
 	} else {
 		duty_cnt = DIV_ROUND_CLOSEST(duty * 100, (unsigned int)cycle);
 		if (duty_cnt > CYCLE_MASK) {
-			dev_err(ts->chip.dev, "unable to get duty cycle\n");
+			dev_err(pwmchip_parent(chip), "unable to get duty cycle\n");
 			return -EINVAL;
 		}
 
-		dev_dbg(ts->chip.dev, "shift=%u cnt=%u duty_cnt=%u\n",
+		dev_dbg(pwmchip_parent(chip), "shift=%u cnt=%u duty_cnt=%u\n",
 			shift, cnt, duty_cnt);
 		duty_reg = cnt - duty_cnt;
 	}
@@ -96,7 +90,7 @@ static int ts_pwm_calc(struct ts_pwm *ts,
 static int ts_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			const struct pwm_state *state)
 {
-	struct ts_pwm *ts = to_ts_pwm(chip);
+	struct ts_pwm *ts = pwmchip_get_drvdata(chip);
 	int err;
 	u16 ctrl = 0;
 
@@ -106,7 +100,7 @@ static int ts_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	if (state->enabled)
 		ctrl |= ENABLED;
 
-	err = ts_pwm_calc(ts, state->duty_cycle, state->period);
+	err = ts_pwm_calc(chip, state->duty_cycle, state->period);
 	if (err < 0)
 		return err;
 
@@ -117,27 +111,20 @@ static int ts_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 
 static const struct pwm_ops ts_pwm_ops = {
 	.apply = ts_pwm_apply,
-	.owner = THIS_MODULE,
 };
-
-static const struct of_device_id ts_pwm_matches[] = {
-	{ .compatible = "technologic,pwm", },
-	{},
-};
-MODULE_DEVICE_TABLE(of, ts_pwm_matches);
 
 static int ts_pwm_probe(struct platform_device *pdev)
 {
 	struct ts_pwm *ts;
-	struct resource *regs;
-	int err;
+	struct pwm_chip *chip;
+	int ret;
 
-	ts = devm_kzalloc(&pdev->dev, sizeof(*ts), GFP_KERNEL);
-	if (!ts)
-		return -ENOMEM;
+	chip = devm_pwmchip_alloc(&pdev->dev, 1, sizeof(*ts));
+	if (IS_ERR(chip))
+		return PTR_ERR(chip);
+	ts = pwmchip_get_drvdata(chip);
 
-	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	ts->base = devm_ioremap_resource(&pdev->dev, regs);
+	ts->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(ts->base))
 		return PTR_ERR(ts->base);
 
@@ -147,29 +134,20 @@ static int ts_pwm_probe(struct platform_device *pdev)
 		return PTR_ERR(ts->clk);
 	}
 
-	platform_set_drvdata(pdev, ts);
+	chip->ops = &ts_pwm_ops;
 
-	ts->chip.dev = &pdev->dev;
-	ts->chip.ops = &ts_pwm_ops;
-	ts->chip.base = -1;
-	ts->chip.npwm = 1;
+	ret = devm_pm_runtime_enable(&pdev->dev);
+	if (ret < 0)
+		return ret;
 
-	pm_runtime_enable(&pdev->dev);
-
-	err = pwmchip_add(&ts->chip);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to register PWM chip: %d\n", err);
-		return err;
-	}
-
-	return 0;
+	return devm_pwmchip_add(&pdev->dev, chip);
 }
 
-static void ts_pwm_remove(struct platform_device *pdev)
-{
-	struct ts_pwm *ts = platform_get_drvdata(pdev);
-	pwmchip_remove(&ts->chip);
-}
+static const struct of_device_id ts_pwm_matches[] = {
+	{ .compatible = "technologic,pwm", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, ts_pwm_matches);
 
 static struct platform_driver ts_pwm_driver = {
 	.driver = {
@@ -177,11 +155,9 @@ static struct platform_driver ts_pwm_driver = {
 		.of_match_table = ts_pwm_matches,
 	},
 	.probe = ts_pwm_probe,
-	.remove_new = ts_pwm_remove,
 };
 module_platform_driver(ts_pwm_driver);
 
-MODULE_ALIAS("platform:ts-pwm");
-MODULE_DESCRIPTION("embeddedTS PS");
+MODULE_DESCRIPTION("embeddedTS PWM driver");
 MODULE_AUTHOR("Mark Featherston <mark@embeddedTS.com>");
 MODULE_LICENSE("GPL");
