@@ -82,7 +82,7 @@ static inline void spioc_write(struct spioc *spioc, unsigned int offset,
 static void spioc_chipselect(struct spioc *controller, struct spi_device *spi)
 {
 	if (spi)
-		spioc_write(controller, SPIOC_SS, 1 << spi->chip_select);
+		spioc_write(controller, SPIOC_SS, 1 << spi_get_chipselect(spi, 0));
 	else
 		spioc_write(controller, SPIOC_SS, 0);
 }
