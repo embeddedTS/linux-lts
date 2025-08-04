@@ -256,7 +256,7 @@ static int wilc_bus_probe(struct spi_device *spi)
 	ret = wilc_load_mac_from_nv(wilc);
 	if (ret) {
 		pr_err("Can not retrieve MAC address from chip\n");
-		goto unregister_wiphy;
+		goto power_down;
 	}
 
 	wilc_wlan_power(wilc, false);
@@ -264,17 +264,14 @@ static int wilc_bus_probe(struct spi_device *spi)
 				   NL80211_IFTYPE_STATION, false);
 	if (IS_ERR(vif)) {
 		ret = PTR_ERR(vif);
-		goto unregister_wiphy;
+		goto power_down;
 	}
 	return 0;
 
-unregister_wiphy:
-	wiphy_unregister(wilc->wiphy);
 power_down:
 	wilc_wlan_power(wilc, false);
 netdev_cleanup:
 	wilc_netdev_cleanup(wilc);
-	wiphy_free(wilc->wiphy);
 free:
 	kfree(spi_priv);
 	return ret;
@@ -285,9 +282,7 @@ static void wilc_bus_remove(struct spi_device *spi)
 	struct wilc *wilc = spi_get_drvdata(spi);
 	struct wilc_spi *spi_priv = wilc->bus_data;
 
-	wiphy_unregister(wilc->wiphy);
 	wilc_netdev_cleanup(wilc);
-	wiphy_free(wilc->wiphy);
 	kfree(spi_priv);
 }
 

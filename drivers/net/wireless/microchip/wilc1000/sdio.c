@@ -193,7 +193,7 @@ static int wilc_sdio_probe(struct sdio_func *func,
 	ret = wilc_load_mac_from_nv(wilc);
 	if (ret) {
 		pr_err("Can not retrieve MAC address from chip\n");
-		goto unregister_wiphy;
+		goto dispose_irq;
 	}
 
 	wilc_sdio_deinit(wilc);
@@ -202,18 +202,15 @@ static int wilc_sdio_probe(struct sdio_func *func,
 				   NL80211_IFTYPE_STATION, false);
 	if (IS_ERR(vif)) {
 		ret = PTR_ERR(vif);
-		goto unregister_wiphy;
+		goto dispose_irq;
 	}
 
 	dev_info(&func->dev, "Driver Initializing success\n");
 	return 0;
 
-unregister_wiphy:
-	wiphy_unregister(wilc->wiphy);
 dispose_irq:
 	irq_dispose_mapping(wilc->dev_irq_num);
 	wilc_netdev_cleanup(wilc);
-	wiphy_free(wilc->wiphy);
 free:
 	kfree(sdio_priv->cmd53_buf);
 	kfree(sdio_priv);
@@ -225,9 +222,7 @@ static void wilc_sdio_remove(struct sdio_func *func)
 	struct wilc *wilc = sdio_get_drvdata(func);
 	struct wilc_sdio *sdio_priv = wilc->bus_data;
 
-	wiphy_unregister(wilc->wiphy);
 	wilc_netdev_cleanup(wilc);
-	wiphy_free(wilc->wiphy);
 	kfree(sdio_priv->cmd53_buf);
 	kfree(sdio_priv);
 }
