@@ -195,13 +195,13 @@ static int wilc_wlan_get_firmware(struct net_device *dev)
 {
 	struct wilc_vif *vif = netdev_priv(dev);
 	struct wilc *wilc = vif->wilc;
+	int chip_id;
 	const struct firmware *wilc_fw;
 	int ret;
 
-	if (!is_wilc1000(wilc->chipid))
-		return -EINVAL;
+	chip_id = wilc_get_chipid(wilc, false);
 
-	netdev_info(dev, "WILC1000 loading firmware [%s]\n",
+	netdev_info(dev, "ChipID [%x] loading firmware [%s]\n", chip_id,
 		    WILC1000_FW(WILC1000_API_VER));
 
 	ret = request_firmware(&wilc_fw, WILC1000_FW(WILC1000_API_VER),
