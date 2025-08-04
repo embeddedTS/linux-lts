@@ -287,7 +287,7 @@
 		"", "", "", "USB_MUX_CPU_OTG", "", "", "", "NO_CHRG_JMP#", "",
 		"", "", "", "", "SD_BOOT_JMP#", "PUSH_SW_CPU#", "U_BOOT_JMP#",
 		"XBEE_RESET#", "", "", "RES_STRAP_0", "RES_STRAP_1", "", "",
-		"RES_STRAP_2", "RES-STRAP_3";
+		"RES_STRAP_2", "RES_STRAP_3";
 };
 
 &gpio5 {
