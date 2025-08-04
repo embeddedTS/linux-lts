@@ -1855,9 +1855,7 @@ EXPORT_SYMBOL_GPL(wilc_cfg80211_init);
 
 int wilc_cfg80211_register(struct wilc *wilc)
 {
-	/* WPA3/SAE supported only on WILC1000 */
-	if (is_wilc1000(wilc->chipid))
-		wilc->wiphy->features |= NL80211_FEATURE_SAE;
+	wilc->wiphy->features |= NL80211_FEATURE_SAE;
 
 	return wiphy_register(wilc->wiphy);
 }
