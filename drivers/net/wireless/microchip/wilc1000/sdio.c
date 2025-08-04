@@ -969,6 +969,7 @@ static int wilc_sdio_suspend(struct device *dev)
 {
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	struct wilc *wilc = sdio_get_drvdata(func);
+	int ret;
 
 	dev_info(dev, "sdio suspend\n");
 
@@ -982,7 +983,13 @@ static int wilc_sdio_suspend(struct device *dev)
 
 	wilc_sdio_disable_interrupt(wilc);
 
-	return sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
+	ret = wilc_sdio_reset(wilc);
+	if (ret) {
+		dev_err(&func->dev, "Fail reset sdio\n");
+		return ret;
+	}
+
+	return 0;
 }
 
 static int wilc_sdio_resume(struct device *dev)
