@@ -81,7 +81,7 @@
 
 	an_3p3v: an_3p3v {
 		compatible = "voltage-divider";
-		io-channels = <&supervisor_adc 0>;
+		io-channels = <&wizard_adc 0>;
 		label = "3.3V";
 		output-ohms = <100000>; /* R2 (100k) */
 		full-ohms = <110700>; /* R1 (10.7k) + R2 (100k) */
@@ -90,7 +90,7 @@
 
 	an_5v: an_5v {
 		compatible = "voltage-divider";
-		io-channels = <&supervisor_adc 3>;
+		io-channels = <&wizard_adc 3>;
 		label = "5V_A";
 		output-ohms = <42200>; /* R2 (42.2k) */
 		full-ohms = <84400>; /* R1 (42.2k) + R2 (42.2k) */
@@ -99,7 +99,7 @@
 
 	an_8v_48v: an_8v_48v {
 		compatible = "voltage-divider";
-		io-channels = <&supervisor_adc 4>;
+		io-channels = <&wizard_adc 4>;
 		label = "8V_48V";
 		output-ohms = <10700>; /* R2 (10.7k) */
 		full-ohms = <247700>; /* R1 (237K) + R2 (10.7k) */
@@ -111,18 +111,18 @@
 	 * that can be consumed within the kernel. The hwmon device is disabled
 	 * until this is resolved
 	 */
-	 supervisor-adcs {
+	 wizard-adcs {
 		compatible = "iio-hwmon";
-		io-channels = <&an_3p3v>, <&supervisor_adc 1>, <&supervisor_adc 2>,
-			<&supervisor_adc 3>, <&an_5v>, <&an_8v_48v>;
+		io-channels = <&an_3p3v>, <&wizard_adc 1>, <&wizard_adc 2>,
+			<&wizard_adc 3>, <&an_5v>, <&an_8v_48v>;
 		io-channel-names = "3.3V", "VDD_ARM_CAP", "VDD_SOC_CAP", "5V_A", "8V_48V";
 		status = "disabled";
 	};
 
-	supervisor-temp {
+	wizard-temp {
 		compatible = "iio-hwmon";
-		io-channels = <&supervisor_temp>;
-		io-channel-names = "Supervisor Temp";
+		io-channels = <&wizard_temp>;
+		io-channel-names = "Wizard Temp";
 		status = "okay";
 	};
 };
@@ -155,18 +155,18 @@
 		status = "disabled";
 	};
 
-	supervisor: supervisor@10 {
-		compatible = "technologic,supervisor";
+	wizard: wizard@10 {
+		compatible = "technologic,wizard";
 		reg = <0x10>;
 		status = "disabled";
 
-		supervisor_adc: supervisor_adc {
-			compatible = "technologic,supervisor-adc";
+		wizard_adc: wizard_adc {
+			compatible = "technologic,wizard-adc";
 			#io-channel-cells = <1>;
 		};
 
-		supervisor_temp: supervisor_temp {
-			compatible = "technologic,supervisor-temp";
+		wizard_temp: wizard_temp {
+			compatible = "technologic,wizard-temp";
 			#io-channel-cells = <0>;
 		};
 	};
@@ -177,8 +177,8 @@
 		status = "disabled";
 	};
 
-	supervisor_rtc: rtc@68 {
-		compatible = "technologic,supervisor-rtc";
+	wizard_rtc: rtc@68 {
+		compatible = "technologic,wizard-rtc";
 		reg = <0x68>;
 		wakeup-source;
 		status = "disabled";

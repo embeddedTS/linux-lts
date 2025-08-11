@@ -13,16 +13,16 @@
 #include <linux/io.h>
 #include <linux/regmap.h>
 #include <linux/iio/iio.h>
-#include <linux/mfd/ts_supervisor.h>
+#include <linux/mfd/ts_wizard.h>
 
-#define TS_SUPERVISOR_MAX_ADC 32
+#define TS_WIZARD_MAX_ADC 32
 
 struct ts_adc {
-	struct ts_supervisor *super;
+	struct ts_wizard *wiz;
 	uint16_t channel_count;
 };
 
-#define SUPERVISOR_CHAN(index)					\
+#define WIZARD_CHAN(index)					\
 {								\
 	.type = IIO_VOLTAGE,					\
 	.indexed = 1,						\
@@ -38,39 +38,39 @@ struct ts_adc {
 	},							\
 }
 
-static const struct iio_chan_spec tssupervisor_channels[] = {
-	SUPERVISOR_CHAN(0),
-	SUPERVISOR_CHAN(1),
-	SUPERVISOR_CHAN(2),
-	SUPERVISOR_CHAN(3),
-	SUPERVISOR_CHAN(4),
-	SUPERVISOR_CHAN(5),
-	SUPERVISOR_CHAN(6),
-	SUPERVISOR_CHAN(7),
-	SUPERVISOR_CHAN(8),
-	SUPERVISOR_CHAN(9),
-	SUPERVISOR_CHAN(10),
-	SUPERVISOR_CHAN(11),
-	SUPERVISOR_CHAN(12),
-	SUPERVISOR_CHAN(13),
-	SUPERVISOR_CHAN(14),
-	SUPERVISOR_CHAN(15),
-	SUPERVISOR_CHAN(16),
-	SUPERVISOR_CHAN(17),
-	SUPERVISOR_CHAN(18),
-	SUPERVISOR_CHAN(19),
-	SUPERVISOR_CHAN(20),
-	SUPERVISOR_CHAN(21),
-	SUPERVISOR_CHAN(22),
-	SUPERVISOR_CHAN(23),
-	SUPERVISOR_CHAN(24),
-	SUPERVISOR_CHAN(25),
-	SUPERVISOR_CHAN(26),
-	SUPERVISOR_CHAN(27),
-	SUPERVISOR_CHAN(28),
-	SUPERVISOR_CHAN(29),
-	SUPERVISOR_CHAN(30),
-	SUPERVISOR_CHAN(31),
+static const struct iio_chan_spec tswizard_channels[] = {
+	WIZARD_CHAN(0),
+	WIZARD_CHAN(1),
+	WIZARD_CHAN(2),
+	WIZARD_CHAN(3),
+	WIZARD_CHAN(4),
+	WIZARD_CHAN(5),
+	WIZARD_CHAN(6),
+	WIZARD_CHAN(7),
+	WIZARD_CHAN(8),
+	WIZARD_CHAN(9),
+	WIZARD_CHAN(10),
+	WIZARD_CHAN(11),
+	WIZARD_CHAN(12),
+	WIZARD_CHAN(13),
+	WIZARD_CHAN(14),
+	WIZARD_CHAN(15),
+	WIZARD_CHAN(16),
+	WIZARD_CHAN(17),
+	WIZARD_CHAN(18),
+	WIZARD_CHAN(19),
+	WIZARD_CHAN(20),
+	WIZARD_CHAN(21),
+	WIZARD_CHAN(22),
+	WIZARD_CHAN(23),
+	WIZARD_CHAN(24),
+	WIZARD_CHAN(25),
+	WIZARD_CHAN(26),
+	WIZARD_CHAN(27),
+	WIZARD_CHAN(28),
+	WIZARD_CHAN(29),
+	WIZARD_CHAN(30),
+	WIZARD_CHAN(31),
 };
 
 static int ts_adc_iio_read_raw(struct iio_dev *iio_dev,
@@ -84,8 +84,8 @@ static int ts_adc_iio_read_raw(struct iio_dev *iio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		addr = SUPER_ADC_BASE + chan->channel;
-		ret = regmap_read(adc->super->regmap, addr, &data);
+		addr = WIZ_ADC_BASE + chan->channel;
+		ret = regmap_read(adc->wiz->regmap, addr, &data);
 		if (ret < 0)
 			return ret;
 		*val = data;
@@ -104,22 +104,22 @@ static const struct iio_info ts_adc_info = {
 	.read_raw = &ts_adc_iio_read_raw,
 };
 
-static int ts_supervisor_adc_probe(struct platform_device *pdev)
+static int ts_wizard_adc_probe(struct platform_device *pdev)
 {
-	struct ts_supervisor *super = dev_get_drvdata(pdev->dev.parent);
+	struct ts_wizard *wiz = dev_get_drvdata(pdev->dev.parent);
 	struct ts_adc *adc;
 	struct device *dev = &pdev->dev;
 	struct iio_dev *indio_dev;
 	uint32_t chan_count;
 	int ret;
 
-	ret = regmap_read(super->regmap, SUPER_ADC_CHAN_ADV, &chan_count);
+	ret = regmap_read(wiz->regmap, WIZ_ADC_CHAN_ADV, &chan_count);
 	if (ret < 0) {
-		dev_err(dev, "error reading reg %u", SUPER_ADC_CHAN_ADV);
+		dev_err(dev, "error reading reg %u", WIZ_ADC_CHAN_ADV);
 		return ret;
 	}
 
-	/* This supervisor does not support ADC channels */
+	/* This wizard does not support ADC channels */
 	if (chan_count == 0)
 		return 0;
 
@@ -127,7 +127,7 @@ static int ts_supervisor_adc_probe(struct platform_device *pdev)
 	if (indio_dev == NULL)
 		return -ENOMEM;
 	adc = iio_priv(indio_dev);
-	adc->super = super;
+	adc->wiz = wiz;
 	adc->channel_count = chan_count;
 
 	/*
@@ -135,12 +135,12 @@ static int ts_supervisor_adc_probe(struct platform_device *pdev)
 	 * be up to 32 channels depending on muxes onboard and channels that
 	 * need to be sampled, but most will be < 7 channels.
 	 */
-	if (adc->channel_count > TS_SUPERVISOR_MAX_ADC) {
+	if (adc->channel_count > TS_WIZARD_MAX_ADC) {
 		dev_warn(dev, "The ADC device is advertising more ADC than supported!");
-		adc->channel_count = TS_SUPERVISOR_MAX_ADC;
+		adc->channel_count = TS_WIZARD_MAX_ADC;
 	}
 	indio_dev->num_channels = adc->channel_count;
-	indio_dev->channels = tssupervisor_channels;
+	indio_dev->channels = tswizard_channels;
 
 	indio_dev->name = dev_name(&pdev->dev);
 	indio_dev->dev.of_node = pdev->dev.of_node;
@@ -149,21 +149,21 @@ static int ts_supervisor_adc_probe(struct platform_device *pdev)
 	return devm_iio_device_register(&pdev->dev, indio_dev);
 }
 
-static const struct of_device_id tssupervisor_of_match[] = {
-	{ .compatible = "technologic,tssupervisor-adc", },
+static const struct of_device_id tswizard_of_match[] = {
+	{ .compatible = "technologic,tswizard-adc", },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, tsadc_of_match);
 
 static struct platform_driver tsadc_driver = {
 	.driver = {
-		.name   = "tssupervisor-adc",
-		.of_match_table = tssupervisor_of_match,
+		.name   = "tswizard-adc",
+		.of_match_table = tswizard_of_match,
 	},
-	.probe	= ts_supervisor_adc_probe,
+	.probe	= ts_wizard_adc_probe,
 };
 module_platform_driver(tsadc_driver);
 
-MODULE_DESCRIPTION("embeddedTS supervisor adc controller driver");
+MODULE_DESCRIPTION("embeddedTS wizard adc controller driver");
 MODULE_AUTHOR("Mark Featherston <mark@embeddedts.com>");
 MODULE_LICENSE("GPL");

@@ -297,7 +297,7 @@
 		interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;    /* See MX6UL_PAD_NAND_ALE__GPIO4_IO10 */
 	};
 
-	supervisor: wdt@54 {
+	wizard: wdt@54 {
 		compatible = "technologic,ts7100-wdt";
 		enable-early;
 		/* 5min timeout default, in case of slow userspace.
