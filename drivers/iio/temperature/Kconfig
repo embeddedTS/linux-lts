@@ -152,12 +152,12 @@ config MAX30208
 	  This driver can also be built as a module. If so, the module
 	  will be called max30208.
 
-config TS_SUPERVISOR_TEMP
-	tristate "embeddedTS Supervisory Microcontroller TEMP"
+config TS_WIZARD_TEMP
+	tristate "embeddedTS Wizard Microcontroller TEMP"
 	depends on OF
-	depends on MFD_TS_SUPERVISOR
+	depends on MFD_TS_WIZARD
 	help
-	  Say yes here to build support for embeddedTS supervisory
+	  Say yes here to build support for embeddedTS wizard
 	  microcontroller temperature sensor.
 
 config MAX31856

@@ -8,11 +8,11 @@
 #include <dt-bindings/leds/common.h>
 #include "imx6ul-ts7250v3.dtsi"
 
-&supervisor {
+&wizard {
 	status = "okay";
 };
 
-&supervisor_rtc {
+&wizard_rtc {
 	status = "okay";
 };
 
