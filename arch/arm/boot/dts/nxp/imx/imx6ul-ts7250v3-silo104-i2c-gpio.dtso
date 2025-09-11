@@ -1,0 +1,35 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+    compatible = "embeddedts,ts-7250-v3";
+
+    fragment@0 {
+        target-path = "/";
+        __overlay__ {
+            i2c5_gpio: i2c-104 {
+                compatible = "i2c-gpio";
+
+                /* FPGA bank1 pins: SCL=13, SDA=8 */
+                scl-gpios = <&fpga_bank1 13 GPIO_ACTIVE_HIGH>;
+                sda-gpios = <&fpga_bank1  8 GPIO_ACTIVE_HIGH>;
+
+                /* Open-drain for both lines */
+                i2c-gpio,open-drain;
+                
+                #address-cells = <1>;
+                #size-cells = <0>;
+                status = "okay";
+            };
+        };
+    };
+
+    fragment@1 {
+        target-path = "/aliases";
+        __overlay__ {
+            i2c5 = &i2c5_gpio;
+        };
+    };
+};
