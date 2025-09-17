@@ -88,7 +88,7 @@ struct tssdcard_host {
 	struct tssdcard_dev luns[MAX_SDS];
 };
 
-void tssdcard_debug(void *arg,
+static void tssdcard_debug(void *arg,
 		    unsigned int code,
 		    const char *func,
 		    unsigned int line, ...)
@@ -402,9 +402,9 @@ static void tssdcard_make_request(struct bio *bio)
 	wake_up(&dev->event);
 }
 
-static int tssdcard_getgeo(struct block_device *bdev, struct hd_geometry *geo)
+static int tssdcard_getgeo(struct gendisk *disk, struct hd_geometry *geo)
 {
-	struct tssdcard_dev *dev = bdev->bd_disk->private_data;
+	struct tssdcard_dev *dev = disk->private_data;
 
 	geo->cylinders = dev->sectors >> 9 / (4 * 16);
 	geo->heads = 4;
@@ -424,15 +424,13 @@ static void tssdcard_alloc_disk(struct tssdcard_dev *dev)
 {
 	dev->bio = dev->biotail = NULL;
 
-	dev->gd = blk_alloc_disk(NUMA_NO_NODE);
+	dev->gd = blk_alloc_disk(NULL, NUMA_NO_NODE);
 	if (dev->gd == NULL) {
 		pr_err(DRIVER_NAME ": Failed to alloc_disk");
 		return;
 	}
 
 	strcpy(dev->gd->disk_name, dev->devname);
-
-	blk_queue_flag_set(QUEUE_FLAG_NONROT, dev->gd->queue);
 
 	set_capacity(dev->gd, dev->sectors);
 	dev->gd->flags = 0;
@@ -476,7 +474,7 @@ static void diskpoll_thread(struct work_struct *work)
 
 static void tssdcard_card_poll(struct timer_list *t)
 {
-	struct tssdcard_dev *dev = from_timer(dev, t, cd_timer);
+	struct tssdcard_dev *dev = timer_container_of(dev, t, cd_timer);
 
 	queue_work(dev->diskpoll_queue, &dev->diskpoll_work);
 }
@@ -567,7 +565,7 @@ out:
 	return ret;
 }
 
-static int tssdcard_remove(struct platform_device *pdev)
+static void tssdcard_remove(struct platform_device *pdev)
 {
 	struct tssdcard_host *host = (struct tssdcard_host *)pdev->dev.p;
 	int i;
@@ -585,7 +583,6 @@ static int tssdcard_remove(struct platform_device *pdev)
 
 		kfree(dev->devname);
 	}
-	return 0;
 }
 
 static const struct platform_device_id tssdcard_devtype[] = {
