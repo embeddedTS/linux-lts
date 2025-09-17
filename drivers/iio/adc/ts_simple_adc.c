@@ -64,7 +64,7 @@ static const struct iio_chan_spec ts_simple_adc_iio_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(1),
 };
 
-void ts_simple_adc_set_standby(struct ts_simple_adc *adc, int en_standby)
+static void ts_simple_adc_set_standby(struct ts_simple_adc *adc, int en_standby)
 {
 	if (en_standby)
 		writew(TS_ADC_FLAGS_STANDBY, adc->base + TS_ADC_FLAGS);
