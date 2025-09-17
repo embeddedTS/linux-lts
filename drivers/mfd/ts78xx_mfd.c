@@ -5,13 +5,16 @@
  * Copyright (C) 2022 Mark Featherston <mark@embeddedTS.com>
  */
 
+#include <linux/device.h>
 #include <linux/irq.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
+#include <linux/of_platform.h>
 #include <linux/pci.h>
+#include <linux/platform_device.h>
 
 /* If present, IRQC base is 0x200
  * 0x0 = doorbell_adr
@@ -160,7 +163,7 @@ static int ts7800v2_irqc_enable(struct pci_dev *pdev, struct device_node *np, u3
 }
 
 /* Switch mux registers on TS-7800-V2 from GPIO to a PC104 bus */
-void ts7800v2_pc104on(struct pci_dev *pdev)
+static void ts7800v2_pc104on(struct pci_dev *pdev)
 {
 	struct device *dev = &pdev->dev;
 	void __iomem *base = pci_ioremap_bar(pdev, 2);
@@ -277,11 +280,6 @@ static int tsfpga_plat_driver_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int tsfpga_plat_driver_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
 static const struct of_device_id tsmfd_of_match_table[] = {
 	{ .compatible = "technologic,ts78xx-mfd", },
 	{},
@@ -293,7 +291,6 @@ static struct platform_driver tsmfd_platform_driver = {
 		.of_match_table = of_match_ptr(tsmfd_of_match_table),
 	},
 	.probe = tsfpga_plat_driver_probe,
-	.remove = tsfpga_plat_driver_remove,
 };
 module_platform_driver(tsmfd_platform_driver);
 
