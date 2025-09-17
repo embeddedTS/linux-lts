@@ -3,10 +3,12 @@
  * Digital I/O driver for Technologic Systems TS-7800-V2
  */
 
+#include <linux/device.h>
 #include <linux/gpio/driver.h>
-#include <linux/of_device.h>
-#include <linux/spinlock.h>
 #include <linux/module.h>
+#include <linux/of_device.h>
+#include <linux/platform_device.h>
+#include <linux/spinlock.h>
 
 #define TS7800V2_NR_DIO	   121
 
