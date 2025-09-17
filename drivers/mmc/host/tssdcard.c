@@ -88,7 +88,7 @@ struct tssdcard_host {
 	struct tssdcard_dev luns[MAX_SDS];
 };
 
-void tssdcard_debug(void *arg,
+static void tssdcard_debug(void *arg,
 		    unsigned int code,
 		    const char *func,
 		    unsigned int line, ...)
@@ -424,15 +424,13 @@ static void tssdcard_alloc_disk(struct tssdcard_dev *dev)
 {
 	dev->bio = dev->biotail = NULL;
 
-	dev->gd = blk_alloc_disk(NUMA_NO_NODE);
+	dev->gd = blk_alloc_disk(NULL, NUMA_NO_NODE);
 	if (dev->gd == NULL) {
 		pr_err(DRIVER_NAME ": Failed to alloc_disk");
 		return;
 	}
 
 	strcpy(dev->gd->disk_name, dev->devname);
-
-	blk_queue_flag_set(QUEUE_FLAG_NONROT, dev->gd->queue);
 
 	set_capacity(dev->gd, dev->sectors);
 	dev->gd->flags = 0;
@@ -567,7 +565,7 @@ out:
 	return ret;
 }
 
-static int tssdcard_remove(struct platform_device *pdev)
+static void tssdcard_remove(struct platform_device *pdev)
 {
 	struct tssdcard_host *host = (struct tssdcard_host *)pdev->dev.p;
 	int i;
@@ -585,7 +583,6 @@ static int tssdcard_remove(struct platform_device *pdev)
 
 		kfree(dev->devname);
 	}
-	return 0;
 }
 
 static const struct platform_device_id tssdcard_devtype[] = {
