@@ -101,7 +101,7 @@
 		};
 
 		fpgarng@2,44 {
-			compatible = "technologic,ts7840-rng";
+			compatible = "technologic,ts78xx-rng";
 			reg = <2 0x44 4>;
 		};
 
