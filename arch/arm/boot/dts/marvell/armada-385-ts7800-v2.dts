@@ -444,12 +444,6 @@
 	num-cs = <5>;
 	cs-gpios = <0>, <0>, <0>, <0>, <&gpio0 28 GPIO_ACTIVE_LOW>;
 
-	offboard_flash: flash@0 {
-		compatible = "jedec,spi-nor";
-		reg = <0>;
-		spi-max-frequency = <1000000>;
-	};
-
 	wilc: wifi@3 {
 		compatible = "microchip,wilc3000";
 		reg = <3>;
