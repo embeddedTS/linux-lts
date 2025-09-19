@@ -9,8 +9,10 @@
 #include <linux/of_device.h>
 #include <linux/seq_file.h>
 
+#define TSWEIM_IRQ_ACK		0x20
 #define TSWEIM_IRQ_STATUS	0x24
 #define TSWEIM_IRQ_POLARITY	0x28
+#define TSWEIM_ACK_MODE		0x2C
 #define TSWEIM_IRQ_MASK		0x48
 #define TSWEIM_NUM_FPGA_IRQ	32
 
@@ -18,6 +20,7 @@ struct tsweim_intc {
 	void __iomem  *syscon;
 	struct irq_domain *irqdomain;
 	struct platform_device *pdev;
+	raw_spinlock_t lock;
 	u32 mask;
 };
 
@@ -72,7 +75,8 @@ static struct irq_chip tsweim_intc_chip = {
 	.irq_print_chip	= tsweim_intc_print_chip,
 };
 
-static void tsweim_irq_handler(struct irq_desc *desc)
+/* The legacy IRQ handler would "auto clear on read" */
+static void tsweim_irq_legacy_handler(struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
 	struct tsweim_intc *priv = irq_desc_get_handler_data(desc);
@@ -95,13 +99,38 @@ static void tsweim_irq_handler(struct irq_desc *desc)
 	chained_irq_exit(chip, desc);
 }
 
+static irqreturn_t tsweim_irq_handler(int irq, void *data)
+{
+	struct tsweim_intc *priv = (struct tsweim_intc *)data;
+	unsigned long lock_flags;
+	unsigned long status;
+	int i;
+
+	status = readl(priv->syscon + TSWEIM_IRQ_STATUS);
+	writel(status, priv->syscon + TSWEIM_IRQ_ACK);
+
+	for_each_set_bit(i, &status, 32) {
+		raw_spin_lock_irqsave(&priv->lock, lock_flags);
+		generic_handle_domain_irq(priv->irqdomain, i);
+		raw_spin_unlock_irqrestore(&priv->lock,
+					   lock_flags);
+	}
+
+	return IRQ_HANDLED;
+}
+
+static int tsweim_enable_ack(struct tsweim_intc *priv)
+{
+	writel(0x1, priv->syscon + TSWEIM_ACK_MODE);
+	return (readl(priv->syscon + TSWEIM_ACK_MODE) & 0x1);
+}
+
 static int tsweim_intc_irqdomain_map(struct irq_domain *d,
 		unsigned int irq, irq_hw_number_t hwirq)
 {
 	irq_set_chip_and_handler(irq, &tsweim_intc_chip, handle_level_irq);
 	irq_set_chip_data(irq, d->host_data);
-	irq_clear_status_flags(irq, IRQ_NOREQUEST | IRQ_NOPROBE);
-	irq_set_status_flags(irq, IRQ_LEVEL);
+	irq_clear_status_flags(irq, IRQ_NOPROBE);
 
 	return 0;
 }
@@ -116,6 +145,7 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct tsweim_intc *priv;
 	int irq = 0;
+	int ret = 0;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
@@ -134,6 +164,9 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 	if (of_property_read_bool(dev->of_node, "ts,haspolarity"))
 		tsweim_intc_chip.irq_set_type = tsweim_intc_set_type;
 
+	raw_spin_lock_init(&priv->lock);
+	platform_set_drvdata(pdev, priv);
+
 	priv->irqdomain = irq_domain_add_linear(dev->of_node,
 		TSWEIM_NUM_FPGA_IRQ, &tsweim_intc_irqdomain_ops, priv);
 	if (!priv->irqdomain) {
@@ -141,17 +174,20 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	if (devm_request_irq(dev, irq, no_action, IRQF_NO_THREAD,
-			     dev_name(dev), NULL)) {
-		irq_domain_remove(priv->irqdomain);
-		return -ENOENT;
+	if (tsweim_enable_ack(priv)) {
+		ret = request_irq(irq, tsweim_irq_handler, 0,
+				  dev_name(dev), priv);
+	} else {
+		pr_info("ACK is unsupported, IRQs will be buggy\n");
+		if (devm_request_irq(dev, irq, no_action, IRQF_NO_THREAD,
+				dev_name(dev), NULL)) {
+			irq_domain_remove(priv->irqdomain);
+			return -ENOENT;
+		}
+		irq_set_chained_handler_and_data(irq, tsweim_irq_legacy_handler, priv);
 	}
 
-	irq_set_chained_handler_and_data(irq, tsweim_irq_handler, priv);
-
-	platform_set_drvdata(pdev, priv);
-
-	return 0;
+	return ret;
 }
 
 static int tsweim_intc_remove(struct platform_device *pdev)
