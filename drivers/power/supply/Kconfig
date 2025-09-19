@@ -952,4 +952,13 @@ config CHARGER_QCOM_SMB2
 	  adds support for the SMB2 switch mode battery charger found
 	  in PMI8998 and related PMICs.
 
+config TSSILO_SUPERCAPS
+        tristate "embeddedTS SILO supercaps driver"
+        depends on I2C
+        select REGMAP_I2C
+        help
+          Say Y here to enable the embeddedTS TS-SILO supercapacitor driver.
+		  This adds support for the TS-SILO supercapacitor unexpected shutdown
+		  protection device.
+
 endif # POWER_SUPPLY

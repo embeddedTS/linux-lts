@@ -23,9 +23,12 @@ struct ts_wizard {
 #define WIZ_SERIAL1       35
 #define WIZ_SERIAL2       36
 #define WIZ_SERIAL_CTRL   37
+#define WIZ_SILO_BASE     64
 #define WIZ_ADC_BASE      128
 #define WIZ_ADC_LAST      159
 #define WIZ_TEMPERATURE   160
+#define WIZ_CURRENT       161
+#define WIZ_IRQCHIP_BASE  512
 
 enum gen_flags_t {
     FLG_FORCE_USB_CON = (1 << 4),
@@ -39,6 +42,10 @@ enum gen_inputs_t {
 };
 
 enum wiz_features_t {
+   	WIZ_FEAT_CT = BIT(6),        // Channel Table visible
+	WIZ_FEAT_SILO = BIT(5),
+	WIZ_FEAT_BOOT_MODE = BIT(4),
+	WIZ_FEAT_RBTR = BIT(3),      // TBI on i.MX93
     WIZ_FEAT_SN = (1 << 2),
     WIZ_FEAT_FWUPD = (1 << 1),
     WIZ_FEAT_RSTC = (1 << 0),
@@ -57,6 +64,8 @@ enum reboot_reasons_t {
 };
 
 enum wiz_cmds_t {
+   	I2C_CMD_RESERVED3 = BIT(3),
+	I2C_CMD_RESERVED2 = BIT(2),
     I2C_REBOOT = (1 << 0),
     I2C_HALT = (1 << 1),
 };

@@ -2,6 +2,7 @@
 /plugin/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 / {
     compatible = "embeddedts,ts-7250-v3";
@@ -18,7 +19,7 @@
 
                 /* Open-drain for both lines */
                 i2c-gpio,open-drain;
-                
+
                 #address-cells = <1>;
                 #size-cells = <0>;
                 status = "okay";
@@ -32,4 +33,41 @@
             i2c5 = &i2c5_gpio;
         };
     };
+
+    /* Add the wizard device tree under the i2c5_gpio bus */
+    fragment@2 {
+        target = <&i2c5_gpio>;
+        __overlay__ {
+            wizard: wizard@68 {
+                compatible = "technologic,wizard";
+                reg = <0x68>;
+
+                wizard_adc: wizard_adc {
+                    compatible = "technologic,wizard-adc";
+                    #io-channel-cells = <1>;
+                };
+
+                wizard_irq: irq {
+                    compatible = "technologic,wizard-irq";
+                    interrupt-parent = <&fpga_intc>;     
+                    interrupts = <17 IRQ_TYPE_LEVEL_HIGH>;
+
+                    #interrupt-cells = <1>;
+                    interrupt-controller;
+                };
+
+                wizard_silo: ups {
+                    compatible = "technologic,wizard-silo";
+                    interrupt-parent = <&wizard_irq>;
+                    interrupts = <0>;
+                };
+
+                wizard_temp: wizard_temp {
+                    compatible = "technologic,wizard-temp";
+                    #io-channel-cells = <0>;
+                };
+            };
+        };
+    };
 };
+
