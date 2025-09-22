@@ -44,7 +44,7 @@
 #include <linux/tty.h>
 #include <linux/types.h>
 
-#include <linux/unaligned.h>
+#include <asm/unaligned.h>
 
 #include <linux/of.h>
 #include <linux/of_gpio.h>
