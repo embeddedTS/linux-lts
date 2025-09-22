@@ -29,7 +29,6 @@
   */
 #define MAX_MAX3100 64
 
-#include <linux/container_of.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/device.h>
@@ -154,8 +153,6 @@ struct max3100ts_port {
 	/* and its timer */
 	struct timer_list timer;
 };
-
-#define to_max3100_port(port) container_of(port, struct max3100ts_port, port)
 
 static struct s_max3100ts_common {
 	struct max3100ts_port *max3100ts[MAX_MAX3100];	/* the chip */
@@ -461,7 +458,9 @@ static irqreturn_t max3100_thread_irq(int irqno, void *dev_id)
 
 static void max3100_enable_ms(struct uart_port *port)
 {
-	struct max3100ts_port *s = to_max3100_port(port);
+	struct max3100ts_port *s = container_of(port,
+						struct max3100ts_port,
+						port);
 
 	if (s->poll_time > 0)
 		mod_timer(&s->timer, jiffies);
@@ -470,7 +469,9 @@ static void max3100_enable_ms(struct uart_port *port)
 
 static void max3100_start_tx(struct uart_port *port)
 {
-	struct max3100ts_port *s = to_max3100_port(port);
+	struct max3100ts_port *s = container_of(port,
+						struct max3100ts_port,
+						port);
 
 	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
 
@@ -479,7 +480,9 @@ static void max3100_start_tx(struct uart_port *port)
 
 static void max3100_stop_rx(struct uart_port *port)
 {
-	struct max3100ts_port *s = to_max3100_port(port);
+	struct max3100ts_port *s = container_of(port,
+						struct max3100ts_port,
+						port);
 
 	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
 
@@ -491,7 +494,9 @@ static void max3100_stop_rx(struct uart_port *port)
 
 static unsigned int max3100_tx_empty(struct uart_port *port)
 {
-	struct max3100ts_port *s = to_max3100_port(port);
+	struct max3100ts_port *s = container_of(port,
+						struct max3100ts_port,
+						port);
 
 	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
 
@@ -502,7 +507,9 @@ static unsigned int max3100_tx_empty(struct uart_port *port)
 
 static unsigned int max3100_get_mctrl(struct uart_port *port)
 {
-	struct max3100ts_port *s = to_max3100_port(port);
+	struct max3100ts_port *s = container_of(port,
+						struct max3100ts_port,
+						port);
 
 	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
 
@@ -512,7 +519,9 @@ static unsigned int max3100_get_mctrl(struct uart_port *port)
 
 static void max3100_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
-	struct max3100ts_port *s = to_max3100_port(port);
+	struct max3100ts_port *s = container_of(port,
+						struct max3100ts_port,
+						port);
 	int rts;
 
 	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
@@ -529,7 +538,9 @@ static void
 max3100_set_termios(struct uart_port *port, struct ktermios *termios,
 		    const struct ktermios *old)
 {
-	struct max3100ts_port *s = to_max3100_port(port);
+	struct max3100ts_port *s = container_of(port,
+						struct max3100ts_port,
+						port);
 	int baud = 0;
 	unsigned cflag;
 	unsigned long flags;
@@ -649,7 +660,9 @@ max3100_set_termios(struct uart_port *port, struct ktermios *termios,
 
 static void max3100_shutdown(struct uart_port *port)
 {
-	struct max3100ts_port *s = to_max3100_port(port);
+	struct max3100ts_port *s = container_of(port,
+						struct max3100ts_port,
+						port);
 
 	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
 
@@ -685,7 +698,9 @@ static void max3100_shutdown(struct uart_port *port)
 
 static int max3100_startup(struct uart_port *port)
 {
-	struct max3100ts_port *s = to_max3100_port(port);
+	struct max3100ts_port *s = container_of(port,
+						struct max3100ts_port,
+						port);
 	char b[12];
 
 	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
@@ -733,7 +748,9 @@ static int max3100_startup(struct uart_port *port)
 
 static const char *max3100_type(struct uart_port *port)
 {
-	struct max3100ts_port *s = to_max3100_port(port);
+	struct max3100ts_port *s = container_of(port,
+						struct max3100ts_port,
+						port);
 
 	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
 
@@ -747,7 +764,9 @@ static void max3100_release_port(struct uart_port *port)
 
 static void max3100_config_port(struct uart_port *port, int flags)
 {
-	struct max3100ts_port *s = to_max3100_port(port);
+	struct max3100ts_port *s = container_of(port,
+						struct max3100ts_port,
+						port);
 
 	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
 
