@@ -196,6 +196,24 @@ static void max3100_calc_parity(struct max3100ts_port *s, u16 * c)
 		*c |= max3100_do_parity(s, *c) << 8;
 }
 
+static void max3100_port_work(struct work_struct *w);
+
+static void max3100_schedule_work(struct max3100ts_port *s)
+{
+	if(!work_pending(&s->work)){
+		queue_work(s->workqueue, &s->work);
+	}
+}
+
+static void max3100_timeout(struct timer_list *t)
+{
+	struct max3100ts_port *s = from_timer(s, t, timer);
+	if (s->port.state) {
+		max3100_schedule_work(s);
+		mod_timer(&s->timer, jiffies + s->poll_time);
+	}
+}
+
 static int max3100_sr(struct max3100ts_port *s, u16 tx, u16 * rx)
 {
 	struct spi_message message;
@@ -419,22 +437,6 @@ static void max3100_port_work(struct work_struct *w)
 	mutex_lock(&max3100ts_common.portlock);
 	max3100_port_dowork(s);
 	mutex_unlock(&max3100ts_common.portlock);
-}
-
-static void max3100_schedule_work(struct max3100ts_port *s)
-{
-	if(!work_pending(&s->work)){
-		queue_work(s->workqueue, &s->work);
-	}
-}
-
-static void max3100_timeout(struct timer_list *t)
-{
-	struct max3100ts_port *s = from_timer(s, t, timer);
-	if (s->port.state) {
-		max3100_schedule_work(s);
-		mod_timer(&s->timer, jiffies + s->poll_time);
-	}
 }
 
 /* Threaded handler called in a sleepable context */
