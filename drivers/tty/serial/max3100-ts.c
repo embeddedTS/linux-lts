@@ -317,12 +317,11 @@ static int max3100_handlerx(struct max3100ts_port *s, u16 rx)
 
 static void max3100_port_dowork(struct max3100ts_port *s)
 {
-	struct tty_port *tport = &s->port.state->port;
-	unsigned char ch;
 	int rxchars, x;
 	u16 tx, rx;
 	int conf, cconf, crts;
 	unsigned long flags;
+	struct circ_buf *xmit = &s->port.state->xmit;
 
 	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
 
@@ -352,18 +351,14 @@ static void max3100_port_dowork(struct max3100ts_port *s)
 
 		x = 0;
 		/* Lock in case we need to call uart_circ_empty() */
-		/* XXX: Does this mean we need to actually use the UART port lock
-		 * rather than our own locking?
-		 */
 		spin_lock_irqsave(&s->port.lock, flags);
 		if (s->port.x_char) {
 			tx = s->port.x_char;
 			x = 1;
-		} else {
+		} else{
 			if(!s->force_end_work){
-				if (!uart_tx_stopped(&s->port) &&
-						uart_fifo_get(&s->port, &ch)) {
-					tx = ch;
+				if (!uart_circ_empty(xmit) && !uart_tx_stopped(&s->port)) {
+					tx = xmit->buf[xmit->tail];
 					x = 2;
 				}
 			}
@@ -382,6 +377,8 @@ static void max3100_port_dowork(struct max3100ts_port *s)
 					s->port.icount.tx++;
 					s->port.x_char = 0;
 				} else if (x == 2) {
+					xmit->tail = (xmit->tail + 1) &
+					    (UART_XMIT_SIZE - 1);
 					s->port.icount.tx++;
 				}
 				spin_unlock_irqrestore(&s->port.lock, flags);
@@ -405,7 +402,7 @@ static void max3100_port_dowork(struct max3100ts_port *s)
 		 * number of acquisitions for a bit of a performance gain.
 		 */
 		spin_lock_irqsave(&s->port.lock, flags);
-		if (kfifo_len(&tport->xmit_fifo) < 4){
+		if (uart_circ_chars_pending(xmit) < 4){
 			if(s->port.state->port.tty)
 				uart_write_wakeup(&s->port);
 		}
@@ -413,8 +410,7 @@ static void max3100_port_dowork(struct max3100ts_port *s)
 	} while (!s->force_end_work &&
 		 !freezing(current) &&
 		 ((rx & MAX3100_R) ||
-		 (!kfifo_is_empty(&tport->xmit_fifo) &&
-		  !uart_tx_stopped(&s->port))));
+		 (!uart_circ_empty(xmit) && !uart_tx_stopped(&s->port))));
 
 	spin_unlock_irqrestore(&s->port.lock, flags);
 
