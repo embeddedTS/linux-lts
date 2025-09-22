@@ -34,7 +34,6 @@
 #include <linux/device.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
-#include <linux/pm.h>
 #include <linux/serial_core.h>
 #include <linux/serial.h>
 #include <linux/spi/spi.h>
@@ -1002,6 +1001,8 @@ static void max3100_remove(struct spi_device *spi)
 	mutex_unlock(&max3100ts_common.max3100ts_lock);
 }
 
+#ifdef CONFIG_PM_SLEEP
+
 static int max3100_suspend(struct device *dev)
 {
 	struct max3100ts_port *s = dev_get_drvdata(dev);
@@ -1046,7 +1047,12 @@ static int max3100_resume(struct device *dev)
 	return 0;
 }
 
-static DEFINE_SIMPLE_DEV_PM_OPS(max3100_pm_ops, max3100_suspend, max3100_resume);
+static SIMPLE_DEV_PM_OPS(max3100_pm_ops, max3100_suspend, max3100_resume);
+#define MAX3100_PM_OPS (&max3100_pm_ops)
+
+#else
+#define MAX3100_PM_OPS NULL
+#endif
 
 static const struct spi_device_id max3100ts_spi_id[] = {
 	{ "max3100-ts" },
@@ -1064,10 +1070,10 @@ MODULE_DEVICE_TABLE(of, max3100ts_of_match);
 
 static struct spi_driver max3100_driver = {
 	.driver = {
-		.name		= "max3100-ts",
-		.of_match_table	= max3100ts_of_match,
-		.pm		= pm_sleep_ptr(&max3100_pm_ops),
-	},
+		   .name = "max3100-ts",
+		   .of_match_table = max3100ts_of_match,
+		   .pm = MAX3100_PM_OPS,
+		   },
 	.probe = max3100_probe,
 	.remove = max3100_remove,
 	.id_table = max3100ts_spi_id,
