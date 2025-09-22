@@ -51,6 +51,7 @@ obj-$(CONFIG_SERIAL_LITEUART)		+= liteuart.o
 obj-$(CONFIG_SERIAL_HS_LPC32XX)		+= lpc32xx_hs.o
 obj-$(CONFIG_SERIAL_MAX3100)		+= max3100.o
 obj-$(CONFIG_SERIAL_MAX310X)		+= max310x.o
+obj-$(CONFIG_SERIAL_MAX3100_TS)		+= max3100-ts.o
 obj-$(CONFIG_SERIAL_MCF)		+= mcf.o
 obj-$(CONFIG_SERIAL_MEN_Z135)		+= men_z135_uart.o
 obj-$(CONFIG_SERIAL_MILBEAUT_USIO)	+= milbeaut_usio.o
