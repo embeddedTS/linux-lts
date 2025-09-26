@@ -9,24 +9,6 @@
 		gpio6 = &fpga_gpio1;
 		gpio7 = &fpga_gpio2;
 	};
-
-	led-controller {
-		compatible = "gpio-leds";
-
-		led-2 {
-			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_INDICATOR;
-			gpios = <&fpga_gpio1 9 GPIO_ACTIVE_LOW>;
-			default-state = "off";
-		};
-
-		led-3 {
-			color = <LED_COLOR_ID_RED>;
-			function = LED_FUNCTION_INDICATOR;
-			gpios = <&fpga_gpio1 8 GPIO_ACTIVE_LOW>;
-			default-state = "off";
-		};
-	};
 };
 
 &ecspi3 {
@@ -45,6 +27,12 @@
 		interrupt-parent = <&gpio1>;
 		interrupts = <11 GPIO_ACTIVE_HIGH>;
 	};
+};
+
+&fpga_uart0 {
+	/* GPIO hog configures this pin */
+	/* IO set to keeper since transceiver has PD */
+	rs485-term-gpios = <&gpio4 7 GPIO_ACTIVE_HIGH>;
 };
 
 /* CPU GPIO1: 209c000.gpio */
@@ -100,7 +88,7 @@
 	gpio-line-names =
 		"EN_EMMC_3V3#",   "EN_ADC1_12V",    "EN_ADC2_12V",    "EN_ADC3_12V",
 		"EN_ADC4_12V",    "EN_USB_HOST_5V", "PHY_RESET#",     "WIFI_RESET#",
-		"IO_RED_LED#",    "IO_GREEN_LED#",  "",               "",
+		"",               "",               "",               "",
 		"EN_PROG_SILAB",  "DIO_3_OUT",      "EN_HSPWM",       "EN_LSPWM";
 };
 
@@ -124,6 +112,7 @@
 				 * All GPIO should be 0x1b020 unless special
 				 * 0x1b020 == Hyst., 100k PU, 50 mA drive
 				 * 0x1a020 == no pull resistor
+				 * 0x11020 == keeper
 				 * 0x13020 == 100k PD
 				 */
 
@@ -142,7 +131,7 @@
 				/* NIM_RESET */
 				MX6UL_PAD_SNVS_TAMPER6__GPIO5_IO06	0x1b020
 				/* FPGA Spares */
-				MX6UL_PAD_SNVS_TAMPER7__GPIO5_IO07	0x1b020
+				MX6UL_PAD_SNVS_TAMPER7__GPIO5_IO07	0x11020
 				MX6UL_PAD_SNVS_TAMPER8__GPIO5_IO08	0x1b020
 				MX6UL_PAD_SNVS_TAMPER9__GPIO5_IO09	0x1b020
 			>;
@@ -207,6 +196,8 @@
 	pinctrl-0 = <&pinctrl_uart2>;
 	rts-gpios = <&gpio1 9 GPIO_ACTIVE_HIGH>;
 	linux,rs485-enabled-at-boot-time;
+	/* No configuration of pin needed, no pull in FPGA, relies on pull in xceiver */
+	rs485-term-gpios = <&fpga_gpio1 8 GPIO_ACTIVE_HIGH>;
 	dma-names = "", "";
 	status = "okay";
 };
@@ -230,6 +221,8 @@
 	pinctrl-0 = <&pinctrl_uart5>;
 	rts-gpios = <&gpio1 0 GPIO_ACTIVE_HIGH>;
 	linux,rs485-enabled-at-boot-time;
+	/* No configuration of pin needed, no pull in FPGA, relies on pull in xceiver */
+	rs485-term-gpios = <&fpga_gpio1 9 GPIO_ACTIVE_HIGH>;
 	dma-names = "", "";
 	status = "okay";
 };
