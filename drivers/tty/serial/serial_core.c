@@ -1307,6 +1307,16 @@ static int uart_get_icount(struct tty_struct *tty,
 	return 0;
 }
 
+static void uart_set_rs485_termination(struct uart_port *port,
+				       const struct serial_rs485 *rs485)
+{
+	if (!(rs485->flags & SER_RS485_ENABLED))
+		return;
+
+	gpiod_set_value_cansleep(port->rs485_term_gpio,
+				 !!(rs485->flags & SER_RS485_TERMINATE_BUS));
+}
+
 static int uart_get_rs485_config(struct uart_port *port,
 			 struct serial_rs485 __user *rs485)
 {
@@ -1361,6 +1371,8 @@ static int uart_set_rs485_config(struct uart_port *port,
 	}
 	/* Return clean padding area to userspace */
 	memset(rs485.padding, 0, sizeof(rs485.padding));
+
+	uart_set_rs485_termination(port, &rs485);
 
 	spin_lock_irqsave(&port->lock, flags);
 	ret = port->rs485_config(port, &rs485);
