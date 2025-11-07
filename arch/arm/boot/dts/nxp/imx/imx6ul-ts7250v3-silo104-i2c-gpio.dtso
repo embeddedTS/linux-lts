@@ -5,8 +5,6 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-    compatible = "embeddedts,ts-7250-v3";
-
     fragment@0 {
         target-path = "/";
         __overlay__ {
@@ -14,15 +12,11 @@
                 compatible = "i2c-gpio";
 
                 /* FPGA bank1 pins: SCL=13, SDA=8 */
-                scl-gpios = <&fpga_bank1 13 GPIO_ACTIVE_HIGH>;
-                sda-gpios = <&fpga_bank1  8 GPIO_ACTIVE_HIGH>;
-
-                /* Open-drain for both lines */
-                i2c-gpio,open-drain;
+                scl-gpios = <&fpga_bank1 13 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+                sda-gpios = <&fpga_bank1  8 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 
                 #address-cells = <1>;
                 #size-cells = <0>;
-                status = "okay";
             };
         };
     };
@@ -42,12 +36,12 @@
                 compatible = "technologic,wizard";
                 reg = <0x68>;
 
-                wizard_adc: wizard_adc {
+                silo_wizard_adc: silo-wizard-adc {
                     compatible = "technologic,wizard-adc";
                     #io-channel-cells = <1>;
                 };
 
-                wizard_irq: irq {
+                wizard_irq: silo-interrupt-controller {
                     compatible = "technologic,wizard-irq";
                     interrupt-parent = <&fpga_intc>;     
                     interrupts = <17 IRQ_TYPE_LEVEL_HIGH>;
@@ -56,16 +50,119 @@
                     interrupt-controller;
                 };
 
-                wizard_silo: ups {
+                wizard_silo: silo {
                     compatible = "technologic,wizard-silo";
-                    interrupt-parent = <&wizard_irq>;
-                    interrupts = <0>;
+                    interrupt-parent = <&fpga_intc>;
+                    interrupts = <17 IRQ_TYPE_LEVEL_HIGH>;
                 };
 
-                wizard_temp: wizard_temp {
+                wizard_temp: temperature-sensor {
                     compatible = "technologic,wizard-temp";
                     #io-channel-cells = <0>;
                 };
+
+                wizard_reset: reset-controller {
+                    compatible = "technologic,wizard-reset";
+                    #reset-cells = <1>;
+                };
+            };
+        };
+    };
+
+    /* ADC voltage-divider helpers for Silo104, channels 0..7 */
+    fragment@3 {
+        target-path = "/";
+        __overlay__ {
+
+            /* iio-rescale to reflect 1:1 scaling */
+            scap_junc_2: an-scap-junc-2 {
+                compatible = "iio-rescale";
+                io-channels = <&silo_wizard_adc 0>;
+                io-channel-names = "parent";
+                label = "silo-scap-junc-2";
+
+                numerator = <1>;
+                denominator = <1>;
+                type = "voltage";
+
+                #io-channel-cells = <0>;
+            };
+
+            silo_5v2mv_rail: an-silo-5v2mv-rail {
+                compatible = "voltage-divider";
+                io-channels = <&silo_wizard_adc 1>;
+                label = "silo-5v2mv-rail";
+                io-channel-names = "parent";
+                output-ohms = <75000>;
+                full-ohms   = <150000>;
+                #io-channel-cells = <0>;
+            };
+
+            silo_scap_plus: an-scap-plus {
+                compatible = "voltage-divider";
+                io-channels = <&silo_wizard_adc 2>;
+                io-channel-names = "parent";
+                label = "an-scap-plus";
+                output-ohms = <75000>;
+                full-ohms   = <150000>;
+                #io-channel-cells = <0>;
+            };
+
+            /* iio-rescale to reflect 1:1 scaling */
+            scap_junc_1: an-scap-junc-1 {
+                compatible = "iio-rescale";
+                io-channels = <&silo_wizard_adc 3>;
+                io-channel-names = "parent";
+                label = "silo-scap-junc-1";
+
+                numerator = <1>;
+                denominator = <1>;
+                type = "voltage";
+
+                #io-channel-cells = <0>;
+            };
+
+            scap_vchrg_mv: an-scap-vchrg-mv {
+                compatible = "voltage-divider";
+                io-channels = <&silo_wizard_adc 4>;
+                label = "scap-vchrg-mv";
+                io-channel-names = "parent";
+                output-ohms = <75000>;
+                full-ohms   = <150000>;
+                #io-channel-cells = <0>;
+            };
+
+            silo_reg_5v: an-silo-reg-5v {
+                compatible = "voltage-divider";
+                io-channels = <&silo_wizard_adc 5>;
+                label = "silo-reg-5v";
+                output-ohms = <75000>; 
+                full-ohms   = <150000>; 
+                #io-channel-cells = <0>;
+            };
+
+            silo_vin: an-silo-vin {
+                compatible = "voltage-divider";
+                io-channels = <&silo_wizard_adc 6>;
+                label = "silo-vin";
+                output-ohms = <4990>; 
+                full-ohms   = <79990>;
+                #io-channel-cells = <0>;
+            };
+
+            /* Total system current draw */
+            silo_sbc_current: an-silo-sbc-current {
+                compatible = "current-sense-amplifier";
+                io-channels = <&silo_wizard_adc 7>;
+                label = "system-current";
+                #io-channel-cells = <0>;
+
+                /* Effective shunt: R43 || R44 = 50 mOhm */
+                sense-resistor-micro-ohms = <50000>; /* 50 milliohm */
+
+                /* VSENSE->VOUT gain: 0.004 * (8.66k || 6.04k) ~= 14.233 V/V */
+                sense-gain-mult = <14233>;
+                sense-gain-div = <1000>;
             };
         };
     };

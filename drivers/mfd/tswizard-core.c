@@ -10,22 +10,52 @@
 #include <linux/mfd/ts_wizard.h>
 
 #define MODEL_TS_7250_V3 0x7250
+#define MODEL_TS_SILO_104 0x5104
 
 static struct mfd_cell tswizard_devs[] = {
 	{
 		.name = "tswizard-reset",
-		.id = -1,
+        .of_compatible = "technologic,wizard-reset",
+		.id = PLATFORM_DEVID_AUTO,
 	},
 	{
 		.name = "tswizard-temp",
 		.of_compatible = "technologic,wizard-temp",
-		.id = -1,
+		.id = PLATFORM_DEVID_AUTO,
 	},
 	{
 		.name = "tswizard-adc",
 		.of_compatible = "technologic,wizard-adc",
-		.id = -1,
+		.id = PLATFORM_DEVID_AUTO,
 	}
+};
+
+static struct mfd_cell silo104_devs[] = {
+        {
+                .name = "tswizard-irq",
+                .of_compatible = "technologic,wizard-irq",
+                .id = PLATFORM_DEVID_AUTO,
+        },
+        {
+                .name = "tswizard-reset",
+                .of_compatible = "technologic,wizard-reset",
+                .id = PLATFORM_DEVID_AUTO,
+        },
+        {
+                .name = "tswizard-silo",
+                .of_compatible = "technologic,wizard-silo",
+                .id = PLATFORM_DEVID_NONE,
+        },
+        {
+                .name = "tswizard-temp",
+                .of_compatible = "technologic,wizard-temp",
+                .id = PLATFORM_DEVID_AUTO,
+        },
+        {
+                .name = "tswizard-adc",
+                .of_compatible = "technologic,wizard-adc",
+                .id = PLATFORM_DEVID_AUTO,
+        },
 };
 
 static const struct regmap_range ts_wizard_read_regs[] = {
@@ -34,6 +64,7 @@ static const struct regmap_range ts_wizard_read_regs[] = {
 	regmap_reg_range(24, 24), /* inputs */
 	regmap_reg_range(32, 32), /* reboot_reason */
 	regmap_reg_range(34, 37), /* serial */
+	regmap_reg_range(WIZ_SILO_BASE, WIZ_SILO_BASE +16), /* silo regs (64-80)*/
 	regmap_reg_range(128, 160), /* ADCs+temp */
 };
 
@@ -41,6 +72,10 @@ static const struct regmap_range ts_wizard_write_regs[] = {
 	regmap_reg_range(8, 8), /* cmds */
 	regmap_reg_range(16, 16), /* flags */
 	regmap_reg_range(34, 37), /* serial */
+	regmap_reg_range(WIZ_SILO_BASE +2, WIZ_SILO_BASE +2), /* silo control (66)*/
+	regmap_reg_range(WIZ_SILO_BASE +4, WIZ_SILO_BASE +4), /* silo req chg current (68) */
+	regmap_reg_range(WIZ_SILO_BASE +9, WIZ_SILO_BASE +9), /* CRITICAL_PCT (base+9) */
+	regmap_reg_range(WIZ_SILO_BASE +12, WIZ_SILO_BASE +13), /* startup current (76), min pwr on pct (77) */
 };
 
 const struct regmap_access_table ts_wizard_read_register_set = {
@@ -253,7 +288,7 @@ static int ts_wizard_i2c_probe(struct i2c_client *client)
 {
 	struct ts_wizard *wiz;
 	struct device *dev = &client->dev;
-	int err = 0, i;
+	int err = 0, i, j;
 	uint32_t model, revision, features;
 
 	wiz = devm_kzalloc(dev, sizeof(struct ts_wizard),
@@ -297,15 +332,24 @@ static int ts_wizard_i2c_probe(struct i2c_client *client)
 			dev_warn(dev, "error creating sysfs entries\n");
 	}
 
+	if (model == MODEL_TS_SILO_104) {
+		err = mfd_add_devices(dev, PLATFORM_DEVID_AUTO, silo104_devs,
+				      ARRAY_SIZE(silo104_devs), NULL, 0, NULL);
+		if (err) {
+			dev_err(dev, "Failed to add SILO104 devices: %d\n", err);
+		}
+		return err;
+	}
+
 	/* Set up and register the platform devices. */
 	for (i = 0; i < ARRAY_SIZE(tswizard_devs); i++) {
 		tswizard_devs[i].platform_data = wiz;
 		tswizard_devs[i].pdata_size = sizeof(struct ts_wizard);
 	}
 
-	return mfd_add_devices(dev, 0, tswizard_devs,
+	return mfd_add_devices(dev, PLATFORM_DEVID_AUTO, tswizard_devs,
 			      ARRAY_SIZE(tswizard_devs), NULL, 0, NULL);
-}
+};
 
 static const struct i2c_device_id ts_wizard_i2c_id[] = {
 	{ "tswizard", 0 },
