@@ -99,7 +99,7 @@ const struct regmap_config ts_wizard_i2c_regmap = {
 	.rd_table = &ts_wizard_read_register_set,
 	.volatile_table = &ts_wizard_read_register_set,
 
-	.disable_locking = true,
+	.disable_locking = false,
 	.cache_type = REGCACHE_NONE,
 };
 EXPORT_SYMBOL_GPL(ts_wizard_i2c_regmap);
