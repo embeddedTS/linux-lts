@@ -1,4 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
+
+DTC_FLAGS_imx6ul-ts7250v3 := -@
+
 dtb-$(CONFIG_SOC_IMX1) += \
 	imx1-ads.dtb \
 	imx1-apf9328.dtb
@@ -332,7 +335,6 @@ dtb-$(CONFIG_SOC_IMX6UL) += \
 	imx6ul-ts4100-8.dtb \
 	imx6ul-ts4100-16.dtb \
 	imx6ul-ts7250v3-reva.dtb \
-	imx6ul-ts7250v3.dtb \
 	imx6ul-ts7553v2.dtb \
 	imx6ul-ts7100-1.dtb \
 	imx6ul-ts7100-3.dtb \
@@ -375,6 +377,13 @@ dtb-$(CONFIG_SOC_IMX6UL) += \
 	imx6ull-tqma6ull2l-mba6ulx.dtb \
 	imx6ulz-14x14-evk.dtb \
 	imx6ulz-bsh-smm-m2.dtb
+
+imx6ul-ts7250v3-silo104-i2c-gpio-dtbs := imx6ul-ts7250v3.dtb imx6ul-ts7250v3-silo104-i2c-gpio.dtbo
+dtb-$(CONFIG_SOC_IMX6UL) += imx6ul-ts7250v3.dtb
+dtb-$(CONFIG_SOC_IMX6UL) += imx6ul-ts7250v3-silo104-i2c-gpio.dtbo
+
+DTC_FLAGS_imx6ul-ts7250v3-silo104-i2c-gpio := -@
+
 dtb-$(CONFIG_SOC_IMX7D) += \
 	imx7d-cl-som-imx7.dtb \
 	imx7d-colibri-aster.dtb \

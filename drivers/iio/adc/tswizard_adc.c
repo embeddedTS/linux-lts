@@ -142,23 +142,24 @@ static int ts_wizard_adc_probe(struct platform_device *pdev)
 	indio_dev->num_channels = adc->channel_count;
 	indio_dev->channels = tswizard_channels;
 
-	indio_dev->name = dev_name(&pdev->dev);
+	indio_dev->name = (pdev->dev.of_node && pdev->dev.of_node->name) ? pdev->dev.of_node->name: dev_name(&pdev->dev);
 	indio_dev->dev.of_node = pdev->dev.of_node;
 	indio_dev->info = &ts_adc_info;
 
 	return devm_iio_device_register(&pdev->dev, indio_dev);
 }
 
-static const struct of_device_id tswizard_of_match[] = {
+static const struct of_device_id tswizard_adc_of_match[] = {
 	{ .compatible = "technologic,tswizard-adc", },
+	{ .compatible = "technologic,wizard-adc", },
 	{ }
 };
-MODULE_DEVICE_TABLE(of, tsadc_of_match);
+MODULE_DEVICE_TABLE(of, tswizard_adc_of_match);
 
 static struct platform_driver tsadc_driver = {
 	.driver = {
 		.name   = "tswizard-adc",
-		.of_match_table = tswizard_of_match,
+		.of_match_table = tswizard_adc_of_match,
 	},
 	.probe	= ts_wizard_adc_probe,
 };
