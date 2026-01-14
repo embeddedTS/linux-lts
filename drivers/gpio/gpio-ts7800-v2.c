@@ -367,7 +367,7 @@ static int ts7800v2_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	return !!(reg & bit);
 }
 
-static void ts7800v2_gpio_set(struct gpio_chip *chip, unsigned int offset,
+static int ts7800v2_gpio_set(struct gpio_chip *chip, unsigned int offset,
 	int value)
 {
 	struct ts7800v2_gpio_priv *priv = to_gpio_ts7800v2(chip);
@@ -380,7 +380,7 @@ static void ts7800v2_gpio_set(struct gpio_chip *chip, unsigned int offset,
 		if (offset == 8)  { /* SPI_MISO, read-only pin, can't set */
 			dev_info(priv->gpio_chip.parent, "error: DIO #%d, read-only pin, can't be set\n",
 						priv->gpio_chip.base + offset);
-			return;
+			return -EINVAL;
 		}
 		reg_num = LCD_DIO_OUT;
 	} else if (offset < 58) {  /* pc/104 Row A */
@@ -389,7 +389,7 @@ static void ts7800v2_gpio_set(struct gpio_chip *chip, unsigned int offset,
 		reg_num = ROW_B_DATA;
 	} else if (offset < 101) { /* pc/104 Row C */
 		if (offset >= 104 && offset <= 107) {  /* D[4..7], read-only pins */
-			return;
+			return -EINVAL;
 		}
 		reg_num = ROW_C_DATA;
 	} else if (offset < 116) { /* pc/104 Row D */
@@ -403,7 +403,7 @@ static void ts7800v2_gpio_set(struct gpio_chip *chip, unsigned int offset,
 	} else if (offset == 120) { /* CPU_ACCESS_FPGA_FLASH */
 		reg_num = LCD_DIO_OUT;
 	} else {
-		return;
+		return -EINVAL;
 	}
 
 	spin_lock_irqsave(&priv->lock, flags);
@@ -414,6 +414,8 @@ static void ts7800v2_gpio_set(struct gpio_chip *chip, unsigned int offset,
 		reg &= ~bit;
 	writel(reg, priv->syscon + reg_num);
 	spin_unlock_irqrestore(&priv->lock, flags);
+
+	return 0;
 }
 
 static const struct gpio_chip template_chip = {
