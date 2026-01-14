@@ -100,7 +100,7 @@ static int ts_pc104bus_init_pdata(struct platform_device *pdev,
 }
 
 static ssize_t isa_io8_read(struct file *filp, struct kobject *kobj,
-		     struct bin_attribute *bin_attr,
+		     const struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -117,7 +117,7 @@ static ssize_t isa_io8_read(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t isa_io8_write(struct file *filp, struct kobject *kobj,
-		      struct bin_attribute *bin_attr,
+		      const struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -134,7 +134,7 @@ static ssize_t isa_io8_write(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t isa_mem8_read(struct file *filp, struct kobject *kobj,
-		     struct bin_attribute *bin_attr,
+		     const struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -151,7 +151,7 @@ static ssize_t isa_mem8_read(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t isa_mem8_write(struct file *filp, struct kobject *kobj,
-		      struct bin_attribute *bin_attr,
+		      const struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -168,7 +168,7 @@ static ssize_t isa_mem8_write(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t isa_io16_read(struct file *filp, struct kobject *kobj,
-		     struct bin_attribute *bin_attr,
+		     const struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -187,7 +187,7 @@ static ssize_t isa_io16_read(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t isa_io16_write(struct file *filp, struct kobject *kobj,
-		      struct bin_attribute *bin_attr,
+		      const struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -207,7 +207,7 @@ static ssize_t isa_io16_write(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t isa_mem16_read(struct file *filp, struct kobject *kobj,
-		     struct bin_attribute *bin_attr,
+		     const struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -226,7 +226,7 @@ static ssize_t isa_mem16_read(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t isa_mem16_write(struct file *filp, struct kobject *kobj,
-		      struct bin_attribute *bin_attr,
+		      const struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -246,7 +246,7 @@ static ssize_t isa_mem16_write(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t isa_io16alt_read(struct file *filp, struct kobject *kobj,
-		     struct bin_attribute *bin_attr,
+		     const struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -265,7 +265,7 @@ static ssize_t isa_io16alt_read(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t isa_io16alt_write(struct file *filp, struct kobject *kobj,
-		      struct bin_attribute *bin_attr,
+		      const struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -285,7 +285,7 @@ static ssize_t isa_io16alt_write(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t isa_mem16alt_read(struct file *filp, struct kobject *kobj,
-		     struct bin_attribute *bin_attr,
+		     const struct bin_attribute *bin_attr,
 		     char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -304,7 +304,7 @@ static ssize_t isa_mem16alt_read(struct file *filp, struct kobject *kobj,
 }
 
 static ssize_t isa_mem16alt_write(struct file *filp, struct kobject *kobj,
-		      struct bin_attribute *bin_attr,
+		      const struct bin_attribute *bin_attr,
 		      char *buf, loff_t off, size_t count)
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
@@ -383,7 +383,7 @@ struct bin_attribute isa_mem16alt_attr = {
 	.write = isa_mem16alt_write,
 };
 
-static struct bin_attribute *tsisa_sysfs_bin_attrs[] = {
+static const struct bin_attribute *tsisa_sysfs_bin_attrs[] = {
 	&isa_io8_attr,
 	&isa_mem8_attr,
 	&isa_io16_attr,
