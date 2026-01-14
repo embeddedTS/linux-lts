@@ -146,7 +146,7 @@ static struct clk *clks[clk_max];
 static struct clk_onecell_data clk_data;
 
 static enum imx28_clk clks_init_on[] __initdata = {
-	cpu, hbus, xbus, emi, uart,
+	cpu, hbus, xbus, emi, uart, pwm,
 };
 
 static void __init mx28_clocks_init(struct device_node *np)
