@@ -153,7 +153,7 @@ static const struct of_device_id tswizard_of_match[] = {
 	{ .compatible = "technologic,tswizard-adc", },
 	{ }
 };
-MODULE_DEVICE_TABLE(of, tsadc_of_match);
+MODULE_DEVICE_TABLE(of, tswizard_of_match);
 
 static struct platform_driver tsadc_driver = {
 	.driver = {
