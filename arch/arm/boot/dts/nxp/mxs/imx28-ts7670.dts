@@ -70,7 +70,7 @@
 
 		led-1 {
 			color = <LED_COLOR_ID_RED>;
-			function = LED_FUNCTION_INDICATOR;
+			function = LED_FUNCTION_STATUS;
 			gpios = <&gpio0 17 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
