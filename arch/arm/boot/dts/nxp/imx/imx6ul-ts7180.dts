@@ -355,7 +355,7 @@
 			"EN_OFF_BD_5V",      "EN_CELL_MODEM_PWR", "EN_NIMBEL_3.3V",    "EN_GPS_PWR#",
 			"EN_CAN_XVR#",       "EN_232_XVR",        "EN_LS_OUT_1",       "EN_LS_OUT_2",
 			"EN_LS_OUT_3",       "EN_LS_OUT_4",       "EN_LS_OUT_5",       "EN_LS_OUT_6",
-			"EN_LS_OUT_7",       "MT_RESET#",         "",                  "",
+			"EN_LS_OUT_7",       "MT_RESET#",         "",                  "BREAKER_CLEAR",
 			"DIG_IN_1",          "DIG_IN_2",          "DIG_IN_3",          "DIG_IN_4",
 			"SD_BOOT_JMP#",      "DIO_1_IN",          "DIO_2_IN",          "DIO_3_IN",
 			"DIO_4_IN",          "DIO_5_IN",          "DIO_6_IN",          "DIO_7_IN",
@@ -363,7 +363,7 @@
 			"",                  "",                  "",                  "",
 			"",                  "",                  "",                  "",
 			"",                  "",                  "",                  "",
-			"",                  "",                  "",                  "";
+			"",                  "",                  "BREAKER_TRIP",                  "";
 	};
 };
 
