@@ -10,6 +10,12 @@
 		gpio7 = &fpga_gpio2;
 	};
 
+	backlight {
+		compatible = "gpio-backlight";
+		gpios = <&fpga_gpio2 14 GPIO_ACTIVE_LOW>;
+		default-on;
+	};
+
 	led-controller {
 		compatible = "gpio-leds";
 
@@ -109,7 +115,7 @@
 	gpio-line-names =
 		"CPU_TOUCH_IRQ#", "",               "C6_PAD",         "B8_PAD",
 		"C9_PAD",         "C8_PAD",         "NIM_3V3#_4V",    "DIO_16_PAD",
-		"NIM_PWR_ON",     "SEL_NIM_USB",    "DIO_FAULT#",     "",
+		"NIM_PWR_ON",     "SEL_NIM_USB",    "BREAKER_TRIP",   "",
 		"",               "",               "EN_BK_LT#",      "";
 };
 
