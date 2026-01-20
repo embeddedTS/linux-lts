@@ -420,7 +420,7 @@
 				reg = <0x0 0x50>;
 
 				interrupt-controller;
-				#interrupt-cells = <2>;
+				#interrupt-cells = <1>;
 
 				interrupt-parent = <&gpio5>;
 				interrupts = <1 IRQ_TYPE_LEVEL_HIGH>;
@@ -431,8 +431,12 @@
 				reg = <0x10 0x08>;
 				gpio-controller;
 				#gpio-cells = <2>;
+
+				interrupt-parent = <&fpga_intc>;
+				interrupts = <30 IRQ_TYPE_LEVEL_HIGH>;
+
 				interrupt-controller;
-				#interrupt-cells = <1>;
+				#interrupt-cells = <2>;
 
 				gpio-line-names = "", "DIO_PIN1", "DIO_PIN3",
 					"DIO_PIN5", "DIO_PIN7", "DIO_PIN8",
@@ -449,6 +453,9 @@
 				#gpio-cells = <2>;
 				interrupt-controller;
 				#interrupt-cells = <1>;
+
+				interrupt-parent = <&fpga_intc>;
+				interrupts = <31 IRQ_TYPE_LEVEL_HIGH>;
 
 				gpio-line-names = "ISA_AEN", "ISA_BALE",
 					"ISA_TC", "ISA_ENDX", "EN_NIMBEL_3V3",
