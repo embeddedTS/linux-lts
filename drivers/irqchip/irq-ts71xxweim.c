@@ -9,8 +9,11 @@
 #include <linux/of_device.h>
 #include <linux/seq_file.h>
 
+#define TSWEIM_IRQ_ACK		0x20
 #define TSWEIM_IRQ_STATUS	0x24
 #define TSWEIM_IRQ_POLARITY	0x28
+#define TSWEIM_IRQ_ACK_MODE	0x2C
+#define TSWEIM_IRQ_ACK_MODE_EN	BIT(0)
 #define TSWEIM_IRQ_MASK		0x48
 #define TSWEIM_NUM_FPGA_IRQ	32
 
@@ -20,6 +23,7 @@ struct tsweim_intc {
 	struct platform_device *pdev;
 	raw_spinlock_t lock;
 	u32 mask;
+	bool ack_mode_en;
 };
 
 static void tsweim_intc_mask(struct irq_data *d)
@@ -51,6 +55,35 @@ static void tsweim_intc_print_chip(struct irq_data *d, struct seq_file *p)
 	struct tsweim_intc *priv = irq_data_get_irq_chip_data(d);
 
 	seq_printf(p, "%s", dev_name(&priv->pdev->dev));
+}
+
+static void tsweim_intc_irq_ack(struct irq_data *d)
+{
+	struct tsweim_intc *priv = irq_data_get_irq_chip_data(d);
+
+	if (priv->ack_mode_en) {
+		writel(BIT(d->hwirq), priv->syscon + TSWEIM_IRQ_ACK);
+	} else {
+		readl(priv->syscon + TSWEIM_IRQ_STATUS);
+	}
+}
+
+static void tsweim_intc_irq_mask_ack(struct irq_data *d)
+{
+	struct tsweim_intc *priv = irq_data_get_irq_chip_data(d);
+
+	raw_spin_lock(&priv->lock);
+
+	priv->mask = readl(priv->syscon + TSWEIM_IRQ_MASK) & ~BIT(d->hwirq);
+	writel(priv->mask, priv->syscon + TSWEIM_IRQ_MASK);
+
+	raw_spin_unlock(&priv->lock);
+
+	if (priv->ack_mode_en) {
+		writel(BIT(d->hwirq), priv->syscon + TSWEIM_IRQ_ACK);
+	} else {
+		readl(priv->syscon + TSWEIM_IRQ_STATUS);
+	}
 }
 
 static int tsweim_intc_set_type(struct irq_data *d, unsigned int flow_type)
@@ -86,6 +119,8 @@ static struct irq_chip tsweim_intc_chip = {
 	.irq_mask	= tsweim_intc_mask,
 	.irq_unmask	= tsweim_intc_unmask,
 	.irq_print_chip	= tsweim_intc_print_chip,
+	.irq_ack	= tsweim_intc_irq_ack,
+	.irq_mask_ack	= tsweim_intc_irq_mask_ack,
 };
 
 static void tsweim_irq_handler(struct irq_desc *desc)
@@ -132,6 +167,8 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct tsweim_intc *priv;
 	int irq = 0;
+	bool ack_mode_en;
+	u32 revision;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
@@ -168,6 +205,23 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 	irq_set_chained_handler_and_data(irq, tsweim_irq_handler, priv);
 
 	platform_set_drvdata(pdev, priv);
+
+	revision = readl(priv->syscon) & 0xFF;
+	ack_mode_en = readl(priv->syscon + TSWEIM_IRQ_ACK_MODE) & TSWEIM_IRQ_ACK_MODE_EN;
+
+	if (revision >= 65 && !ack_mode_en) {
+		writel(TSWEIM_IRQ_ACK_MODE_EN, priv->syscon + TSWEIM_IRQ_ACK_MODE);
+
+		ack_mode_en = readl(priv->syscon + TSWEIM_IRQ_ACK_MODE) & TSWEIM_IRQ_ACK_MODE_EN;
+		if (ack_mode_en) {
+			dev_info(dev, "ACK mode enabled with FPGA rev%u\n",
+				revision);
+			priv->ack_mode_en = true;
+		} else {
+			dev_warn(dev, "failed to enable ACK mode with FPGA rev%u\n",
+				revision);
+		}
+	}
 
 	return 0;
 }
