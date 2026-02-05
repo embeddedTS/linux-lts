@@ -18,6 +18,7 @@ struct tsweim_intc {
 	void __iomem  *syscon;
 	struct irq_domain *irqdomain;
 	struct platform_device *pdev;
+	raw_spinlock_t lock;
 	u32 mask;
 };
 
@@ -25,16 +26,24 @@ static void tsweim_intc_mask(struct irq_data *d)
 {
 	struct tsweim_intc *priv = irq_data_get_irq_chip_data(d);
 
+	raw_spin_lock(&priv->lock);
+
 	priv->mask = readl(priv->syscon + TSWEIM_IRQ_MASK) & ~BIT(d->hwirq);
 	writel(priv->mask, priv->syscon + TSWEIM_IRQ_MASK);
+
+	raw_spin_unlock(&priv->lock);
 }
 
 static void tsweim_intc_unmask(struct irq_data *d)
 {
 	struct tsweim_intc *priv = irq_data_get_irq_chip_data(d);
 
+	raw_spin_lock(&priv->lock);
+
 	priv->mask = readl(priv->syscon + TSWEIM_IRQ_MASK) | BIT(d->hwirq);
 	writel(priv->mask, priv->syscon + TSWEIM_IRQ_MASK);
+
+	raw_spin_unlock(&priv->lock);
 }
 
 static void tsweim_intc_print_chip(struct irq_data *d, struct seq_file *p)
@@ -47,8 +56,12 @@ static void tsweim_intc_print_chip(struct irq_data *d, struct seq_file *p)
 static int tsweim_intc_set_type(struct irq_data *d, unsigned int flow_type)
 {
 	struct tsweim_intc *priv = irq_data_get_irq_chip_data(d);
-	uint32_t polarity = readl(priv->syscon + TSWEIM_IRQ_POLARITY);
-	uint32_t bit = BIT_MASK(d->hwirq);
+	u32 polarity, bit;
+
+	raw_spin_lock(&priv->lock);
+
+	polarity = readl(priv->syscon + TSWEIM_IRQ_POLARITY);
+	bit = BIT(d->hwirq);
 
 	switch (flow_type) {
 	case IRQ_TYPE_LEVEL_LOW:
@@ -58,10 +71,13 @@ static int tsweim_intc_set_type(struct irq_data *d, unsigned int flow_type)
 		polarity &= ~bit;
 		break;
 	default:
+		raw_spin_unlock(&priv->lock);
 		return -EINVAL;
 	}
 
 	writel(polarity, priv->syscon + TSWEIM_IRQ_POLARITY);
+
+	raw_spin_unlock(&priv->lock);
 
 	return 0;
 }
@@ -130,6 +146,8 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 		return PTR_ERR(priv->syscon);
 
 	priv->pdev = pdev;
+
+	raw_spin_lock_init(&priv->lock);
 
 	if (of_property_read_bool(dev->of_node, "ts,haspolarity"))
 		tsweim_intc_chip.irq_set_type = tsweim_intc_set_type;
