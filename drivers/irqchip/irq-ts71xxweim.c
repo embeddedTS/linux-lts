@@ -230,7 +230,7 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 
 static int tsweim_intc_remove(struct platform_device *pdev)
 {
-	struct tsweim_intc *priv = dev_get_platdata(&pdev->dev);
+	struct tsweim_intc *priv = platform_get_drvdata(pdev);
 
 	if (priv->irqdomain) {
 		int i, irq;
