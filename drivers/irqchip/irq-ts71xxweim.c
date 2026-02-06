@@ -186,6 +186,8 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 
 	raw_spin_lock_init(&priv->lock);
 
+	priv->mask = readl(priv->syscon + TSWEIM_IRQ_MASK);
+
 	if (of_property_read_bool(dev->of_node, "ts,haspolarity"))
 		tsweim_intc_chip.irq_set_type = tsweim_intc_set_type;
 
