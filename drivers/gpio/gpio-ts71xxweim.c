@@ -88,7 +88,7 @@ static void tsweim_gpio_set(struct gpio_chip *chip, unsigned int offset,
 		writew((1 << offset), priv->syscon + TSWEIM_CLR_REG);
 }
 
-static const struct gpio_chip template_chip = {
+static const struct gpio_chip tsweim_gpio_chip = {
 	.owner			= THIS_MODULE,
 	.direction_input	= tsweim_gpio_direction_input,
 	.direction_output	= tsweim_gpio_direction_output,
@@ -130,7 +130,7 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 
 	priv->syscon = membase;
 
-	priv->gpio_chip = template_chip;
+	priv->gpio_chip = tsweim_gpio_chip;
 	priv->gpio_chip.label = dev_name(dev);
 	priv->gpio_chip.ngpio = TSWEIM_NR_DIO;
 	priv->gpio_chip.parent = dev;
