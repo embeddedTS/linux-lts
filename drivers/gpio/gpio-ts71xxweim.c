@@ -111,6 +111,10 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 	void __iomem  *membase;
 	struct resource *res;
 
+	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res == NULL)
 		return -EFAULT;
@@ -120,9 +124,6 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 	if (IS_ERR(membase))
 		return -ENOMEM;
 
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
 
 	priv->syscon = membase;
 
