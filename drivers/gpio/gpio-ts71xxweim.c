@@ -22,7 +22,7 @@
 #define TSWEIM_EN_CLR_REG	0x06
 
 struct tsweim_gpio_priv {
-	void __iomem  *syscon;
+	void __iomem *base;
 	struct gpio_chip gpio_chip;
 };
 
@@ -39,7 +39,7 @@ static int tsweim_gpio_direction_input(struct gpio_chip *chip,
 	if (!(offset < priv->gpio_chip.ngpio))
 		return -EINVAL;
 
-	writew((1 << offset), priv->syscon + TSWEIM_EN_CLR_REG);
+	writew((1 << offset), priv->base + TSWEIM_EN_CLR_REG);
 
 	return 0;
 }
@@ -53,11 +53,11 @@ static int tsweim_gpio_direction_output(struct gpio_chip *chip,
 		return -EINVAL;
 
 	if (value)
-		writew((1 << offset), priv->syscon + TSWEIM_SET_REG);
+		writew((1 << offset), priv->base + TSWEIM_SET_REG);
 	else
-		writew((1 << offset), priv->syscon + TSWEIM_CLR_REG);
+		writew((1 << offset), priv->base + TSWEIM_CLR_REG);
 
-	writew((1 << offset), priv->syscon + TSWEIM_EN_SET_REG);
+	writew((1 << offset), priv->base + TSWEIM_EN_SET_REG);
 
 	return 0;
 }
@@ -70,7 +70,7 @@ static int tsweim_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	if (!(offset < priv->gpio_chip.ngpio))
 		return -EINVAL;
 
-	reg = readw(priv->syscon + TSWEIM_GET_REG);
+	reg = readw(priv->base + TSWEIM_GET_REG);
 	return !!(reg & (1 << offset));
 }
 
@@ -83,9 +83,9 @@ static void tsweim_gpio_set(struct gpio_chip *chip, unsigned int offset,
 		return;
 
 	if (value)
-		writew((1 << offset), priv->syscon + TSWEIM_SET_REG);
+		writew((1 << offset), priv->base + TSWEIM_SET_REG);
 	else
-		writew((1 << offset), priv->syscon + TSWEIM_CLR_REG);
+		writew((1 << offset), priv->base + TSWEIM_CLR_REG);
 }
 
 static const struct gpio_chip tsweim_gpio_chip = {
@@ -118,9 +118,8 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 	if (res == NULL)
 		return -EFAULT;
 
-	priv->syscon = devm_ioremap(&pdev->dev, res->start,
-					  resource_size(res));
-	if (!priv->syscon)
+	priv->base = devm_ioremap(dev, res->start, resource_size(res));
+	if (!priv->base)
 		return -ENOMEM;
 
 	priv->gpio_chip = tsweim_gpio_chip;
