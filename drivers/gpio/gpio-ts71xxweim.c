@@ -108,7 +108,6 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct tsweim_gpio_priv *priv;
-	void __iomem  *membase;
 	struct resource *res;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -119,13 +118,10 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 	if (res == NULL)
 		return -EFAULT;
 
-	membase =  devm_ioremap(&pdev->dev, res->start,
+	priv->syscon = devm_ioremap(&pdev->dev, res->start,
 					  resource_size(res));
-	if (IS_ERR(membase))
+	if (!priv->syscon)
 		return -ENOMEM;
-
-
-	priv->syscon = membase;
 
 	priv->gpio_chip = tsweim_gpio_chip;
 	priv->gpio_chip.label = dev_name(dev);
