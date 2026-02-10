@@ -795,6 +795,7 @@ config GPIO_LOONGSON1
 config GPIO_TS71XXWEIM
 	bool "embeddedTS WEIM FPGA GPIO"
 	depends on IMX_WEIM
+	select GPIOLIB_IRQCHIP
 	help
 	  Say yes here to enable the GPIO driver for embeddedTS's FPGA core
 	  connected to the i.MX6UL WEIM bus.
