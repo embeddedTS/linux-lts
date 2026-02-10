@@ -428,7 +428,7 @@
 
 			fpga_bank0: fpga_gpio@10 {
 				compatible = "technologic,ts71xxweim-gpio";
-				reg = <0x10 0x08>;
+				reg = <0x10 0x08>, <0x80 0x10>;
 				gpio-controller;
 				#gpio-cells = <2>;
 
@@ -448,7 +448,7 @@
 
 			fpga_bank1: fpga_gpio@40 {
 				compatible = "technologic,ts71xxweim-gpio";
-				reg = <0x40 0x08>;
+				reg = <0x40 0x08>, <0x90 0x10>;
 				gpio-controller;
 				#gpio-cells = <2>;
 
@@ -468,7 +468,7 @@
 
 			fpga_bank2: fpga_gpio@54 {
 				compatible = "technologic,ts71xxweim-gpio";
-				reg = <0x54 0x08>;
+				reg = <0x54 0x08>, <0xa0 0x10>;
 				gpio-controller;
 				#gpio-cells = <2>;
 
@@ -490,7 +490,7 @@
 
 			fpga_bank3: fpga_gpio@5c {
 				compatible = "technologic,ts71xxweim-gpio";
-				reg = <0x5c 0x08>;
+				reg = <0x5c 0x08>, <0xb0 0x10>;
 				gpio-controller;
 				#gpio-cells = <2>;
 
@@ -510,7 +510,7 @@
 
 			fpga_bank4: fpga_gpio@64 {
 				compatible = "technologic,ts71xxweim-gpio";
-				reg = <0x64 0x08>;
+				reg = <0x64 0x08>, <0xc0 0x10>;
 				gpio-controller;
 				#gpio-cells = <2>;
 
@@ -532,7 +532,7 @@
 
 			fpga_bank5: fpga_gpio@6c {
 				compatible = "technologic,ts71xxweim-gpio";
-				reg = <0x6c 0x08>;
+				reg = <0x6c 0x08>, <0xd0 0x10>;
 				gpio-controller;
 				#gpio-cells = <2>;
 
