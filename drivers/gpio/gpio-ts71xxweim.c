@@ -112,17 +112,13 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 	struct resource *res;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res == NULL) {
-		pr_err("Can't get device address\n");
+	if (res == NULL)
 		return -EFAULT;
-	}
 
 	membase =  devm_ioremap(&pdev->dev, res->start,
 					  resource_size(res));
-	if (IS_ERR(membase)) {
-		pr_err("Could not map resource\n");
+	if (IS_ERR(membase))
 		return -ENOMEM;
-	}
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
