@@ -5,6 +5,7 @@
  */
 
 #include <linux/gpio/driver.h>
+#include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/interrupt.h>
@@ -33,7 +34,13 @@
 #define TSWEIM_GPIO_IRQ_MASK		0xA
 #define TSWEIM_GPIO_IRQ_PENDING		0xC
 
+#define TSWEIM_IRQ_ACK_MODE	0x2C
+#define TSWEIM_IRQ_ACK_MODE_EN	BIT(0)
+
+#define TSWEIM_IRQ_SUPPORTED_FPGA_REV 70
+
 struct tsweim_gpio_priv {
+	void __iomem *syscon;
 	void __iomem *base;
 	void __iomem *irqbase;
 	struct gpio_chip gpio_chip;
@@ -273,7 +280,10 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 	struct tsweim_gpio_priv *priv;
 	struct resource *res;
 	struct gpio_irq_chip *girq;
-	int irq;
+	struct device_node *syscon_of_node;
+	int irq, ret;
+	bool ack_mode_en;
+	u32 revision;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -294,8 +304,39 @@ static int tsweim_gpio_probe(struct platform_device *pdev)
 
 	spin_lock_init(&priv->lock);
 
+	syscon_of_node = of_get_parent(pdev->dev.of_node);
+	if (!syscon_of_node)
+		return -EINVAL;
+
+	ret = of_address_to_resource(syscon_of_node, 0, res);
+	of_node_put(syscon_of_node);
+
+	if (ret)
+		return ret;
+
+	priv->syscon = devm_ioremap(dev, res->start, resource_size(res));
+	if (!priv->syscon)
+		return -ENOMEM;
+
+	revision = readl(priv->syscon) & 0xFF;
+	ack_mode_en = readl(priv->syscon + TSWEIM_IRQ_ACK_MODE) & TSWEIM_IRQ_ACK_MODE_EN;
+
+	if (revision >= TSWEIM_IRQ_SUPPORTED_FPGA_REV && !ack_mode_en) {
+		/* set ack_mode_en if FPGA firmware supports it */
+		writel(TSWEIM_IRQ_ACK_MODE_EN, priv->syscon + TSWEIM_IRQ_ACK_MODE);
+
+		ack_mode_en = readl(priv->syscon + TSWEIM_IRQ_ACK_MODE) & TSWEIM_IRQ_ACK_MODE_EN;
+		if (ack_mode_en) {
+			dev_info(dev, "ACK mode enabled with FPGA rev%u\n",
+				revision);
+		} else {
+			dev_warn(dev, "failed to enable ACK mode with FPGA rev%u\n",
+				revision);
+		}
+	}
+
 	irq = platform_get_irq_optional(pdev, 0);
-	if (irq < 0) {
+	if (irq < 0 || !ack_mode_en) {
 		return devm_gpiochip_add_data(dev, &priv->gpio_chip, priv);
 	}
 
