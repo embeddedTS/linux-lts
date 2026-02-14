@@ -314,13 +314,19 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	usb1@1 {
+	usb {
+		/* This compatible string is incorrect and not a real string used
+		 * by any driver as of 6.18. However. If this and the reg property
+		 * are removed, as they are not present in the devicetree binding
+		 * yaml example for microchip,lan95xx, the interface does not
+		 * correctly get eth1addr as exported by U-Boot.
+		 */
 		compatible = "usb424,9514";
 		reg = <1>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		ethernet: usbether@1 {
+		ethernet: ethernet@1 {
 			compatible = "usb424,ec00";
 			reg = <1>;
 		};

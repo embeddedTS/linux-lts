@@ -276,7 +276,6 @@
 		#gpio-cells = <2>;
 		gpio-controller;
 		ngpios = <62>;
-		base = <224>;
 		gpio-line-names = "", "", "", "", "", "", "", "", "", "", "",
 			"", "",	"BT_EN", "WL_EN", "", "", "", "", "HD1_DIO_1",
 			"HD1_DIO_2", "HD1_DIO_3", "HD1_DIO_4", "HD1_DIO_5",

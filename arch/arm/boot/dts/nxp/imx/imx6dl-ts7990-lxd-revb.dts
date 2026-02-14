@@ -50,9 +50,9 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		gpio-sck = <&gpio1 20 GPIO_ACTIVE_HIGH>;
-		gpio-mosi = <&gpio1 18 GPIO_ACTIVE_HIGH>;
-		gpio-miso = <&gpio1 16 GPIO_ACTIVE_HIGH>;
+		sck-gpios = <&gpio1 20 GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <&gpio1 18 GPIO_ACTIVE_HIGH>;
+		miso-gpios = <&gpio1 16 GPIO_ACTIVE_HIGH>;
 		cs-gpios = <&gpio1 17 GPIO_ACTIVE_LOW>;
 
 		wilc3000: wifi@0 {

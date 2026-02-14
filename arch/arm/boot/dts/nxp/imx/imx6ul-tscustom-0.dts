@@ -41,7 +41,7 @@
 		status = "okay";
 
 		rtc: m41t00s@68 {
-			compatible = "m41t00";
+			compatible = "st,m41t00";
 			reg = <0x68>;
 		};
 
@@ -211,7 +211,7 @@
 };
 
 &ecspi3 {
-	fsl,spi-num-chipselects = <1>;
+	num-cs = <1>;
 	cs-gpios = <&gpio4 12 GPIO_ACTIVE_HIGH>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi3>;
@@ -230,7 +230,7 @@
 };
 
 &ecspi4 {
-	fsl,spi-num-chipselects = <1>;
+	num-cs = <1>;
 	cs-gpios = <&gpio4 9 GPIO_ACTIVE_HIGH>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi4>;

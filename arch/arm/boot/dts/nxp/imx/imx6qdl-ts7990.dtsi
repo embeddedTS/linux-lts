@@ -120,9 +120,9 @@
 		compatible = "spi-gpio";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_touch_spi>;
-		gpio-sck = <&gpio2 20 GPIO_ACTIVE_HIGH>;
-		gpio-mosi = <&gpio2 18 GPIO_ACTIVE_HIGH>;
-		gpio-miso = <&gpio2 17 GPIO_ACTIVE_HIGH>;
+		sck-gpios = <&gpio2 20 GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <&gpio2 18 GPIO_ACTIVE_HIGH>;
+		miso-gpios = <&gpio2 17 GPIO_ACTIVE_HIGH>;
 		cs-gpios = <&gpio2 19 GPIO_ACTIVE_LOW>;
 		num-chipselects = <1>;
 		#address-cells = <1>;
@@ -139,7 +139,7 @@
 			spi-max-frequency = <100000>;
 			pendown-gpio = <&gpio3 12 GPIO_ACTIVE_LOW>;
 			ti,penirq-recheck-delay-usecs = /bits/ 16 <5000>;
-			ti,vref-mv = <3300>;
+			ti,vref-mv = /bits/ 16 <3300>;
 			ti,swap-xy;
 			ti,keep-vref-on;
 			ti,settle-delay-usec = /bits/ 16 <5000>;
@@ -176,7 +176,7 @@
 
 
 &ecspi1 {
-	fsl,spi-num-chipselects = <1>;
+	num-cs = <1>;
 	cs-gpios = <&gpio3 19 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi1>;
@@ -298,12 +298,13 @@
 	};
 
 	m41t00s: rtc@68 {
-		compatible = "m41t00";
+		compatible = "st,m41t00";
 		reg = <0x68>;
 	};
 
 	sgtl5000: audio-codec@a {
 		compatible = "fsl,sgtl5000";
+		#sound-dai-cells = <0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_sgtl5000>;
 		reg = <0x0a>;
@@ -339,7 +340,6 @@
 		#gpio-cells = <2>;
 		gpio-controller;
 		ngpios = <64>;
-		base = <224>;
 
 		gpio-line-names = "", "", "", "", "", "", "DIO_8", "DIO_9", "",
 			"", "", "", "", "BT_EN", "WL_EN", "", "", "", "", "",
@@ -700,13 +700,19 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	usb1@1 {
+	usb {
+		/* This compatible string is incorrect and not a real string used
+		 * by any driver as of 6.18. However. If this and the reg property
+		 * are removed, as they are not present in the devicetree binding
+		 * yaml example for microchip,lan95xx, the interface does not
+		 * correctly get eth1addr as exported by U-Boot.
+		 */
 		compatible = "usb424,9514";
 		reg = <1>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		ethernet: usbether@1 {
+		ethernet: ethernet@1 {
 			compatible = "usb424,ec00";
 			reg = <1>;
 		};

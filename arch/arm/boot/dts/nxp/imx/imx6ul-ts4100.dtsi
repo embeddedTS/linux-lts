@@ -242,7 +242,6 @@
 		reg = <0x28>;
 		#gpio-cells = <2>;
 		gpio-controller;
-		base = <160>;
 		ngpios = <128>;
 
 		gpio-line-names = "", "SPARE_1", "SPARE_2", "WIFI_RESET#", "WIFI_IRQ",

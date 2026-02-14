@@ -24,7 +24,7 @@
 			default-state = "on";
 		};
 
-		red-1 {
+		led-1 {
 			color = <LED_COLOR_ID_RED>;
 			function = LED_FUNCTION_STATUS;
 			gpios = <&gpio1 2 GPIO_ACTIVE_LOW>;
@@ -223,7 +223,6 @@
 		reg = <0x28>;
 		#gpio-cells = <2>;
 		gpio-controller;
-		base = <224>;
 		ngpios = <32>;
 
 		gpio-line-names = "CN1_63", "CN1_67", "CN1_87", "REVA_MUX_AD_15",

@@ -148,7 +148,7 @@
 		vcc-supply = <&reg_3v3>;
 		ti,swap-xy;
 		ti,keep-vref-on;
-		ti,vref-mv = <3300>;
+		ti,vref-mv = /bits/ 16 <3300>;
 		ti,settle-delay-usec = /bits/ 16 <500>;
 		ti,x-plate-ohms = /bits/ 16 <715>;
 		ti,pressure-max = /bits/ 16 <65535>;
@@ -213,6 +213,7 @@
 
 	sgtl5000: audio-codec@a {
 		compatible = "fsl,sgtl5000";
+		#sound-dai-cells = <0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_sgtl5000>;
 		reg = <0x0a>;
@@ -338,13 +339,19 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	usb1@1 {
+	usb {
+		/* This compatible string is incorrect and not a real string used
+		 * by any driver as of 6.18. However. If this and the reg property
+		 * are removed, as they are not present in the devicetree binding
+		 * yaml example for microchip,lan95xx, the interface does not
+		 * correctly get eth1addr as exported by U-Boot.
+		 */
 		compatible = "usb424,9514";
 		reg = <1>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		ethernet: usbether@1 {
+		ethernet: ethernet@1 {
 			compatible = "usb424,ec00";
 			reg = <1>;
 		};
