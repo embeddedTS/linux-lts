@@ -114,10 +114,24 @@ static void tsweim_gpio_set(struct gpio_chip *chip, unsigned int offset,
 		writew((1 << offset), priv->base + TSWEIM_CLR_REG);
 }
 
+static int tsweim_gpio_get_direction(struct gpio_chip *chip, unsigned int offset)
+{
+	struct tsweim_gpio_priv *priv = to_gpio_tsweim(chip);
+	u16 en_reg;
+
+	if (!(offset < priv->gpio_chip.ngpio))
+		return -EINVAL;
+
+	en_reg = readw(priv->base + TSWEIM_EN_SET_REG);
+
+	return (en_reg & (1 << offset)) ? GPIO_LINE_DIRECTION_OUT : GPIO_LINE_DIRECTION_IN;
+}
+
 static const struct gpio_chip tsweim_gpio_chip = {
 	.owner			= THIS_MODULE,
 	.direction_input	= tsweim_gpio_direction_input,
 	.direction_output	= tsweim_gpio_direction_output,
+	.get_direction		= tsweim_gpio_get_direction,
 	.get			= tsweim_gpio_get,
 	.set			= tsweim_gpio_set,
 	.base			= -1,
