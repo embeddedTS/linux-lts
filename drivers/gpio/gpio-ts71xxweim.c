@@ -145,13 +145,14 @@ static void gpio_tsweim_irq_handler(struct irq_desc *desc)
 static void gpio_tsweim_irq_ack(struct irq_data *d)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	irq_hw_number_t hwirq = irqd_to_hwirq(d);
 	struct tsweim_gpio_priv *priv = gpiochip_get_data(gc);
 	unsigned long flags;
 	u16 reg;
 
 	spin_lock_irqsave(&priv->lock, flags);
 
-	reg = readw(priv->irqbase + TSWEIM_GPIO_IRQ_ACK) | BIT(irqd_to_hwirq(d));
+	reg = readw(priv->irqbase + TSWEIM_GPIO_IRQ_ACK) | BIT(hwirq);
 	writew(reg, priv->irqbase + TSWEIM_GPIO_IRQ_ACK);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
@@ -160,23 +161,25 @@ static void gpio_tsweim_irq_ack(struct irq_data *d)
 static void gpio_tsweim_irq_mask(struct irq_data *d)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	irq_hw_number_t hwirq = irqd_to_hwirq(d);
 	struct tsweim_gpio_priv *priv = gpiochip_get_data(gc);
 	unsigned long flags;
 	u16 mask;
 
 	spin_lock_irqsave(&priv->lock, flags);
 
-	mask = readw(priv->irqbase + TSWEIM_GPIO_IRQ_MASK) | BIT(irqd_to_hwirq(d));
+	mask = readw(priv->irqbase + TSWEIM_GPIO_IRQ_MASK) | BIT(hwirq);
 	writew(mask, priv->irqbase + TSWEIM_GPIO_IRQ_MASK);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
-	gpiochip_disable_irq(gc, d->hwirq);
+	gpiochip_disable_irq(gc, hwirq);
 }
 
 static void gpio_tsweim_irq_unmask(struct irq_data *d)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	irq_hw_number_t hwirq = irqd_to_hwirq(d);
 	struct tsweim_gpio_priv *priv = gpiochip_get_data(gc);
 	unsigned long flags;
 	u16 mask;
@@ -185,7 +188,7 @@ static void gpio_tsweim_irq_unmask(struct irq_data *d)
 
 	spin_lock_irqsave(&priv->lock, flags);
 
-	mask = readw(priv->irqbase + TSWEIM_GPIO_IRQ_MASK) & ~BIT(irqd_to_hwirq(d));
+	mask = readw(priv->irqbase + TSWEIM_GPIO_IRQ_MASK) & ~BIT(hwirq);
 	writew(mask, priv->irqbase + TSWEIM_GPIO_IRQ_MASK);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
@@ -195,7 +198,7 @@ static int gpio_tsweim_irq_set_type(struct irq_data *d, unsigned int type)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct tsweim_gpio_priv *priv = gpiochip_get_data(gc);
-	unsigned int hwirq = irqd_to_hwirq(d);
+	irq_hw_number_t hwirq = irqd_to_hwirq(d);
 	u16 polarity, edge, edge_sel;
 	unsigned long flags;
 
