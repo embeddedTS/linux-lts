@@ -129,20 +129,19 @@ static void tsweim_irq_handler(struct irq_desc *desc)
 {
 	struct irq_chip *chip = irq_desc_get_chip(desc);
 	struct tsweim_intc *priv = irq_desc_get_handler_data(desc);
-	unsigned int irq;
-	unsigned int status;
+	unsigned long irq, status;
 
 	chained_irq_enter(chip, desc);
 
-	while ((status =
-	  (priv->mask & readl(priv->syscon + TSWEIM_IRQ_STATUS)))) {
-		irq = 0;
-		do {
-			if (status & 1)
-				generic_handle_domain_irq(priv->irqdomain, irq);
-			status >>= 1;
-			irq++;
-		} while (status);
+	status = readl(priv->syscon + TSWEIM_IRQ_STATUS);
+
+	/* before the ack mode functionality the mask was not applied in hardware
+	 * requiring the mask to be applied in software */
+	if (!priv->ack_mode_en)
+		status &= priv->mask;
+
+	for_each_set_bit(irq, &status, TSWEIM_NUM_FPGA_IRQ) {
+		generic_handle_domain_irq(priv->irqdomain, irq);
 	}
 
 	chained_irq_exit(chip, desc);
