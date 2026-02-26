@@ -17,6 +17,8 @@
 #define TSWEIM_IRQ_MASK		0x48
 #define TSWEIM_NUM_FPGA_IRQ	32
 
+#define TSWEIM_IRQ_SUPPORTED_FPGA_REV 70
+
 struct tsweim_intc {
 	void __iomem  *syscon;
 	struct irq_domain *irqdomain;
@@ -211,7 +213,7 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 	revision = readl(priv->syscon) & 0xFF;
 	ack_mode_en = readl(priv->syscon + TSWEIM_IRQ_ACK_MODE) & TSWEIM_IRQ_ACK_MODE_EN;
 
-	if (revision >= 65 && !ack_mode_en) {
+	if (revision >= TSWEIM_IRQ_SUPPORTED_FPGA_REV && !ack_mode_en) {
 		writel(TSWEIM_IRQ_ACK_MODE_EN, priv->syscon + TSWEIM_IRQ_ACK_MODE);
 
 		ack_mode_en = readl(priv->syscon + TSWEIM_IRQ_ACK_MODE) & TSWEIM_IRQ_ACK_MODE_EN;
