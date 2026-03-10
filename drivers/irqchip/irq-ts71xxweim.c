@@ -17,8 +17,6 @@
 #define TSWEIM_IRQ_MASK		0x48
 #define TSWEIM_NUM_FPGA_IRQ	32
 
-#define TSWEIM_IRQ_SUPPORTED_FPGA_REV 70
-
 struct tsweim_intc {
 	void __iomem  *syscon;
 	struct irq_domain *irqdomain;
@@ -169,7 +167,6 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 	struct tsweim_intc *priv;
 	int irq = 0;
 	bool ack_mode_en;
-	u32 revision;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
@@ -209,21 +206,13 @@ static int tsweim_intc_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 
-	revision = readl(priv->syscon) & 0xFF;
+	writel(TSWEIM_IRQ_ACK_MODE_EN, priv->syscon + TSWEIM_IRQ_ACK_MODE);
 	ack_mode_en = readl(priv->syscon + TSWEIM_IRQ_ACK_MODE) & TSWEIM_IRQ_ACK_MODE_EN;
-
-	if (revision >= TSWEIM_IRQ_SUPPORTED_FPGA_REV && !ack_mode_en) {
-		writel(TSWEIM_IRQ_ACK_MODE_EN, priv->syscon + TSWEIM_IRQ_ACK_MODE);
-
-		ack_mode_en = readl(priv->syscon + TSWEIM_IRQ_ACK_MODE) & TSWEIM_IRQ_ACK_MODE_EN;
-		if (ack_mode_en) {
-			dev_info(dev, "ACK mode enabled with FPGA rev%u\n",
-				revision);
-			priv->ack_mode_en = true;
-		} else {
-			dev_warn(dev, "failed to enable ACK mode with FPGA rev%u\n",
-				revision);
-		}
+	if (ack_mode_en) {
+		dev_info(dev, "ACK mode enabled\n");
+		priv->ack_mode_en = true;
+	} else {
+		dev_warn(dev, "Ack mode not supported\n");
 	}
 
 	return 0;
