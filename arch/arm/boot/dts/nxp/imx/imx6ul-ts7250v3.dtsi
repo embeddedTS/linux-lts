@@ -545,8 +545,9 @@
 				gpio-line-names = "ISA_ADD_16", "ISA_ADD_17",
 					"ISA_ADD_18", "ISA_ADD_19", "ISA_IOR",
 					"ISA_IOW", "ISA_MEMR", "ISA_MEMW",
-					"ISA_CN_D01", "ISA_CN_D02", "", "", "",
-					"", "", "";
+					"ISA_CN_D01", "ISA_CN_D02", "ISA_IRQ3",
+					"ISA_IRQ5", "ISA_IRQ6", "ISA_IRQ7",
+					"ISA_IRQ9", "";
 			};
 
 			pc104bus: fpgaisa@50 {
