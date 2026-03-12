@@ -9,10 +9,10 @@
 #include <linux/of_device.h>
 #include <linux/seq_file.h>
 
-#define TSWEIM_IRQ_ACK		0x20
 #define TSWEIM_IRQ_STATUS	0x24
 #define TSWEIM_IRQ_POLARITY	0x28
 #define TSWEIM_IRQ_ACK_MODE	0x2C
+#define TSWEIM_IRQ_ACK		0x30
 #define TSWEIM_IRQ_ACK_MODE_EN	BIT(0)
 #define TSWEIM_IRQ_MASK		0x48
 #define TSWEIM_NUM_FPGA_IRQ	32
