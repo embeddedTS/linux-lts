@@ -582,6 +582,12 @@ config SERIAL_8250_NI
 	  To compile this driver as a module, choose M here: the module
 	  will be called 8250_ni.
 
+config SERIAL_8250_TS
+	tristate "TS-16550 Driver"
+	help
+	  Enables support for a generic ISA 16550. Used with the
+	  TS-SER4, TS-SER2, TS-IS0485, TS-MULTI104, and others.
+
 config SERIAL_OF_PLATFORM
 	tristate "Devicetree based probing for 8250 ports"
 	depends on SERIAL_8250 && OF

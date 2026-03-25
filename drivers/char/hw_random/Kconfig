@@ -244,6 +244,14 @@ config HW_RANDOM_PASEMI
 
 	  If unsure, say Y.
 
+config HW_RANDOM_TS78XX
+	tristate "TS-78XX FPGA based RNG"
+	depends on HAS_IOMEM
+	help
+	  This driver provides kernel support for the FPGA based RNG
+	  device contained in embeddedTS' TS-78XX platforms. The generator
+	  returns a random 32-bit value based on metastability.
+
 config HW_RANDOM_VIRTIO
 	tristate "VirtIO Random Number Generator support"
 	depends on VIRTIO
