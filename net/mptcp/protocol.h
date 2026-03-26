@@ -321,7 +321,8 @@ struct mptcp_sock {
 			fastopening:1,
 			in_accept_queue:1,
 			free_first:1,
-			rcvspace_init:1;
+			rcvspace_init:1,
+			fastclosing:1;
 	u32		notsent_lowat;
 	int		keepalive_cnt;
 	int		keepalive_idle;
@@ -867,6 +868,11 @@ static inline bool mptcp_is_fully_established(struct sock *sk)
 {
 	return inet_sk_state_load(sk) == TCP_ESTABLISHED &&
 	       READ_ONCE(mptcp_sk(sk)->fully_established);
+}
+
+static inline u64 mptcp_stamp(void)
+{
+	return div_u64(tcp_clock_ns(), NSEC_PER_USEC);
 }
 
 void mptcp_rcv_space_init(struct mptcp_sock *msk, const struct sock *ssk);
