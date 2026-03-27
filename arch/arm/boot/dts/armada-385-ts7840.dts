@@ -399,8 +399,7 @@
 			interrupts = <11 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&fpga_pll0c1>;
 			clock-names ="spi-oc-clk";
-			opencores-spi,idx = <0>;
-			opencores-spi,num-chipselects = <1>;
+			num-cs = <1>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -422,8 +421,7 @@
 			interrupts = <12 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&fpga_pll0c1>;
 			clock-names ="spi-oc-clk";
-			opencores-spi,idx = <0>;
-			opencores-spi,num-chipselects = <1>;
+			num-cs = <1>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;

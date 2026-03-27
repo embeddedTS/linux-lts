@@ -476,8 +476,7 @@
 			interrupts = <9>;
 			clocks = <&fpga_clk_weim_bclk>;
 			clock-names = "spi-oc-clk";
-			opencores-spi,idx = <0>;
-			opencores-spi,num-chipselects = <2>;
+			num-cs = <2>;
 
 			spifram: eeprom@0 {
 				compatible = "atmel,at25";
@@ -504,8 +503,7 @@
 			interrupts = <10>;
 			clocks = <&fpga_clk_weim_bclk>;
 			clock-names = "spi-oc-clk";
-			opencores-spi,idx = <1>;
-			opencores-spi,num-chipselects = <1>;
+			num-cs = <1>;
 
 			/* Touch screen SPI interface */
 			touch_spi: touch_spi@0 {
