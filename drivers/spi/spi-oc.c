@@ -12,212 +12,112 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
-#include <linux/of_irq.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/spi/spi.h>
+#include <asm/unaligned.h>
 
 /* register definitions */
-#define SPIOC_RX(i)	(i * 4)
-#define SPIOC_TX(i)	(i * 4)
+#define SPIOC_RX(i)	((i) * 4)
+#define SPIOC_TX(i)	((i) * 4)
 #define SPIOC_CTRL	0x10
 #define SPIOC_DIV	0x14
 #define SPIOC_SS	0x18
+#define SPIOC_MAX_XFER_BYTES	16
+#define SPIOC_MAX_CHIPSELECT	8
+#define CTRL_LEN_MASK		0x7f
 
 /* SPIOC_CTRL register */
-#define CTRL_LEN(x)	((x < 128) ? x : 0)
-#define CTRL_BUSY	(1 <<  8)
-#define CTRL_RXNEG	(1 <<  9)
-#define CTRL_TXNEG	(1 << 10)
-#define CTRL_LSB	(1 << 11)
-#define CTRL_IE		(1 << 12)
-#define CTRL_ASS	(1 << 13)
-#define CTRL_CPOL	(1 << 14)
-#define CTRL_CPHA	(1 << 15)
+#define CTRL_BUSY	BIT(8)
+#define CTRL_RXNEG	BIT(9)
+#define CTRL_TXNEG	BIT(10)
+#define CTRL_LSB	BIT(11)
+#define CTRL_IE		BIT(12)
+#define CTRL_ASS	BIT(13)
+#define CTRL_CPOL	BIT(14)
+#define CTRL_CPHA	BIT(15)
 
 /**
  * struct spioc - driver-specific context information
- * @master:	SPI master device
- * @info:	pointer to platform data
- * @clk:	SPI master clock
- * @irq:	SPI controller interrupt
- * @mmio:	physical I/O memory resource
+ * @ctlr:	SPI controller device
+ * @refclk:	always-on input clock used as SPI rate reference
  * @base:	base of memory-mapped I/O
- * @message:	current SPI message
- * @transfer:	current transfer of current SPI message
+ * @transfer:	current transfer
  * @nx:		number of bytes sent/received for current transfer
- * @queue:	SPI message queue
  */
 struct spioc {
-	struct spi_master *master;
-	struct clk *clk;
-	int irq;
-	u32 idx;
-	struct platform_device *pdev;
-	s16 bus_num;
-	u16 num_chipselect;
-	struct resource *mmio;
+	struct spi_controller *ctlr;
+	struct clk *refclk;
 	void __iomem *base;
-	struct spi_message *message;
 	struct spi_transfer *transfer;
 	unsigned long nx;
-	struct list_head queue;
-	struct workqueue_struct *workqueue;
-	struct work_struct process_messages;
-	struct tasklet_struct process_transfers;
-
-	spinlock_t lock;
 };
 
-static inline u32 spioc_read(struct spioc *spioc, unsigned long offset)
+static inline u32 spioc_readl(struct spioc *spioc, unsigned long offset)
 {
 	return readl(spioc->base + offset);
 }
 
-static inline void spioc_write(struct spioc *spioc, unsigned int offset,
-		u32 value)
+static inline void spioc_writel(struct spioc *spioc, unsigned int offset,
+				u32 value)
 {
 	writel(value, spioc->base + offset);
 }
 
-static void spioc_chipselect(struct spioc *master, struct spi_device *spi)
+static inline u32 spioc_ctrl_len(u32 nbits)
+{
+	return nbits & CTRL_LEN_MASK;
+}
+
+static int spioc_clkdiv(const struct spioc *spioc, u32 speed_hz, u16 *clkdiv)
+{
+	unsigned long refclk_hz = clk_get_rate(spioc->refclk);
+
+	if (!refclk_hz)
+		return -EINVAL;
+
+	if (!speed_hz) {
+		*clkdiv = U16_MAX;
+		return 0;
+	}
+
+	*clkdiv = clamp_val(DIV_ROUND_UP_ULL(refclk_hz, 2ULL * speed_hz) - 1,
+			    0, U16_MAX);
+
+	return 0;
+}
+
+static void spioc_chipselect(struct spioc *spioc, struct spi_device *spi)
 {
 	if (spi)
-		spioc_write(master, SPIOC_SS, 1 << spi->chip_select);
+		spioc_writel(spioc, SPIOC_SS, BIT(spi_get_chipselect(spi, 0)));
 	else
-		spioc_write(master, SPIOC_SS, 0);
+		spioc_writel(spioc, SPIOC_SS, 0);
 }
 
-/*
- * count is assumed to be less than or equal to the maximum number of bytes
- * that can be transferred in one go
- */
-static void spioc_copy_tx(struct spioc *spioc, const void *src, size_t count)
+static int spioc_config(struct spioc *spioc, struct spi_device *spi,
+			struct spi_transfer *transfer)
 {
-	u32 val = 0;
-	int i;
+	u16 clkdiv;
+	unsigned int speed_hz;
+	unsigned int bits_per_word;
+	u32 ctrl = spioc_readl(spioc, SPIOC_CTRL);
+	int ret;
 
-	for (i = 0; i < count; i++) {
-		int rem = count - i;
-		int reg = (rem - 1) / 4;
-		int ofs = (rem - 1) % 4;
+	if (ctrl & CTRL_BUSY)
+		return -EBUSY;
 
-		val |= (((u8 *)src)[i] & 0xff) << (ofs * 8);
-		if (!ofs) {
-			spioc_write(spioc, SPIOC_TX(reg), val);
-			val = 0;
-		}
-	}
-}
+	ctrl &= ~(CTRL_LEN_MASK | CTRL_BUSY | CTRL_IE | CTRL_ASS);
 
-static void spioc_copy_rx(struct spioc *spioc, void *dest, size_t count)
-{
-	u32 val = 0;
-	int i;
-
-	for (i = 0; i < count; i++) {
-		int rem = count - i;
-		int reg = (rem - 1) / 4;
-		int ofs = (rem - 1) % 4;
-
-		if ((i == 0) || (rem % 4 == 0))
-			val = spioc_read(spioc, SPIOC_RX(reg));
-
-		((u8 *)dest)[i] = (val >> (ofs * 8)) & 0xff;
-	}
-}
-
-static void process_messages(struct work_struct *work)
-{
-	struct spioc *spioc =
-		container_of(work, struct spioc, process_messages);
-	unsigned long flags;
-
-	spin_lock_irqsave(&spioc->lock, flags);
-
-	/* obtain next message */
-	if (list_empty(&spioc->queue)) {
-		spin_unlock_irqrestore(&spioc->lock, flags);
-		return;
-	}
-
-	spioc->message = list_entry(spioc->queue.next, struct spi_message,
-			queue);
-	list_del_init(&spioc->message->queue);
-
-	/* process transfers */
-	tasklet_schedule(&spioc->process_transfers);
-	spin_unlock_irqrestore(&spioc->lock, flags);
-}
-
-static void process_transfers(unsigned long data)
-{
-	struct spioc *spioc = (struct spioc *)data;
-	struct spi_transfer *transfer = spioc->transfer;
-	size_t rem;
-	u32 ctrl;
-
-	/*
-	 * if this is the start of a message, get a pointer to the first
-	 * transfer
-	 */
-	if (!transfer || (spioc->nx >= transfer->len)) {
-		if (!transfer) {
-			transfer = list_entry(spioc->message->transfers.next,
-					struct spi_transfer, transfer_list);
-			spioc_chipselect(spioc, spioc->message->spi);
-		} else {
-			struct list_head *next = transfer->transfer_list.next;
-
-			if (next != &spioc->message->transfers) {
-				transfer = list_entry(next,
-						struct spi_transfer,
-						transfer_list);
-			} else {
-				complete(spioc->message->context);
-				spioc->transfer = NULL;
-				spioc->message->status = 0;
-				spioc_chipselect(spioc, NULL);
-				return;
-			}
-		}
-
-		spioc->transfer = transfer;
-		spioc->nx = 0;
-		spioc->message->actual_length += transfer->len;
-	}
-
-	/* write data to registers */
-	rem = min_t(size_t, transfer->len - spioc->nx, 16);
-	if (transfer->tx_buf)
-		spioc_copy_tx(spioc, transfer->tx_buf + spioc->nx, rem);
-
-	/* read control register */
-	ctrl  = spioc_read(spioc, SPIOC_CTRL);
-	ctrl &= ~CTRL_LEN(127);    /* clear length bits */
-	ctrl &= ~CTRL_ASS;         /* Disable automatic CS control */
-	ctrl |= CTRL_IE            /* assert interrupt on completion */
-		  |  CTRL_LEN(rem * 8); /* set word length */
-	spioc_write(spioc, SPIOC_CTRL, ctrl);
-
-	/* start transfer */
-	ctrl |= CTRL_BUSY;
-	spioc_write(spioc, SPIOC_CTRL, ctrl);
-}
-
-static int spioc_setup(struct spi_device *spi)
-{
-	struct spioc *spioc = spi_master_get_devdata(spi->master);
-	unsigned long clkdiv = 0x0000ffff;
-	u32 ctrl = spioc_read(spioc, SPIOC_CTRL);
-
-	/* make sure we're not busy */
-	BUG_ON(ctrl & CTRL_BUSY);
-
-	if (!spi->bits_per_word)
-		spi->bits_per_word = 8;
+	bits_per_word = transfer && transfer->bits_per_word ?
+			transfer->bits_per_word : spi->bits_per_word;
+	if (!bits_per_word)
+		bits_per_word = 8;
+	if (bits_per_word != 8)
+		return -EINVAL;
 
 	if (spi->mode & SPI_LSB_FIRST)
-		ctrl |=  CTRL_LSB;
+		ctrl |= CTRL_LSB;
 	else
 		ctrl &= ~CTRL_LSB;
 
@@ -236,43 +136,168 @@ static int spioc_setup(struct spi_device *spi)
 	else
 		ctrl |= CTRL_TXNEG;
 
-	/* set the clock divider */
-	if (spi->max_speed_hz)
-		clkdiv = DIV_ROUND_UP(clk_get_rate(spioc->clk),
-				2 * spi->max_speed_hz) - 1;
+	speed_hz = transfer && transfer->speed_hz ?
+		   transfer->speed_hz : spi->max_speed_hz;
 
-	if (clkdiv > 0x0000ffff)
-		clkdiv = 0x0000ffff;
+	ret = spioc_clkdiv(spioc, speed_hz, &clkdiv);
+	if (ret)
+		return ret;
 
-	spioc_write(spioc, SPIOC_DIV, clkdiv);
-	spioc_write(spioc, SPIOC_CTRL, ctrl);
+	spioc_writel(spioc, SPIOC_DIV, clkdiv);
+	spioc_writel(spioc, SPIOC_CTRL, ctrl);
 
-	/* deassert chip-select */
+	return 0;
+}
+
+/*
+ * The SPI core passes the inactive level here, so this controller selects
+ * a device in the !enable case.
+ */
+static void spioc_set_cs(struct spi_device *spi, bool enable)
+{
+	struct spioc *spioc = spi_controller_get_devdata(spi->controller);
+
+	if (enable)
+		spioc_chipselect(spioc, NULL);
+	else
+		spioc_chipselect(spioc, spi);
+}
+
+/*
+ * count is assumed to be less than or equal to the maximum number of bytes
+ * that can be transferred in one go
+ */
+static void spioc_copy_tx(struct spioc *spioc, const void *src, size_t count)
+{
+	const u8 *buf = src;
+	unsigned int reg = DIV_ROUND_UP(count, sizeof(u32));
+	size_t head = count % sizeof(u32);
+
+	if (head) {
+		u32 val;
+
+		switch (head) {
+		case 1:
+			val = *buf;
+			break;
+		case 2:
+			val = get_unaligned_be16(buf);
+			break;
+		default:
+			val = get_unaligned_be24(buf);
+			break;
+		}
+
+		spioc_writel(spioc, SPIOC_TX(--reg), val);
+		buf += head;
+		count -= head;
+	}
+
+	while (count) {
+		spioc_writel(spioc, SPIOC_TX(--reg), get_unaligned_be32(buf));
+		buf += sizeof(u32);
+		count -= sizeof(u32);
+	}
+}
+
+static void spioc_copy_rx(struct spioc *spioc, void *dest, size_t count)
+{
+	u8 *buf = dest;
+	unsigned int reg = DIV_ROUND_UP(count, sizeof(u32));
+	size_t head = count % sizeof(u32);
+
+	if (head) {
+		u32 val = spioc_readl(spioc, SPIOC_RX(--reg));
+
+		switch (head) {
+		case 1:
+			*buf = val;
+			break;
+		case 2:
+			put_unaligned_be16(val, buf);
+			break;
+		default:
+			put_unaligned_be24(val, buf);
+			break;
+		}
+
+		buf += head;
+		count -= head;
+	}
+
+	while (count) {
+		put_unaligned_be32(spioc_readl(spioc, SPIOC_RX(--reg)), buf);
+		buf += sizeof(u32);
+		count -= sizeof(u32);
+	}
+}
+
+static void spioc_start_transfer(struct spioc *spioc)
+{
+	struct spi_transfer *transfer = spioc->transfer;
+	size_t rem;
+	u32 ctrl;
+
+	rem = min_t(size_t, transfer->len - spioc->nx, SPIOC_MAX_XFER_BYTES);
+	spioc_copy_tx(spioc, (const u8 *)transfer->tx_buf + spioc->nx, rem);
+
+	ctrl = spioc_readl(spioc, SPIOC_CTRL);
+	ctrl &= ~CTRL_LEN_MASK;
+	ctrl &= ~CTRL_ASS;
+	ctrl |= CTRL_IE | spioc_ctrl_len(rem * 8);
+	spioc_writel(spioc, SPIOC_CTRL, ctrl);
+
+	ctrl |= CTRL_BUSY;
+	spioc_writel(spioc, SPIOC_CTRL, ctrl);
+}
+
+static int spioc_setup(struct spi_device *spi)
+{
+	struct spioc *spioc = spi_controller_get_devdata(spi->controller);
+
+	if (!spi->bits_per_word)
+		spi->bits_per_word = 8;
+	else if (spi->bits_per_word != 8)
+		return -EINVAL;
+
+	return spioc_config(spioc, spi, NULL);
+}
+
+static int spioc_transfer_one(struct spi_controller *ctlr,
+			      struct spi_device *spi,
+			      struct spi_transfer *transfer)
+{
+	struct spioc *spioc = spi_controller_get_devdata(ctlr);
+	int ret;
+
+	if (WARN_ON(spioc->transfer))
+		return -EBUSY;
+
+	ret = spioc_config(spioc, spi, transfer);
+	if (ret)
+		return ret;
+
+	spioc->transfer = transfer;
+	spioc->nx = 0;
+	spioc_start_transfer(spioc);
+
+	return 1;
+}
+
+static void spioc_handle_err(struct spi_controller *ctlr,
+			     struct spi_message *msg)
+{
+	struct spioc *spioc = spi_controller_get_devdata(ctlr);
+	u32 ctrl = spioc_readl(spioc, SPIOC_CTRL);
+
+	(void)msg;
+
+	ctrl &= ~(CTRL_BUSY | CTRL_IE | CTRL_ASS);
+	spioc_writel(spioc, SPIOC_CTRL, ctrl);
 	spioc_chipselect(spioc, NULL);
 
-	return 0;
-}
-
-static int spioc_transfer(struct spi_device *spi, struct spi_message *message)
-{
-	struct spi_master *master = spi->master;
-	struct spioc *spioc = spi_master_get_devdata(master);
-	unsigned long flags;
-
-	spin_lock_irqsave(&spioc->lock, flags);
-
-	message->actual_length = 0;
-	message->status = -EINPROGRESS;
-
-	list_add_tail(&message->queue, &spioc->queue);
-	queue_work(spioc->workqueue, &spioc->process_messages);
-
-	spin_unlock_irqrestore(&spioc->lock, flags);
-	return 0;
-}
-
-static void spioc_cleanup(struct spi_device *spi)
-{
+	spioc->transfer = NULL;
+	spioc->nx = 0;
 }
 
 static irqreturn_t spioc_interrupt(int irq, void *dev_id)
@@ -282,83 +307,31 @@ static irqreturn_t spioc_interrupt(int irq, void *dev_id)
 	size_t rem;
 	u32 ctrl;
 
-	if (!spioc)
-		return IRQ_NONE;
-
 	transfer = spioc->transfer;
-	ctrl = spioc_read(spioc, SPIOC_CTRL);
-	BUG_ON(ctrl & CTRL_BUSY);
+	if (WARN_ON_ONCE(!transfer))
+		return IRQ_HANDLED;
+
+	ctrl = spioc_readl(spioc, SPIOC_CTRL);
+	if (WARN_ON_ONCE(ctrl & CTRL_BUSY))
+		return IRQ_HANDLED;
 
 	/* read data from registers */
-	rem = min_t(size_t, transfer->len - spioc->nx, 16);
+	rem = min_t(size_t, transfer->len - spioc->nx, SPIOC_MAX_XFER_BYTES);
 	if (transfer->rx_buf)
 		spioc_copy_rx(spioc, transfer->rx_buf + spioc->nx, rem);
 	spioc->nx += rem;
 
-	tasklet_schedule(&spioc->process_transfers);
+	if (spioc->nx < transfer->len) {
+		spioc_start_transfer(spioc);
+		return IRQ_HANDLED;
+	}
+
+	spioc->transfer = NULL;
+	spioc->nx = 0;
+	spi_finalize_current_transfer(spioc->ctlr);
 
 	return IRQ_HANDLED;
 }
-
-static int init_queue(struct spi_master *master, const char *buf)
-{
-	struct spioc *spioc = spi_master_get_devdata(master);
-
-	if (spioc == NULL) {
-		pr_err("%s %d error\n", __func__, __LINE__);
-		return -EBUSY;
-	}
-
-	/* initialize message workqueue */
-	INIT_LIST_HEAD(&spioc->queue);
-	spin_lock_init(&spioc->lock);
-	INIT_WORK(&spioc->process_messages, process_messages);
-
-	/* initialize transfer processing tasklet */
-	tasklet_init(&spioc->process_transfers, process_transfers,
-			(unsigned long)spioc);
-
-	spioc->workqueue = create_singlethread_workqueue(
-			dev_name(master->dev.parent));
-
-	if (!spioc->workqueue)
-		return -EBUSY;
-
-	return 0;
-}
-
-static int start_queue(struct spi_master *master)
-{
-	struct spioc *spioc = spi_master_get_devdata(master);
-
-	WARN_ON(spioc->message  != NULL);
-	WARN_ON(spioc->transfer != NULL);
-
-	spioc->message  = NULL;
-	spioc->transfer = NULL;
-
-	queue_work(spioc->workqueue, &spioc->process_messages);
-	return 0;
-}
-
-static int stop_queue(struct spi_master *master)
-{
-	return 0;
-}
-
-static int destroy_queue(struct spi_master *master)
-{
-	struct spioc *spioc = spi_master_get_devdata(master);
-	int retval = 0;
-
-	retval = stop_queue(master);
-	if (retval)
-		return retval;
-
-	destroy_workqueue(spioc->workqueue);
-	return 0;
-}
-
 
 static const struct of_device_id opencores_spi_match[] = {
 	{ .compatible = "opencores,spi-oc" },
@@ -366,186 +339,76 @@ static const struct of_device_id opencores_spi_match[] = {
 };
 MODULE_DEVICE_TABLE(of, opencores_spi_match);
 
-
-static int  spioc_probe(struct platform_device *pdev)
+static int spioc_probe(struct platform_device *pdev)
 {
-	struct resource *res = NULL;
-	void __iomem *mmio = NULL;
-	int retval = 0, irq;
-	struct spi_master *master = NULL;
-	struct spioc *spioc = NULL;
-	struct device_node *node = pdev->dev.of_node;
-	char buf[16];
-	u32 idx, num_chipselect;
+	struct spi_controller *ctlr;
+	struct spioc *spioc;
+	int irq, ret;
+	u32 num_chipselect;
 
-	if (of_property_read_u32(node, "opencores-spi,idx", &idx) < 0) {
-		dev_warn(&pdev->dev, "Node idx not defined, assuming 0\n");
-		idx = 0;
-	}
-
-	if (of_property_read_u32(node, "opencores-spi,num-chipselects",
-			&num_chipselect) < 0) {
-		dev_warn(&pdev->dev, "Node num_chipselect not defined, assuming 1\n");
+	if (device_property_read_u32(&pdev->dev, "num-cs", &num_chipselect))
 		num_chipselect = 1;
+
+	if (!num_chipselect) {
+		dev_err(&pdev->dev, "invalid num-cs 0\n");
+		return -EINVAL;
 	}
 
-	master = spi_alloc_master(&pdev->dev, sizeof(struct spioc));
-	if (master == NULL) {
-		dev_err(&pdev->dev, "unable to allocate SPI master\n");
+	ctlr = devm_spi_alloc_host(&pdev->dev, sizeof(*spioc));
+	if (!ctlr)
 		return -ENOMEM;
-	}
-	spioc = spi_master_get_devdata(master);
-	platform_set_drvdata(pdev, master);
+	spioc = spi_controller_get_devdata(ctlr);
 
-	snprintf(buf, sizeof(buf), "spi_oc_%d", idx);
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0)
+		return dev_err_probe(&pdev->dev, irq, "failed to get IRQ\n");
 
-	irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
-	if (irq < 0) {
-		dev_err(&pdev->dev, "IRQ not defined\n");
-		return -ENXIO;
-	}
+	spioc->base = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(spioc->base))
+		return dev_err_probe(&pdev->dev, PTR_ERR(spioc->base),
+				     "failed to map registers\n");
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(&pdev->dev, "MMIO resource not defined\n");
-		return -ENXIO;
-	}
+	ctlr->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LSB_FIRST;
+	ctlr->bits_per_word_mask = SPI_BPW_MASK(8);
+	ctlr->max_native_cs = SPIOC_MAX_CHIPSELECT;
+	ctlr->flags = SPI_CONTROLLER_MUST_TX;
+	ctlr->setup = spioc_setup;
+	ctlr->set_cs = spioc_set_cs;
+	ctlr->transfer_one = spioc_transfer_one;
+	ctlr->handle_err = spioc_handle_err;
+	ctlr->use_gpio_descriptors = true;
+	ctlr->dev.of_node = pdev->dev.of_node;
+	ctlr->num_chipselect = num_chipselect;
+	spioc->ctlr = ctlr;
 
-	mmio = devm_ioremap(&pdev->dev, res->start,
-					  resource_size(res));
-	if (IS_ERR(mmio)) {
-		dev_err(&pdev->dev, "can't remap I/O region\n");
-		retval =  PTR_ERR(mmio);
-		goto err1;
-	}
+	/*
+	 * The controller input clock is always on and only used as a divider
+	 * reference for calculating SPI bus rates.
+	 */
+	spioc->refclk = devm_clk_get(&pdev->dev, "spi-oc-clk");
+	if (IS_ERR(spioc->refclk))
+		return dev_err_probe(&pdev->dev, PTR_ERR(spioc->refclk),
+				     "failed to get reference clock\n");
 
-	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LSB_FIRST;
-	master->setup = spioc_setup;
-	master->transfer = spioc_transfer;
-	master->cleanup = spioc_cleanup;
-	master->dev.of_node = pdev->dev.of_node;
-	master->bus_num = pdev->id;
-	master->num_chipselect = num_chipselect;
+	ret = devm_request_irq(&pdev->dev, irq, spioc_interrupt, 0,
+			       dev_name(&pdev->dev), spioc);
+	if (ret)
+		return dev_err_probe(&pdev->dev, ret,
+				     "failed to request IRQ %d\n", irq);
 
-	spioc->master = master;
-	spioc->pdev = pdev;
-
-	spioc->idx = idx;
-	spioc->irq = irq;
-	spioc->mmio = res;
-	spioc->base = mmio;
-	spioc->message = NULL;
-	spioc->transfer = NULL;
-	spioc->bus_num = pdev->id;
-	spioc->num_chipselect = num_chipselect;
-	spioc->nx = 0;
-
-	spioc->clk = devm_clk_get(&pdev->dev, "spi-oc-clk");
-	if (IS_ERR(spioc->clk)) {
-		dev_err(&pdev->dev, "unable to get SPI master clock\n");
-		retval = PTR_ERR(spioc->clk);
-		spioc->clk = NULL;
-		goto err1;
-	}
-
-	retval = init_queue(master, buf);
-	if (retval) {
-		dev_err(&pdev->dev, "unable to initialize workqueue\n");
-		goto free;
-	}
-
-	retval = start_queue(master);
-	if (retval) {
-		dev_err(&pdev->dev, "unable to start workqueue\n");
-		goto free;
-	}
-
-	retval = devm_request_irq(&pdev->dev, irq, spioc_interrupt, 0,
-		"spioc",	spioc);
-	if (retval) {
-		dev_err(&pdev->dev, "unable to install handler for IRQ #%d\n", irq);
-		retval = -EPROBE_DEFER;
-		goto free;
-	}
-
-	dev_info(&pdev->dev, "IRQ: %d, CLK: %ldHz\n",
-		irq, clk_get_rate(spioc->clk));
-
-	retval = devm_spi_register_master(&pdev->dev, master);
-	if (retval) {
-		dev_err(&pdev->dev, "unable to register SPI master\n");
-		retval = -ENOMEM;
-		goto free;
-	}
-
-	dev_info(&pdev->dev, "SPI master %d registered\n", idx);
-
-out:
-	return retval;
-
-free:
-	destroy_queue(master);
-
-err1:
-	spi_master_put(master);
-	goto out;
+	return devm_spi_register_controller(&pdev->dev, ctlr);
 }
-
-static int  spioc_remove(struct platform_device *pdev)
-{
-	struct spi_master *master = platform_get_drvdata(pdev);
-
-	if (master) {
-		spi_master_get(master);
-		platform_set_drvdata(pdev, NULL);
-		destroy_queue(master);
-		spi_master_put(master);
-	}
-
-	return 0;
-}
-
-#ifdef CONFIG_PM
-static int spioc_suspend(struct platform_device *pdev, pm_message_t state)
-{
-	return 0;
-}
-
-static int spioc_resume(struct platform_device *pdev)
-{
-	return 0;
-}
-#else
-#define spioc_suspend NULL
-#define spioc_resume  NULL
-#endif /* CONFIG_PM */
 
 static struct platform_driver spioc_driver = {
 	.probe = spioc_probe,
-	.remove = spioc_remove,
-	.suspend = spioc_suspend,
-	.resume = spioc_resume,
 	.driver = {
 		.name  = "spioc",
 		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(opencores_spi_match),
 	},
 };
-
-static int __init spioc_init(void)
-{
-	return platform_driver_register(&spioc_driver);
-}
-
-static void __exit spioc_exit(void)
-{
-	platform_driver_unregister(&spioc_driver);
-}
-
-module_init(spioc_init);
-module_exit(spioc_exit);
+module_platform_driver(spioc_driver);
 
 MODULE_AUTHOR("Thierry Reding <thierry.reding@avionic-design.de>");
 MODULE_DESCRIPTION("OpenCores SPI controller driver");
 MODULE_LICENSE("GPL v2");
-
