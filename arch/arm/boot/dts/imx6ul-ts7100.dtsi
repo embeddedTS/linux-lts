@@ -418,9 +418,13 @@
 
 			gpio6: gpio@50004010 {
 				compatible = "technologic,ts71xxweim-gpio";
-				reg = <0x10 0x08>;
+				reg = <0x10 0x08>, <0x80 0x10>;
 				gpio-controller;
 				#gpio-cells = <2>;
+
+				interrupt-parent = <&fpga_intc>;
+				interrupts = <21 IRQ_TYPE_LEVEL_HIGH>;
+
 				interrupt-controller;
 				#interrupt-cells = <1>;
 			};
