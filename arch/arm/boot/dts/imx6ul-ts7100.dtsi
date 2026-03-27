@@ -512,5 +512,33 @@
 				spi-max-frequency = <20000000>;
 			};
 		};
-	 };
+
+		fpga_pwm0: pwm@180 {
+			compatible = "technologic,pwm";
+			reg = <0x180 8>;
+			clocks = <&fpga_clk_weim_bclk>;
+			clock-names = "PWM-INPUT-CLK";
+		};
+
+		fpga_pwm1: pwm@190 {
+			compatible = "technologic,pwm";
+			reg = <0x190 8>;
+			clocks = <&fpga_clk_weim_bclk>;
+			clock-names = "PWM-INPUT-CLK";
+		};
+
+		fpga_pwm2: pwm@1a0 {
+			compatible = "technologic,pwm";
+			reg = <0x1a0 8>;
+			clocks = <&fpga_clk_weim_bclk>;
+			clock-names = "PWM-INPUT-CLK";
+		};
+
+		fpga_pwm3: pwm@1b0 {
+			compatible = "technologic,pwm";
+			reg = <0x1b0 8>;
+			clocks = <&fpga_clk_weim_bclk>;
+			clock-names = "PWM-INPUT-CLK";
+		};
+	};
 };
