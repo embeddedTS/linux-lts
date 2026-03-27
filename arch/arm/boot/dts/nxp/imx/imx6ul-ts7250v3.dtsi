@@ -678,8 +678,7 @@
 			interrupts = <9 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&fpga_clk_weim_bclk>;
 			clock-names = "spi-oc-clk";
-			opencores-spi,idx = <0>;
-			opencores-spi,num-chipselects = <3>;
+			num-cs = <3>;
 
 			dioheader: spi@0 {
 				compatible = "technologic,spi-header";
