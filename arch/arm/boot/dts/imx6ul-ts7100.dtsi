@@ -467,34 +467,7 @@
 			interrupts = <0>;
 		};
 
-		opencores_spi0: spi@50000100 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "opencores,spi-oc";
-			reg = <0x100 32>;
-			interrupt-parent = <&fpga_intc>;
-			interrupts = <9>;
-			clocks = <&fpga_clk_weim_bclk>;
-			clock-names = "spi-oc-clk";
-			num-cs = <2>;
-
-			spifram: eeprom@0 {
-				compatible = "atmel,at25";
-				reg = <0>;
-				spi-max-frequency = <20000000>;
-				size = <0x800>;
-				address-width = <16>;
-				pagesize = <64>;
-			};
-
-			spisplash: spi@1 {
-				compatible = "jedec,spi-nor";
-				reg = <1>;
-				spi-max-frequency = <20000000>;
-			};
-		};
-
-		opencores_spi1: spi@50000120 {
+		opencores_spi0: spi@50000120 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "opencores,spi-oc";
@@ -503,7 +476,7 @@
 			interrupts = <10>;
 			clocks = <&fpga_clk_weim_bclk>;
 			clock-names = "spi-oc-clk";
-			num-cs = <1>;
+			num-cs = <3>;
 
 			/* Touch screen SPI interface */
 			touch_spi: touch_spi@0 {
@@ -522,6 +495,21 @@
 				ti,y-plate-ohms = /bits/ 16 <584>;
 				ti,pressure-min = /bits/ 16 <300>;
 				linux,wakeup;
+			};
+
+			spifram: eeprom@1 {
+				compatible = "atmel,at25";
+				reg = <1>;
+				spi-max-frequency = <20000000>;
+				size = <0x800>;
+				address-width = <16>;
+				pagesize = <64>;
+			};
+
+			spisplash: spi@2 {
+				compatible = "jedec,spi-nor";
+				reg = <2>;
+				spi-max-frequency = <20000000>;
 			};
 		};
 	 };
