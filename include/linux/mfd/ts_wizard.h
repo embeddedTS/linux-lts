@@ -23,9 +23,13 @@ struct ts_wizard {
 #define WIZ_SERIAL1       35
 #define WIZ_SERIAL2       36
 #define WIZ_SERIAL_CTRL   37
+#define WIZARD_SILO_BASE  64
 #define WIZ_ADC_BASE      128
 #define WIZ_ADC_LAST      159
 #define WIZ_TEMPERATURE   160
+#define WIZARD_CURRENT    161
+
+#define WIZARD_IRQCHIP_BASE  512
 
 enum gen_flags_t {
     FLG_FORCE_USB_CON = (1 << 4),
