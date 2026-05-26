@@ -7,6 +7,7 @@
  * https://www.ti.com/lit/ds/symlink/adc128s052.pdf
  * https://www.ti.com/lit/ds/symlink/adc122s021.pdf
  * https://www.ti.com/lit/ds/symlink/adc124s021.pdf
+ * https://www.ti.com/lit/ds/symlink/adc121s021.pdf
  */
 
 #include <linux/cleanup.h>
@@ -128,6 +129,12 @@ static const struct iio_chan_spec simple_8chan_adc_channels[] = {
 
 static const char * const bd79104_regulators[] = { "iovdd" };
 
+static const struct adc128_configuration adc121s_config = {
+	.channels = simple_1chan_adc_channels,
+	.num_channels = ARRAY_SIZE(simple_1chan_adc_channels),
+	.refname = "vref",
+};
+
 static const struct adc128_configuration adc122s_config = {
 	.channels = simple_2chan_adc_channels,
 	.num_channels = ARRAY_SIZE(simple_2chan_adc_channels),
@@ -232,6 +239,7 @@ static int adc128_probe(struct spi_device *spi)
 
 static const struct of_device_id adc128_of_match[] = {
 	{ .compatible = "ti,adc128s052", .data = &adc128s_config },
+	{ .compatible = "ti,adc121s021", .data = &adc121s_config },
 	{ .compatible = "ti,adc122s021", .data = &adc122s_config },
 	{ .compatible = "ti,adc122s051", .data = &adc122s_config },
 	{ .compatible = "ti,adc122s101", .data = &adc122s_config },
@@ -249,6 +257,7 @@ MODULE_DEVICE_TABLE(of, adc128_of_match);
 
 static const struct spi_device_id adc128_id[] = {
 	{ "adc128s052", (kernel_ulong_t)&adc128s_config },
+	{ "adc122s021", (kernel_ulong_t)&adc121s_config },
 	{ "adc122s021",	(kernel_ulong_t)&adc122s_config },
 	{ "adc122s051",	(kernel_ulong_t)&adc122s_config },
 	{ "adc122s101",	(kernel_ulong_t)&adc122s_config },
