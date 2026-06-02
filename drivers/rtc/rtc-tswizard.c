@@ -120,7 +120,7 @@ static int wizard_rtc_set_offset(struct device *dev, long offset)
 	if (offset >= 0)
 		ctrl_reg |= RTC_PPB_CTL_SIGN;
 
-	return regmap_update_bits(wiz->regmap, RTC_FLAGS,
+	return regmap_update_bits(wiz->regmap, RTC_PPB_CTL,
 				  RTC_PPB_CTL_SIGN | RTC_PPB_CTL_EN,
 				  ctrl_reg);
 }
