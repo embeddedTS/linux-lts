@@ -329,14 +329,14 @@ struct ser_req {
 	u8			ref_on;
 	u8			command;
 	u8			ref_off;
-	u16			scratch;
 	struct spi_message	msg;
-	struct spi_transfer	xfer[7];
+	struct spi_transfer	xfer[8];
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
 	 */
 	__be16 sample ____cacheline_aligned;
+	u16			scratch;
 };
 
 struct ads7845_ser_req {
@@ -408,9 +408,14 @@ static int ads7846_read12_ser(struct device *dev, unsigned command)
 	spi_message_add_tail(&req->xfer[5], &req->msg);
 
 	/* clear the command register */
-	req->xfer[6].len = 3;
-	CS_CHANGE(req->xfer[6]);
+	req->xfer[6].rx_buf = &req->scratch;
+	req->xfer[6].len = 1;
 	spi_message_add_tail(&req->xfer[6], &req->msg);
+
+	req->xfer[7].rx_buf = &req->scratch;
+	req->xfer[7].len = 2;
+	CS_CHANGE(req->xfer[7]);
+	spi_message_add_tail(&req->xfer[7], &req->msg);
 
 	mutex_lock(&ts->lock);
 	ads7846_stop(ts);
