@@ -846,7 +846,7 @@ static int max3100_probe(struct spi_device *spi)
 		max3100_sr(max3100ts.max3100s[i], MAX3100_RC, &rx);
 		mutex_unlock(&max3100ts.portlock);
 		if ((rx & MAX3100_BAUD) != 5) {
-			kfree(max3100ts.max3100s[i]);
+			devm_kfree(dev, max3100ts.max3100s[i]);
 			max3100ts.max3100s[i] = NULL;
 			break;
 		} else {
