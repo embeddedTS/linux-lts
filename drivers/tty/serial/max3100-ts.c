@@ -830,7 +830,7 @@ static int max3100_probe(struct spi_device *spi)
 		 * would create more diffs from the base driver. So for now, we just
 		 * set_drvdata with dummy data and don't use it anywhere.
 		 */
-		spi_set_drvdata(spi, max3100ts.max3100s[i]);
+		spi_set_drvdata(spi, &max3100ts);
 		max3100ts.max3100s[i]->minor = i;
 
 		/* Before we continue, ensure the "port" actually exists in the
@@ -846,7 +846,7 @@ static int max3100_probe(struct spi_device *spi)
 		max3100_sr(max3100ts.max3100s[i], MAX3100_RC, &rx);
 		mutex_unlock(&max3100ts.portlock);
 		if ((rx & MAX3100_BAUD) != 5) {
-			kfree(max3100ts.max3100s[i]);
+			devm_kfree(dev, max3100ts.max3100s[i]);
 			max3100ts.max3100s[i] = NULL;
 			break;
 		} else {
@@ -909,10 +909,15 @@ static int max3100_probe(struct spi_device *spi)
 
 static void max3100_remove(struct spi_device *spi)
 {
-	struct max3100_port *s = spi_get_drvdata(spi);
+	struct max3100_port *s = NULL;
 	int i;
 
 	mutex_lock(&max3100s_lock);
+
+	if (max3100ts.irq) {
+		devm_free_irq(&spi->dev, max3100ts.irq, &max3100ts);
+		max3100ts.irq = 0;
+	}
 
 	/* find out the index for the chip we are removing */
 	for (i = 0; i < MAX_MAX3100; i++)
@@ -920,14 +925,7 @@ static void max3100_remove(struct spi_device *spi)
 			s = max3100ts.max3100s[i];
 			dev_dbg(&spi->dev, "%s: removing port %d\n", __func__, i);
 			uart_remove_one_port(&max3100_uart_driver, &s->port);
-			kfree(max3100ts.max3100s[i]);
-			max3100ts.max3100s[i] = NULL;
 		}
-
-	if (max3100ts.irq) {
-		free_irq(max3100ts.irq, &max3100ts);
-		max3100ts.irq = 0;
-	}
 
 	pr_debug("removing max3100 driver\n");
 	uart_unregister_driver(&max3100_uart_driver);
@@ -938,11 +936,11 @@ static void max3100_remove(struct spi_device *spi)
 
 static int max3100_suspend(struct device *dev)
 {
-	struct max3100_port *s = dev_get_drvdata(dev);
+	struct max3100_port *s = NULL;
 	u16 rx;
 	int i;
 
-	dev_dbg(&s->spi->dev, "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
 
 	disable_irq(max3100ts.irq);
 
@@ -963,10 +961,10 @@ static int max3100_suspend(struct device *dev)
 
 static int max3100_resume(struct device *dev)
 {
-	struct max3100_port *s = dev_get_drvdata(dev);
+	struct max3100_port *s = NULL;
 	int i;
 
-	dev_dbg(&s->spi->dev, "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
 
 	enable_irq(max3100ts.irq);
 
