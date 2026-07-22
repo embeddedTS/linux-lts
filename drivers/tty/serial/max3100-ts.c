@@ -915,8 +915,6 @@ static int max3100_probe(struct spi_device *spi)
 			return -ENOMEM;
 		}
 
-		spi_set_drvdata(spi, max3100ts_common.max3100ts[i]);
-
 		max3100ts_common.max3100ts[i]->minor = i;
 
 		tx = MAX3100_WC | MAX3100_SHDN | 5;
@@ -970,6 +968,8 @@ static int max3100_probe(struct spi_device *spi)
 		mutex_unlock(&max3100ts_common.portlock);
 	}
 
+	spi_set_drvdata(spi, &max3100ts_common);
+
 	mutex_unlock(&max3100ts_common.max3100ts_lock);
 
 	retval = devm_request_threaded_irq(&spi->dev, spi->irq, NULL, max3100_thread_irq,
@@ -1020,44 +1020,50 @@ static void max3100_remove(struct spi_device *spi)
 
 static int max3100_suspend(struct device *dev)
 {
-	struct max3100ts_port *s = dev_get_drvdata(dev);
+	struct max3100ts_port *s = NULL;
+	u16 rx;
+	int i;
 
-	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
+	dev_dbg(dev, "%s\n", __func__);
 
 	disable_irq(max3100ts_common.irq);
 
-	s->suspending = 1;
-	uart_suspend_port(&max3100_uart_driver, &s->port);
+	for (i = 0; i < MAX_MAX3100; i++) {
+		if (max3100ts_common.max3100s[i]) {
+			s = max3100ts_common.max3100s[i];
+			s->suspending = 1;
+			uart_suspend_port(&max3100_uart_driver, &s->port);
 
-	if (s->max3100_hw_suspend)
-		s->max3100_hw_suspend(1);
-	else {
-		/* no HW suspend, so do SW one */
-		u16 tx, rx;
-		tx = MAX3100_WC | MAX3100_SHDN;
-		mutex_lock(&max3100ts_common.portlock);
-		max3100_sr(s, tx, &rx);
-		mutex_unlock(&max3100ts_common.portlock);
+			/* no HW suspend, so do SW one */
+			mutex_lock(&max3100ts_common.portlock);
+			max3100_sr(s, MAX3100_WC | MAX3100_SHDN, &rx);
+			mutex_unlock(&max3100ts_common.portlock);
+		}
 	}
+
 	return 0;
 }
 
 static int max3100_resume(struct device *dev)
 {
-	struct max3100ts_port *s = dev_get_drvdata(dev);
+	struct max3100ts_port *s = NULL;
+	int i;
 
-	dev_dbg(&max3100ts_common.spi->dev, "%s\n", __func__);
-
-	if (s->max3100_hw_suspend)
-		s->max3100_hw_suspend(0);
-	uart_resume_port(&max3100_uart_driver, &s->port);
-	s->suspending = 0;
+	dev_dbg(dev, "%s\n", __func__);
 
 	enable_irq(max3100ts_common.irq);
 
-	s->conf_commit = 1;
-	if (s->workqueue)
-		max3100_schedule_work(s);
+	for (i = 0; i < MAX_MAX3100; i++) {
+		if (max3100ts_common.max3100s[i]) {
+			s = max3100ts_common.max3100s[i];
+			uart_resume_port(&max3100_uart_driver, &s->port);
+			s->suspending = 0;
+
+			s->conf_commit = 1;
+			if (s->workqueue)
+				max3100_schedule_work(s);
+		}
+	}
 
 	return 0;
 }
