@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config PINCTRL_TSXBAR
+	tristate
+	depends on OF
+	depends on ARCH_MXC
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	select PINCONF
+	select REGMAP
+
+config PINCTRL_TS9370
+	tristate "TS-9370 pinctrl driver"
+	depends on ARCH_MXC
+	select PINCTRL_TSXBAR
+	help
+	  Say Y here to enable the TS-9370 pinctrl driver
