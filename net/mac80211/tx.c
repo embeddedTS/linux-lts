@@ -5522,8 +5522,8 @@ int ieee80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
 	flags |= IEEE80211_TX_INTFL_NL80211_FRAME_TX |
 		 IEEE80211_TX_CTL_INJECTED;
 
-	skb = dev_alloc_skb(local->hw.extra_tx_headroom +
-			    sizeof(struct ethhdr) + len);
+	skb = netdev_alloc_skb_ip_align(dev, local->hw.extra_tx_headroom +
+					 sizeof(struct ethhdr) + len);
 	if (!skb)
 		return -ENOMEM;
 
