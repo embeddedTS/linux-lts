@@ -144,6 +144,16 @@
 
 	};
 
+	i2c_dc: i2c_dc {
+		compatible = "i2c-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c_dc_gpio>;
+		sda-gpios = <&gpio4 25 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
+		scl-gpios = <&gpio4 24 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
 	reg_5v: regulator-5v {
 		compatible = "regulator-fixed";
 		regulator-name = "5V";
@@ -179,9 +189,9 @@
 
 &gpio4 {
 	gpio-line-names = "", "", "", "", "", "", "", "", "", "", "", "FPGA_RESET#",
-		"", "", "", "", "", "CAM_MCLK", "CAM_PIX_CLK", "CAM_VSYNC",
+		"", "", "", "", "", "DC_DIO_2", "DC_DIO_1", "CAM_VSYNC",
 		"CAM_HSYNC", "ONBD_ROTARY_B", "OFFBD_ROTARY_A", "OFFBD_ROTARY_B",
-		"CAM_D_3", "CAM_D_4", "CAM_D_5", "CAM_D_6", "CAM_D_7";
+		"DC_I2C_CLK", "DC_I2C_DAT", "CAM_D_5", "CAM_D_6", "CAM_D_7";
 };
 
 &i2c3 {
@@ -275,6 +285,13 @@
 			fsl,pins = <
 				MX6UL_PAD_LCD_DATA08__GPIO3_IO13	0x1a020
 				MX6UL_PAD_LCD_DATA09__GPIO3_IO14	0x1a020
+			>;
+		};
+
+		pinctrl_i2c_dc_gpio: i2cdcgpiogrp {
+			fsl,pins = <
+				MX6UL_PAD_CSI_DATA03__GPIO4_IO24	0x1a020
+				MX6UL_PAD_CSI_DATA04__GPIO4_IO25	0x1a020
 			>;
 		};
 
