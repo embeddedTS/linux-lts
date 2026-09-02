@@ -98,7 +98,7 @@ static int ts_wdt_restart(struct watchdog_device *wdd,
 	return 0;
 }
 
-void ts_wdt_poweroff(void)
+static void ts_wdt_poweroff(void)
 {
 	struct i2c_client *client = ts_wdt_poweroff_dev;
 
