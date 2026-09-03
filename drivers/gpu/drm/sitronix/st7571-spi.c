@@ -29,7 +29,15 @@ static int st7571_spi_write(void *context, const void *data, size_t count)
 	return spi_write(stspi->spi, buf + 1, count - 1);
 }
 
+/* The display controller does not support register reads. */
+static int st7571_spi_read(void *context, const void *reg_buf,
+			   size_t reg_size, void *val_buf, size_t val_size)
+{
+	return -EOPNOTSUPP;
+}
+
 static const struct regmap_bus st7571_spi_regmap_bus = {
+	.read = st7571_spi_read,
 	.write = st7571_spi_write,
 };
 
