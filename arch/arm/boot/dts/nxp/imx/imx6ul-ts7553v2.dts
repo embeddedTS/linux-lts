@@ -41,6 +41,12 @@
 		};
 	};
 
+	lcd_backlight: backlight {
+		compatible = "gpio-backlight";
+		gpios = <&gpio4 25 GPIO_ACTIVE_HIGH>;
+		default-on;
+	};
+
 	keys {
 		compatible = "gpio-keys";
 		pinctrl-names = "default";
@@ -187,10 +193,26 @@
 	status = "okay";
 
 	/* CS# 0 is SPI LCD interface */
-	spidevlcd: spi@0 {
-		compatible = "technologic,spi-header";
+	st7567: display@0 {
+		compatible = "sitronix,st7565p";
 		reg = <0>;
 		spi-max-frequency = <5000000>;
+		reset-gpios = <&gpio4 11 GPIO_ACTIVE_LOW>;
+		dc-gpios = <&gpio4 16 GPIO_ACTIVE_HIGH>;
+		width-mm = <71>;
+		height-mm = <39>;
+
+		panel-timing {
+			hactive = <128>;
+			vactive = <64>;
+			hback-porch = <0>;
+			vback-porch = <0>;
+			clock-frequency = <0>;
+			hfront-porch = <0>;
+			hsync-len = <0>;
+			vfront-porch = <0>;
+			vsync-len = <0>;
+		};
 	};
 
 	/* CS# 1 is HD1 pin header SPI interface */
