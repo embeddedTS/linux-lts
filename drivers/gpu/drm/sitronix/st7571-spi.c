@@ -84,6 +84,7 @@ static void st7571_spi_remove(struct spi_device *spi)
 
 static const struct of_device_id st7571_of_match[] = {
 	{ .compatible = "sitronix,st7567", .data = &st7567_config },
+	{ .compatible = "sitronix,st7565p", .data = &st7565p_config },
 	{ .compatible = "sitronix,st7571", .data = &st7571_config },
 	{},
 };
@@ -91,6 +92,7 @@ MODULE_DEVICE_TABLE(of, st7571_of_match);
 
 static const struct spi_device_id st7571_spi_id[] = {
 	{ "st7567", 0 },
+	{ "st7565p", 0 },
 	{ "st7571", 0 },
 	{ }
 };

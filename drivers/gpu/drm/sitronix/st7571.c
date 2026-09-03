@@ -73,6 +73,9 @@
 /* ST7567 commands */
 #define ST7567_SET_LCD_BIAS(m) (0xa2 | FIELD_PREP(GENMASK(0, 0), (m)))
 
+/* ST7565P commands */
+#define ST7565P_SOFTWARE_RESET			(0xe2)
+
 #define ST7571_PAGE_HEIGHT 8
 
 #define DRIVER_NAME "st7571"
@@ -444,9 +447,11 @@ static void st7571_encoder_atomic_enable(struct drm_encoder *encoder,
 	u8 command = ST7571_DISPLAY_ON;
 	int ret;
 
-	ret = st7571->pdata->init(st7571);
-	if (ret)
-		return;
+	if (!st7571->st7565p) {
+		ret = st7571->pdata->init(st7571);
+		if (ret)
+			return;
+	}
 
 	st7571_send_command_list(st7571, &command, 1);
 }
@@ -675,6 +680,20 @@ static int st7567_parse_dt(struct st7571_device *st7567)
 	return 0;
 }
 
+static int st7571_parse_dt(struct st7571_device *st7571);
+
+static int st7565p_parse_dt(struct st7571_device *st7565p)
+{
+	int ret = st7571_parse_dt(st7565p);
+
+	if (ret)
+		return ret;
+
+	st7565p->st7565p = true;
+
+	return 0;
+}
+
 static int st7571_parse_dt(struct st7571_device *st7571)
 {
 	struct device *dev = st7571->dev;
@@ -750,6 +769,34 @@ static int st7567_lcd_init(struct st7571_device *st7567)
 	};
 
 	return st7571_send_command_list(st7567, commands, ARRAY_SIZE(commands));
+}
+
+static int st7565p_lcd_init(struct st7571_device *st7565p)
+{
+	/*
+	 * Follow the initialization flow recommended by the ST7565P
+	 * datasheet: configure the display, LCD power supply, and display mode.
+	 */
+	u8 commands[] = {
+		ST7565P_SOFTWARE_RESET,
+		ST7567_SET_LCD_BIAS(0),
+		ST7571_SET_SEG_SCAN_DIR(0),
+		ST7571_SET_COM_SCAN_DIR(1),
+		ST7571_SET_REVERSE(st7565p->inverted ? 1 : 0),
+		ST7571_SET_START_LINE_MSB,
+		ST7571_SET_START_LINE_LSB(st7565p->startline),
+		ST7571_SET_REGULATOR_REG(4),
+		ST7571_SET_CONTRAST_MSB,
+		ST7571_SET_CONTRAST_LSB(0x19),
+		ST7571_SET_POWER(4),
+		ST7571_SET_POWER(6),
+		ST7571_SET_POWER(7),
+		ST7571_SET_ENTIRE_DISPLAY_ON(0),
+		ST7571_DISPLAY_ON,
+	};
+	st7571_reset(st7565p);
+
+	return st7571_send_command_list(st7565p, commands, ARRAY_SIZE(commands));
 }
 
 static int st7571_lcd_init(struct st7571_device *st7571)
@@ -870,6 +917,18 @@ struct st7571_device *st7571_probe(struct device *dev,
 
 	drm_mode_config_reset(drm);
 
+	/*
+	 * The ST7565P startup sequence must run before the DRM client commits
+	 * its initial framebuffer.  Its reset sequence clears display RAM.
+	 */
+	if (st7571->st7565p) {
+		ret = st7571->pdata->init(st7571);
+		if (ret) {
+			dev_err(st7571->dev, "Failed to initialize LCD\n");
+			return ERR_PTR(ret);
+		}
+	}
+
 	ret = drm_dev_register(drm, 0);
 	if (ret) {
 		dev_err(st7571->dev, "Failed to register DRM device\n");
@@ -899,6 +958,19 @@ const struct st7571_panel_data st7567_config = {
 	},
 };
 EXPORT_SYMBOL_NS_GPL(st7567_config, "DRM_ST7571");
+
+const struct st7571_panel_data st7565p_config = {
+	.init = st7565p_lcd_init,
+	.parse_dt = st7565p_parse_dt,
+	.constraints = {
+		.min_nlines = 1,
+		.max_nlines = 64,
+		.min_ncols = 128,
+		.max_ncols = 128,
+		.support_grayscale = false,
+	},
+};
+EXPORT_SYMBOL_NS_GPL(st7565p_config, "DRM_ST7571");
 
 const struct st7571_panel_data st7571_config = {
 	.init = st7571_lcd_init,

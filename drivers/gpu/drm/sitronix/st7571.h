@@ -74,6 +74,7 @@ struct st7571_device {
 	u32 nlines;
 	u32 ncols;
 	u32 bpp;
+	bool st7565p;
 
 	/* Intermediate buffer in LCD friendly format */
 	u8 *hwbuf;
@@ -83,6 +84,7 @@ struct st7571_device {
 };
 
 extern const struct st7571_panel_data st7567_config;
+extern const struct st7571_panel_data st7565p_config;
 extern const struct st7571_panel_data st7571_config;
 
 struct st7571_device *st7571_probe(struct device *dev, struct regmap *regmap);

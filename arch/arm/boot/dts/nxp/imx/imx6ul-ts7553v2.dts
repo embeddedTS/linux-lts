@@ -194,7 +194,7 @@
 
 	/* CS# 0 is SPI LCD interface */
 	st7567: display@0 {
-		compatible = "sitronix,st7567";
+		compatible = "sitronix,st7565p";
 		reg = <0>;
 		spi-max-frequency = <5000000>;
 		reset-gpios = <&gpio4 11 GPIO_ACTIVE_LOW>;
