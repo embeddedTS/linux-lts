@@ -318,6 +318,11 @@
 			"ISA_CN_D10", "ISA_CN_D11", "ISA_CN_D12", "ISA_CN_D13",
 			"ISA_CN_D14", "ISA_CN_D15", "", "", "";
 	};
+
+	atsha204a: crypto@64 {
+		compatible = "atmel,atsha204a";
+		reg = <0x64>;
+	};
 };
 
 &uart1 {
