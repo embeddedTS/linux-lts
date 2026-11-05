@@ -298,19 +298,209 @@ static irqreturn_t silo_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#define MICRO_VOLTAGE 16
+#define MICRO_STATUS 22
+#define MICRO_CURRENT 26
+#define MICRO_POWER_FAIL BIT(0)
+#define MICRO_ENABLED BIT(1)
+#define MICRO_MET_MIN BIT(2)
+#define MICRO_CHARGING BIT(3)
+
+struct micro_supply {
+	struct regmap *map;
+	struct power_supply *psy;
+	struct delayed_work work;
+};
+
+static int micro_read_word(struct micro_supply *s, unsigned int reg,
+			   unsigned int *value)
+{
+	u8 bytes[2];
+	int ret;
+
+	ret = regmap_bulk_read(s->map, reg, bytes, sizeof(bytes));
+	if (!ret)
+		*value = (bytes[0] << 8) | bytes[1];
+	return ret;
+}
+
+static int micro_get(struct power_supply *psy, enum power_supply_property prop,
+		     union power_supply_propval *val)
+{
+	struct micro_supply *s = power_supply_get_drvdata(psy);
+	unsigned int value;
+	int ret;
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+	case POWER_SUPPLY_PROP_CAPACITY:
+		ret = micro_read_word(s, MICRO_VOLTAGE, &value);
+		if (ret)
+			return ret;
+		if (prop == POWER_SUPPLY_PROP_VOLTAGE_NOW)
+			val->intval = value * 1000;
+		else
+			/* Match the voltage estimate used by tsmicroctl. */
+			val->intval = (clamp_val(value, 3680, 4800) - 3680) * 100 / 1120;
+		return 0;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
+		ret = micro_read_word(s, MICRO_CURRENT, &value);
+		if (!ret)
+			val->intval = value * 1000;
+		return ret;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		val->intval = 900000;
+		return 0;
+	default:
+		break;
+	}
+
+	ret = regmap_read(s->map, MICRO_STATUS, &value);
+	if (ret)
+		return ret;
+	switch (prop) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = !(value & MICRO_POWER_FAIL);
+		return 0;
+	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
+		val->intval = value & MICRO_ENABLED ? POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO :
+			POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE;
+		return 0;
+	case POWER_SUPPLY_PROP_STATUS:
+		if (value & MICRO_POWER_FAIL)
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		else if (!(value & MICRO_ENABLED))
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		else if (value & MICRO_CHARGING)
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+		else
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int micro_set(struct power_supply *psy, enum power_supply_property prop,
+		     const union power_supply_propval *val)
+{
+	struct micro_supply *s = power_supply_get_drvdata(psy);
+	unsigned int value;
+	u8 bytes[2];
+	int ret;
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
+		if (val->intval < 50000 || val->intval > 900000 || val->intval % 1000)
+			return -EINVAL;
+		value = val->intval / 1000;
+		bytes[0] = value >> 8;
+		bytes[1] = value;
+		ret = regmap_bulk_write(s->map, MICRO_CURRENT, bytes, sizeof(bytes));
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR:
+		if (val->intval != POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO &&
+		    val->intval != POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE)
+			return -EINVAL;
+		value = val->intval == POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO ? MICRO_ENABLED : 0;
+		ret = regmap_update_bits(s->map, MICRO_STATUS,
+					 MICRO_ENABLED | MICRO_MET_MIN, value);
+		break;
+	default:
+		return -EINVAL;
+	}
+	if (!ret)
+		power_supply_changed(psy);
+	return ret;
+}
+
+static int micro_writable(struct power_supply *psy, enum power_supply_property prop)
+{
+	return prop == POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR ||
+		prop == POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT;
+}
+
+static enum power_supply_property micro_props[] = {
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_STATUS,
+	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+};
+
+static const struct power_supply_desc micro_desc = {
+	.name = "silo",
+	.type = POWER_SUPPLY_TYPE_UPS,
+	.properties = micro_props,
+	.num_properties = ARRAY_SIZE(micro_props),
+	.get_property = micro_get,
+	.set_property = micro_set,
+	.property_is_writeable = micro_writable,
+	.charge_behaviours = BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_AUTO) |
+		BIT(POWER_SUPPLY_CHARGE_BEHAVIOUR_INHIBIT_CHARGE),
+};
+
+static void micro_poll(struct work_struct *work)
+{
+	struct micro_supply *s = container_of(to_delayed_work(work),
+					     struct micro_supply, work);
+
+	power_supply_changed(s->psy);
+	schedule_delayed_work(&s->work, HZ);
+}
+
+static void micro_stop(void *arg)
+{
+	struct micro_supply *s = arg;
+
+	cancel_delayed_work_sync(&s->work);
+}
+
+static int micro_silo_probe(struct platform_device *pdev)
+{
+	struct power_supply_config cfg = {};
+	struct device *dev = &pdev->dev;
+	struct micro_supply *s;
+	int ret;
+
+	s = devm_kzalloc(dev, sizeof(*s), GFP_KERNEL);
+	if (!s)
+		return -ENOMEM;
+	s->map = dev_get_regmap(dev->parent, NULL);
+	if (!s->map)
+		return -ENODEV;
+	cfg.drv_data = s;
+	s->psy = devm_power_supply_register(dev, &micro_desc, &cfg);
+	if (IS_ERR(s->psy))
+		return PTR_ERR(s->psy);
+	INIT_DELAYED_WORK(&s->work, micro_poll);
+	ret = devm_add_action_or_reset(dev, micro_stop, s);
+	if (ret)
+		return ret;
+	schedule_delayed_work(&s->work, HZ);
+	return 0;
+}
+
 static int ts_silo_probe(struct platform_device *pdev)
 {
-	struct ts_wizard *wizard = dev_get_drvdata(pdev->dev.parent);
+	struct ts_wizard *wizard;
 	struct device *dev = &pdev->dev;
 	struct silo_data *data;
 	struct power_supply_config psy_cfg = {};
 	int ret;
 	int irq;
 
+	if (of_device_is_compatible(dev->of_node, "technologic,ts7100-silo"))
+		return micro_silo_probe(pdev);
+	if (dev->of_node &&
+	    !of_device_is_compatible(dev->of_node, "technologic,wizard-silo"))
+		return -ENODEV;
+	wizard = dev_get_drvdata(dev->parent);
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
-	if (!data) {
+	if (!data)
 		return -ENOMEM;
-	}
 	data->regmap = wizard->regmap;
 	platform_set_drvdata(pdev, data);
 
@@ -325,9 +515,9 @@ static int ts_silo_probe(struct platform_device *pdev)
 		return PTR_ERR(data->psy);
 	}
 
-	ret = sysfs_create_group(&dev->kobj, &silo_attr_group);
+	ret = devm_device_add_group(dev, &silo_attr_group);
 	if (ret) {
-		dev_err(dev, "sysfs_create_group failed (rc=%d)\n", ret);
+		dev_err(dev, "failed to add sysfs group (rc=%d)\n", ret);
 		return ret;
 	}
 
@@ -337,13 +527,9 @@ static int ts_silo_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static void ts_silo_remove(struct platform_device *pdev)
-{
-	sysfs_remove_group(&pdev->dev.kobj, &silo_attr_group);
-}
-
 static const struct of_device_id silo_of_match[] = {
 	{ .compatible = "technologic,wizard-silo", },
+	{ .compatible = "technologic,ts7100-silo", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, silo_of_match);
@@ -354,7 +540,6 @@ static struct platform_driver silo_driver = {
 		.of_match_table = silo_of_match,
 	},
 	.probe = ts_silo_probe,
-	.remove = ts_silo_remove,
 };
 
 module_platform_driver(silo_driver);
