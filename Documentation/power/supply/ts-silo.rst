@@ -30,3 +30,23 @@ with this driver. The watchdog uses the same I2C address; a second enabled
 I2C node at that address is not supported. Integration of both functions should
 attach to this MFD parent rather than create a second I2C client. The
 watchdog is not yet supported by this parent.
+
+Older controller support
+------------------------
+
+TS-4100 and TS-7553-V2 use unaddressed I2C snapshots and one-byte charger
+commands. Their capacity estimate follows the legacy tsmicroctl calculation; external
+power status comes from the power-fail GPIO. The firmware provides no charger
+state readback, so reading charge_behaviour returns ENODATA. Writes send the
+requested enable or inhibit command, without claiming that it took effect.
+Silod may log a readback warning after a successful charge-enable write.
+Status is Unknown while external power is present and Discharging when it is
+absent. On TS-7553-V2, firmware updates the supercapacitor ADC snapshot only
+while SILO is enabled, so disabling it can leave stale readings. This implementation
+has not yet been tested on TS-4100 or TS-7553-V2 hardware.
+
+On TS-4100, a charger enable or inhibit command writes a single byte with
+bit 1 clear. The controller interprets bit 1 as push-switch reset enable,
+so either operation disables that function. This is intentional. The
+microcontroller watchdog and power-off functions are not supported by the
+MFD parent; the previously disabled watchdog node is replaced by the parent.
