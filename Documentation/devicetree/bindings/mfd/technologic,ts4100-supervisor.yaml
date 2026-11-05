@@ -19,6 +19,18 @@ properties:
     const: technologic,ts4100-supervisor
   reg:
     maxItems: 1
+  reset:
+    type: object
+    additionalProperties: false
+    properties:
+      compatible:
+        const: technologic,ts4100-supervisor-reset
+      ts,skip-micro-handler:
+        type: boolean
+        description: Do not use the supervisor as a system restart handler.
+    required:
+      - compatible
+
   watchdog:
     $ref: /schemas/watchdog/technologic,ts-wdt.yaml#
 
