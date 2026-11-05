@@ -1809,6 +1809,17 @@ config TS_SIMPLEADC
 	help
 	  Say yes here to build support for embeddedTS FPGA based ADC.
 
+config TS_SUPERVISOR_ADC
+	tristate "embeddedTS supervisory controller ADC"
+	depends on MFD_TS_SUPERVISOR
+	help
+	  Expose the supervisory controller voltage channels on TS-7100
+	  and TS-7180 boards through the IIO subsystem. Some channels are
+	  reported as raw converter counts and others as firmware-converted
+	  millivolts, depending on the controller firmware.
+
+
+
 config TS_WIZARD_ADC
 	tristate "embeddedTS Wizard Microcontroller ADC"
 	depends on OF
