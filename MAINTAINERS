@@ -9140,8 +9140,10 @@ S:	Maintained
 F:	Documentation/devicetree/bindings/mfd/technologic,ts4100-supervisor.yaml
 F:	Documentation/devicetree/bindings/mfd/technologic,ts7100-supervisor.yaml
 F:	Documentation/devicetree/bindings/mfd/technologic,ts7553v2-supervisor.yaml
+F:	Documentation/power/supply/ts-silo.rst
 F:	drivers/iio/adc/ts-supervisor-adc.c
 F:	drivers/mfd/ts-supervisor.c
+F:	drivers/power/supply/tssilo_supercaps.c
 
 EMS CPC-PCI CAN DRIVER
 M:	Gerhard Uttenthaler <uttenthaler@ems-wuensche.com>
