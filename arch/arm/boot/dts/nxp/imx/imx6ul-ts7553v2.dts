@@ -308,6 +308,30 @@
 	clock-frequency = <400000>;
 	status = "okay";
 
+	microcontroller@2a {
+		compatible = "technologic,ts7553v2-supervisor";
+		reg = <0x2a>;
+
+		adc {
+			compatible = "technologic,ts7553v2-supervisor-adc";
+			#io-channel-cells = <1>;
+		};
+
+		reset {
+			compatible = "technologic,ts7553v2-supervisor-reset";
+		};
+
+		watchdog {
+			compatible = "technologic,ts-wdt";
+			technologic,skip-micro-handler;
+		};
+
+		supercaps {
+			compatible = "technologic,ts7553v2-silo";
+			power-fail-gpios = <&gpio5 0 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
 	m41t00s: rtc@68 {
 		compatible = "st,m41t00";
 		reg = <0x68>;
