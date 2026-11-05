@@ -9134,6 +9134,14 @@ L:	linux-mmc@vger.kernel.org
 S:	Supported
 F:	drivers/mmc/host/cqhci*
 
+EMBEDDEDTS SUPERVISORY CONTROLLER SUPERCAPACITORS
+M:	Mark Featherston <mark@embeddedts.com>
+S:	Maintained
+F:	Documentation/devicetree/bindings/mfd/technologic,ts4100-supervisor.yaml
+F:	Documentation/devicetree/bindings/mfd/technologic,ts7100-supervisor.yaml
+F:	Documentation/devicetree/bindings/mfd/technologic,ts7553v2-supervisor.yaml
+F:	drivers/mfd/ts-supervisor.c
+
 EMS CPC-PCI CAN DRIVER
 M:	Gerhard Uttenthaler <uttenthaler@ems-wuensche.com>
 M:	support@ems-wuensche.com
