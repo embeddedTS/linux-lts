@@ -1,0 +1,11 @@
+What:		/sys/bus/platform/devices/.../power_cycle_seconds
+Date:		November 2026
+Contact:		Mark Featherston <mark@embeddedts.com>
+Description:
+		Writing a positive integer immediately powers off the system and
+		restarts it after the requested number of seconds. This does not
+		perform an orderly Linux shutdown or sync filesystems; userspace
+		must do so before writing. The maximum accepted value is 42949672
+		seconds for generation 1 controllers and 16777215 seconds for
+		generation 0 controllers.
+		Actual off time depends on the controller's low-power clock.

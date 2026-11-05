@@ -35,6 +35,18 @@ properties:
       - compatible
       - '#io-channel-cells'
 
+  reset:
+    type: object
+    additionalProperties: false
+    properties:
+      compatible:
+        const: technologic,ts7100-supervisor-reset
+      ts,skip-micro-handler:
+        type: boolean
+        description: Do not use the supervisor as a system restart handler.
+    required:
+      - compatible
+
   watchdog:
     $ref: /schemas/watchdog/technologic,ts-wdt.yaml#
 
