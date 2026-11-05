@@ -205,19 +205,23 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	silabs: wdt@4a {
-		compatible = "technologic,ts-wdt";
-		timeout-sec = <500>;
-		enable-early;
+	microcontroller@4a {
+		compatible = "technologic,ts4100-supervisor";
 		reg = <0x4a>;
-		/*
-		 * Not using uC WDT by default any longer. If you need features
-		 * provided by this, such as a real poweroff state, an external
-		 * WDT, or proper feedback from the uC on the platform's reboot
-		 * source (via tsmicroctl), then enable this driver (and disable
-		 * the CPU driver, wdog1,  unless you want both active).
-		 */
-		status = "disabled";
+
+		reset {
+			compatible = "technologic,ts4100-supervisor-reset";
+		};
+
+		watchdog {
+			compatible = "technologic,ts-wdt";
+			technologic,skip-micro-handler;
+		};
+
+		supercaps {
+			compatible = "technologic,ts4100-silo";
+			power-fail-gpios = <&gpio5 0 GPIO_ACTIVE_HIGH>;
+		};
 	};
 };
 
