@@ -18,6 +18,9 @@ properties:
     const: technologic,ts7553v2-supervisor
   reg:
     maxItems: 1
+  watchdog:
+    $ref: /schemas/watchdog/technologic,ts-wdt.yaml#
+
   supercaps:
     type: object
     additionalProperties: false

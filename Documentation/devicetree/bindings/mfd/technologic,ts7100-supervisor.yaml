@@ -35,6 +35,9 @@ properties:
       - compatible
       - '#io-channel-cells'
 
+  watchdog:
+    $ref: /schemas/watchdog/technologic,ts-wdt.yaml#
+
   supercaps:
     type: object
     additionalProperties: false

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * embeddedTS uC i2c watchdog driver
+ * embeddedTS supervisory microcontroller watchdog driver
  *
  * Copyright (C) 2017, 2023 Technologic Systems, Inc. dba embeddedTS
  *
@@ -10,6 +10,8 @@
 
 #include <linux/i2c.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/platform_device.h>
 #include <linux/watchdog.h>
 
 #define TS_DEFAULT_TIMEOUT 30
@@ -19,8 +21,13 @@ module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started default="
 		__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
 
-/* Global for ts_wdt_poweroff to access needed data */
-static struct i2c_client *ts_wdt_poweroff_dev;
+struct ts_wdt {
+	struct i2c_client *client;
+	struct watchdog_device wdd;
+	bool gen1;
+};
+
+static struct ts_wdt *ts_wdt_poweroff_data;
 
 /* The WDT expects 3 values:
  * 0 (command to feed)
@@ -40,58 +47,63 @@ static struct i2c_client *ts_wdt_poweroff_dev;
  * 0xAA
  */
 
-static int ts_wdt_write(struct i2c_client *client, u16 deciseconds)
+static int ts_wdt_gen1_write(struct ts_wdt *ts_wdt, u32 ticks, u8 flags)
 {
+	u8 out[7] = {
+		0x04, 0x00,
+		ticks, ticks >> 8, ticks >> 16, ticks >> 24,
+		flags,
+	};
+	int ret;
+
+	ret = i2c_master_send(ts_wdt->client, out, sizeof(out));
+	if (ret != sizeof(out))
+		return ret < 0 ? ret : -EIO;
+	return 0;
+}
+
+static int ts_wdt_write(struct ts_wdt *ts_wdt, u16 deciseconds)
+{
+	struct i2c_client *client = ts_wdt->client;
 	u8 out[3];
 	int ret;
-	struct i2c_msg msg;
+
+	if (ts_wdt->gen1)
+		return ts_wdt_gen1_write(ts_wdt, deciseconds * 10, BIT(0));
 
 	out[0] = 0;
-	out[1] = (deciseconds & 0xff00) >> 8;
-	out[2] = deciseconds & 0xff;
-	dev_dbg(&client->dev, "Writing 0x00, 0x%02x, 0x%02x\n",
-		out[1],
-		out[2]);
+	out[1] = deciseconds >> 8;
+	out[2] = deciseconds;
 
-	msg.addr = client->addr;
-	msg.flags = 0;
-	msg.len = 3;
-	msg.buf = out;
-
-	ret = i2c_transfer(client->adapter, &msg, 1);
-	if (ret != 1) {
+	ret = i2c_master_send(client, out, sizeof(out));
+	if (ret != sizeof(out)) {
 		dev_err(&client->dev, "%s: write error, ret=%d\n",
 			__func__, ret);
-		return ret;
+		return ret < 0 ? ret : -EIO;
 	}
 	return 0;
 }
 
 static int ts_wdt_start(struct watchdog_device *wdd)
 {
-	struct i2c_client *client = to_i2c_client(wdd->parent);
+	struct ts_wdt *ts_wdt = watchdog_get_drvdata(wdd);
 
-	dev_dbg(&client->dev, "%s\n", __func__);
-
-	return ts_wdt_write(client, wdd->timeout * 10);
+	return ts_wdt_write(ts_wdt, wdd->timeout * 10);
 }
 
 static int ts_wdt_stop(struct watchdog_device *wdd)
 {
-	struct i2c_client *client = to_i2c_client(wdd->parent);
+	struct ts_wdt *ts_wdt = watchdog_get_drvdata(wdd);
 
-	dev_dbg(&client->dev, "%s\n", __func__);
-	return ts_wdt_write(client, 3);
+	return ts_wdt_write(ts_wdt, ts_wdt->gen1 ? 0 : 3);
 }
 
 static int ts_wdt_restart(struct watchdog_device *wdd,
 			unsigned long a, void *b)
 {
-	struct i2c_client *client = to_i2c_client(wdd->parent);
+	struct ts_wdt *ts_wdt = watchdog_get_drvdata(wdd);
 
-	dev_dbg(&client->dev, "%s\n", __func__);
-
-	ts_wdt_write(client, 0);
+	ts_wdt_write(ts_wdt, ts_wdt->gen1 ? 10 : 0);
 	while (1)
 		;
 
@@ -100,15 +112,22 @@ static int ts_wdt_restart(struct watchdog_device *wdd,
 
 static void ts_wdt_poweroff(void)
 {
-	struct i2c_client *client = ts_wdt_poweroff_dev;
+	struct ts_wdt *ts_wdt = ts_wdt_poweroff_data;
+	struct i2c_client *client = ts_wdt->client;
 
 	u8 out[3];
 	int ret;
 	struct i2c_msg msg;
 
+	if (ts_wdt->gen1) {
+		ts_wdt_gen1_write(ts_wdt, 0, BIT(1));
+		while (1)
+			;
+	}
+
 	dev_dbg(&client->dev, "%s\n", __func__);
 
-	ts_wdt_write(client, 3);
+	ts_wdt_write(ts_wdt, 3);
 
 	out[0] = 0x40;
 	out[1] = 0xAA;
@@ -125,7 +144,6 @@ static void ts_wdt_poweroff(void)
 			__func__, ret);
 	}
 
-
 	while (1)
 		;
 }
@@ -133,9 +151,6 @@ static void ts_wdt_poweroff(void)
 static int ts_set_timeout(struct watchdog_device *wdd,
 				   unsigned int timeout)
 {
-	struct i2c_client *client = to_i2c_client(wdd->parent);
-
-	dev_dbg(&client->dev, "%s\n", __func__);
 	wdd->timeout = timeout;
 	return 0;
 }
@@ -154,34 +169,44 @@ static struct watchdog_ops ts_wdt_ops = {
 	.restart	= ts_wdt_restart,
 };
 
-static int ts_wdt_probe(struct i2c_client *client)
+static int ts_wdt_probe(struct platform_device *pdev)
 {
-	int err;
+	struct device *dev = &pdev->dev;
+	struct i2c_client *client = to_i2c_client(dev->parent);
+	struct ts_wdt *ts_wdt;
 	bool enable_early = false;
 	struct watchdog_device *wdd;
+	bool skip_micro_handler;
+	int err;
 
-	dev_dbg(&client->dev, "%s\n", __func__);
-
-	wdd = devm_kzalloc(&client->dev, sizeof(*wdd), GFP_KERNEL);
-	if (!wdd)
+	ts_wdt = devm_kzalloc(dev, sizeof(*ts_wdt), GFP_KERNEL);
+	if (!ts_wdt)
 		return -ENOMEM;
+	ts_wdt->client = client;
+	ts_wdt->gen1 = of_device_is_compatible(dev->parent->of_node,
+						       "technologic,ts7100-supervisor");
+	wdd = &ts_wdt->wdd;
 
 	wdd->info = &ts_wdt_info;
 	wdd->ops = &ts_wdt_ops;
 	wdd->min_timeout = 1;
 	wdd->max_timeout = 6553;
 	wdd->timeout = TS_DEFAULT_TIMEOUT;
-	wdd->parent = &client->dev;
+	wdd->parent = dev;
+	watchdog_init_timeout(wdd, 0, dev);
 
-	if (of_property_read_bool(client->dev.of_node, "enable-early"))
+	if (of_property_read_bool(dev->of_node, "enable-early"))
 		enable_early = true;
+	skip_micro_handler =
+		of_property_read_bool(dev->of_node,
+				      "technologic,skip-micro-handler");
 
 	watchdog_set_nowayout(wdd, nowayout);
-
-	i2c_set_clientdata(client, wdd);
+	watchdog_set_drvdata(wdd, ts_wdt);
 
 	/* We want this handler to be the first priority handler for reboots */
-	watchdog_set_restart_priority(wdd, 255);
+	if (!skip_micro_handler)
+		watchdog_set_restart_priority(wdd, 255);
 
 	/*
 	 * On supported platforms either:
@@ -200,63 +225,37 @@ static int ts_wdt_probe(struct i2c_client *client)
 	if (enable_early)
 		set_bit(WDOG_HW_RUNNING, &wdd->status);
 
-	/*
-	 * On supported platforms, this will generally be the only way to
-	 * correctly power_off the system. So, clobber any other handlers that
-	 * may have already been set but generate some noise if this happens.
-	 */
-	if (pm_power_off != NULL) {
-		dev_err(&client->dev,
-			 "%s: pm_power_off function already registered, overwriting",
-			__func__);
-	}
-	pm_power_off = ts_wdt_poweroff;
-	ts_wdt_poweroff_dev = client;
-
-	err = watchdog_register_device(wdd);
+	err = devm_watchdog_register_device(dev, wdd);
 	if (err)
 		return err;
 
-	dev_info(&client->dev, "Registered embeddedTS microcontroller watchdog\n");
+	/* This is the power-off handler on platforms that support the command. */
+	if (pm_power_off) {
+		dev_err(dev,
+			"%s: pm_power_off function already registered, overwriting",
+			__func__);
+	}
+	pm_power_off = ts_wdt_poweroff;
+	ts_wdt_poweroff_data = ts_wdt;
 
+	dev_info(dev, "Registered embeddedTS microcontroller watchdog\n");
 	return 0;
 }
 
-static const struct i2c_device_id ts_wdt_id[] = {
-	{ "ts-wdt", 0 },
-	{ }
-};
-MODULE_DEVICE_TABLE(i2c, ts_wdt_id);
-
 static const struct of_device_id ts_wdt_of_match[] = {
 	{ .compatible = "technologic,ts-wdt", },
-	{ .compatible = "ts_wdt", },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ts_wdt_of_match);
 
-MODULE_ALIAS("platform:ts-wdt");
-
-static struct i2c_driver ts_wdt_driver = {
+static struct platform_driver ts_wdt_driver = {
 	.driver = {
 		.name	= "ts-wdt",
-		.owner	= THIS_MODULE,
+		.of_match_table = ts_wdt_of_match,
 	},
 	.probe		= ts_wdt_probe,
-	.id_table	= ts_wdt_id,
 };
-
-static int __init ts_wdt_init(void)
-{
-	return i2c_add_driver(&ts_wdt_driver);
-}
-subsys_initcall(ts_wdt_init);
-
-static void __exit ts_wdt_exit(void)
-{
-	i2c_del_driver(&ts_wdt_driver);
-}
-module_exit(ts_wdt_exit);
+module_platform_driver(ts_wdt_driver);
 
 MODULE_AUTHOR("Mark Featherston <mark@embeddedTS.com>");
 MODULE_AUTHOR("Kris Bahnsen <kris@embeddedTS.com>");
