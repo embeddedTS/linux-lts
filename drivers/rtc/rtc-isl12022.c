@@ -69,7 +69,7 @@
 /* ISL register bits */
 #define ISL12022_HR_MIL		(1 << 7)	/* military or 24 hour time */
 
-#define ISL12022_SR_OSCF	(1 << 7)
+#define ISL12022_SR_OSCF	(1 << 6)
 #define ISL12022_SR_ALM		(1 << 4)
 #define ISL12022_SR_LBAT85	(1 << 2)
 #define ISL12022_SR_LBAT75	(1 << 1)
