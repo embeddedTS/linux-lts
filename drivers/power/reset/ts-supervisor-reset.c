@@ -98,8 +98,8 @@ static int ts_supervisor_reset_probe(struct platform_device *pdev)
 	if (!reset)
 		return -ENOMEM;
 	reset->client = to_i2c_client(dev->parent);
-	reset->gen1 = of_device_is_compatible(dev->of_node,
-					      "technologic,ts7100-supervisor-reset");
+	reset->gen1 = of_device_is_compatible(dev->parent->of_node,
+					      "technologic,ts-supervisor-gen1");
 	platform_set_drvdata(pdev, reset);
 	ret = devm_device_add_group(dev, &ts_supervisor_reset_group);
 	if (ret)
@@ -114,9 +114,7 @@ static int ts_supervisor_reset_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id ts_supervisor_reset_match[] = {
-	{ .compatible = "technologic,ts7100-supervisor-reset" },
-	{ .compatible = "technologic,ts4100-supervisor-reset" },
-	{ .compatible = "technologic,ts7553v2-supervisor-reset" },
+	{ .compatible = "technologic,ts-supervisor-reset" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ts_supervisor_reset_match);

@@ -2057,11 +2057,9 @@ config MFD_TS_SUPERVISOR
 	select MFD_CORE
 	select REGMAP_I2C
 	help
-	  Support the I2C supervisory controller on TS-4100, TS-7100,
-	  TS-7180 and TS-7553-V2.
-	  This creates devices for the ADC and supercapacitor functions.
-	  The child drivers share a regmap for the controller registers.
-	  The watchdog is not currently supported by this MFD driver.
+	  Support the I2C supervisory controllers on TS-4100, TS-7100,
+	  TS-7180, TS-7400-V2, TS-7553-V2, TS-7670 and TS-7680.
+	  Child devices are populated from the device tree.
 
 config MFD_TS_WIZARD
 	tristate "embeddedTS Wizard"

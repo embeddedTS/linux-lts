@@ -184,7 +184,7 @@ static int ts_wdt_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	ts_wdt->client = client;
 	ts_wdt->gen1 = of_device_is_compatible(dev->parent->of_node,
-						       "technologic,ts7100-supervisor");
+						       "technologic,ts-supervisor-gen1");
 	wdd = &ts_wdt->wdd;
 
 	wdd->info = &ts_wdt_info;

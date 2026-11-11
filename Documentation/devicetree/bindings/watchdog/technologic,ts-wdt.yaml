@@ -41,15 +41,8 @@ examples:
         #address-cells = <1>;
         #size-cells = <0>;
         supervisor@54 {
-            compatible = "technologic,ts7100-supervisor";
+            compatible = "technologic,ts-supervisor-gen1";
             reg = <0x54>;
-            adc {
-                compatible = "technologic,ts7100-supervisor-adc";
-                #io-channel-cells = <1>;
-            };
-            supercaps {
-                compatible = "technologic,ts7100-silo";
-            };
             watchdog {
                 compatible = "technologic,ts-wdt";
             };

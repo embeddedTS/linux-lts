@@ -48,11 +48,15 @@
 			address-width = <8>;
 		};
 
-		silabs: watchdog@78 {
-			compatible = "technologic,ts-wdt";
-			timeout-sec = <500>;
-			enable-early;
+		microcontroller@78 {
+			compatible = "technologic,ts-supervisor-gen0";
 			reg = <0x78>;
+
+			watchdog {
+				compatible = "technologic,ts-wdt";
+				timeout-sec = <500>;
+				enable-early;
+			};
 		};
 	};
 
