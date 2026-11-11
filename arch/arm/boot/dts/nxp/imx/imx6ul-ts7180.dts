@@ -12,6 +12,38 @@
 	model = "embeddedTS i.MX6UL TS-7180";
 	compatible = "technologic,ts7180", "fsl,imx6ul";
 
+	adc_5v: voltage-divider-5v {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 0>;
+		output-ohms = <42200>;
+		full-ohms = <95800>;
+		#io-channel-cells = <0>;
+	};
+
+	adc_charge: voltage-divider-charge {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 1>;
+		output-ohms = <14700>;
+		full-ohms = <34700>;
+		#io-channel-cells = <0>;
+	};
+
+	adc_3v3: voltage-divider-3v3 {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 2>;
+		output-ohms = <42200>;
+		full-ohms = <84400>;
+		#io-channel-cells = <0>;
+	};
+
+	adc_vin: voltage-divider-vin {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 3>;
+		output-ohms = <10700>;
+		full-ohms = <201700>;
+		#io-channel-cells = <0>;
+	};
+
 	aliases {
 		ethernet0 = &fec2;
 		ethernet1 = &fec1;
@@ -297,26 +329,29 @@
 		interrupts = <10 IRQ_TYPE_LEVEL_HIGH>;    /* See MX6UL_PAD_NAND_ALE__GPIO4_IO10 */
 	};
 
-	wizard: wdt@54 {
-		compatible = "technologic,ts7100-wdt";
-		enable-early;
-		/* 5min timeout default, in case of slow userspace.
-		 * Set to 0 to disable WDT at startup. Userspace procs
-		 * can still start feeding with different values later -
-                 * watchdog(8) defaults to 60 seconds.
-		 */
-		timeout-sec = <300>;
+	ts_supervisor: supervisor@54 {
+		compatible = "technologic,ts-supervisor-gen1";
 		reg = <0x54>;
 
-		/*
-		 * Not using uC WDT by default any longer. If you need features
-		 * provided by this, such as a real poweroff state, an external
-		 * WDT, or proper feedback from the uC on the platform's reboot
-		 * source (via tsmicroctl), then enable this driver (and disable
-		 * the CPU driver, wdog1,  unless you want both active).
-		 */
+		ts_supervisor_adc: adc {
+			compatible = "technologic,ts7180-supervisor-adc";
+			#io-channel-cells = <1>;
+		};
 
-		status = "disabled";
+		reset {
+			compatible = "technologic,ts-supervisor-reset";
+			technologic,skip-micro-handler;
+		};
+
+		watchdog {
+			compatible = "technologic,ts-wdt";
+			/* Use the i.MX CPU watchdog by default on these boards. */
+			status = "disabled";
+		};
+
+		supercaps {
+			compatible = "technologic,ts7100-silo";
+		};
 	};
 
 	m41t00s: rtc@68 {

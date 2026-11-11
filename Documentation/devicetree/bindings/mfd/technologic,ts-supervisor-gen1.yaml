@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/technologic,ts-supervisor-gen1.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: embeddedTS supervisor IP generation 1
+
+maintainers:
+  - Mark Featherston <mark@embeddedts.com>
+
+description: |
+  Generation 1 supervisor IP is used by the TS-7100 and TS-7180. It provides
+  ADC, supercapacitor, reset and watchdog functions over an I2C register map.
+
+properties:
+  compatible:
+    const: technologic,ts-supervisor-gen1
+
+  reg:
+    maxItems: 1
+
+  adc:
+    type: object
+    additionalProperties: false
+    properties:
+      compatible:
+        enum:
+          - technologic,ts7100-supervisor-adc
+          - technologic,ts7180-supervisor-adc
+      '#io-channel-cells':
+        const: 1
+    required:
+      - compatible
+      - '#io-channel-cells'
+
+  reset:
+    type: object
+    additionalProperties: false
+    properties:
+      compatible:
+        const: technologic,ts-supervisor-reset
+      technologic,skip-micro-handler:
+        type: boolean
+        description: Do not use the supervisor as a system restart handler.
+    required:
+      - compatible
+
+  watchdog:
+    $ref: /schemas/watchdog/technologic,ts-wdt.yaml#
+
+  supercaps:
+    type: object
+    additionalProperties: false
+    properties:
+      compatible:
+        const: technologic,ts7100-silo
+    required:
+      - compatible
+
+required:
+  - compatible
+  - reg
+  - adc
+  - supercaps
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        supervisor@54 {
+            compatible = "technologic,ts-supervisor-gen1";
+            reg = <0x54>;
+            adc {
+                compatible = "technologic,ts7100-supervisor-adc";
+                #io-channel-cells = <1>;
+            };
+            supercaps {
+                compatible = "technologic,ts7100-silo";
+            };
+            watchdog {
+                compatible = "technologic,ts-wdt";
+            };
+        };
+    };

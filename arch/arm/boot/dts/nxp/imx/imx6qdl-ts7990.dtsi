@@ -268,6 +268,20 @@
 	sda-gpios = <&gpio3 28 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
 
+	supervisor@4a {
+		compatible = "technologic,ts-supervisor-gen0";
+		reg = <0x4a>;
+
+		adc {
+			compatible = "technologic,ts7990-supervisor-adc";
+			#io-channel-cells = <1>;
+		};
+
+		reset {
+			compatible = "technologic,ts-supervisor-reset-gen0-timed";
+		};
+	};
+
 	pixcir_tangoc: touchscreen@5c {
 		compatible = "pixcir,pixcir_tangoc";
 		reg = <0x5c>;

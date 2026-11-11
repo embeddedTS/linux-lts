@@ -7,6 +7,13 @@
 #include <dt-bindings/leds/common.h>
 
 / {
+	supervisor-adcs {
+		compatible = "iio-hwmon";
+		io-channels = <&ts_supervisor_adc 0>, <&ts_supervisor_adc 1>,
+			      <&ts_supervisor_adc 2>, <&ts_supervisor_adc 3>,
+			      <&ts_supervisor_adc 7>, <&ts_supervisor_adc 8>;
+	};
+
 	chosen {
 		stdout-path = &uart1;
 	};
@@ -154,6 +161,31 @@
 	scl-gpios = <&gpio1 2 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio1 3 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
+
+	ts_supervisor: supervisor@54 {
+		compatible = "technologic,ts-supervisor-gen1";
+		reg = <0x54>;
+
+		ts_supervisor_adc: adc {
+			compatible = "technologic,ts7100-supervisor-adc";
+			#io-channel-cells = <1>;
+		};
+
+		reset {
+			compatible = "technologic,ts-supervisor-reset";
+			technologic,skip-micro-handler;
+		};
+
+		watchdog {
+			compatible = "technologic,ts-wdt";
+			/* Use the i.MX CPU watchdog by default on these boards. */
+			status = "disabled";
+		};
+
+		supercaps {
+			compatible = "technologic,ts7100-silo";
+		};
+	};
 
 	st_magn: magnetometer@1e {
 		compatible = "st,iis2mdc";

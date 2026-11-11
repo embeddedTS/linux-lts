@@ -2053,6 +2053,17 @@ config MFD_TC3589X
 	  additional drivers must be enabled in order to use the
 	  functionality of the device.
 
+config MFD_TS_SUPERVISOR
+	tristate "embeddedTS supervisory microcontroller"
+	depends on I2C
+	select MFD_CORE
+	select REGMAP_I2C
+	help
+	  Support the I2C supervisory controllers on TS-4100, TS-7100,
+	  TS-7180, TS-7400-V2, TS-7553-V2, TS-7670, TS-7680, TS-7970
+	  and TS-7990.
+	  Child devices are populated from the device tree.
+
 config MFD_TS_WIZARD
 	tristate "embeddedTS Wizard"
 	select MFD_CORE

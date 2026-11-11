@@ -58,11 +58,24 @@
 				"AD23_CL", "EN_DC_5V";
 		};
 
-		silabs: watchdog@78 {
-			compatible = "ts-wdt";
+		microcontroller@78 {
+			compatible = "technologic,ts-supervisor-gen0";
 			reg = <0x78>;
-			timeout-sec = <500>;
-			enable-early;
+
+			adc {
+				compatible = "technologic,ts7680-supervisor-adc";
+				#io-channel-cells = <1>;
+			};
+
+			reset {
+				compatible = "technologic,ts-supervisor-reset-gen0-timed";
+			};
+
+			watchdog {
+				compatible = "technologic,ts-wdt";
+				timeout-sec = <500>;
+				enable-early;
+			};
 		};
 
 		mma8451: accelerometer@1c {

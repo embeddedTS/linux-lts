@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/technologic,ts-supervisor-gen0.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: embeddedTS supervisor IP generation 0
+
+maintainers:
+  - Mark Featherston <mark@embeddedts.com>
+
+description: |
+  Generation 0 supervisor IP is used by the TS-4100, TS-7400-V2,
+  TS-7553-V2, TS-7670, TS-7680, TS-7970 and TS-7990. Its watchdog and
+  reset commands use the legacy I2C protocol. Optional child functions
+  are described by their own compatible strings.
+
+properties:
+  compatible:
+    const: technologic,ts-supervisor-gen0
+
+  reg:
+    maxItems: 1
+
+  adc:
+    type: object
+    additionalProperties: false
+    properties:
+      compatible:
+        enum:
+          - technologic,ts7553v2-supervisor-adc
+          - technologic,ts7680-supervisor-adc
+          - technologic,ts7970-supervisor-adc
+          - technologic,ts7990-supervisor-adc
+      '#io-channel-cells':
+        const: 1
+    required:
+      - compatible
+      - '#io-channel-cells'
+
+  reset:
+    type: object
+    additionalProperties: false
+    properties:
+      compatible:
+        enum:
+          - technologic,ts-supervisor-reset
+          - technologic,ts-supervisor-gen0-reset
+          - technologic,ts-supervisor-reset-gen0-timed
+      technologic,skip-micro-handler:
+        type: boolean
+        description: Do not use the supervisor as a system restart handler.
+    required:
+      - compatible
+
+  watchdog:
+    $ref: /schemas/watchdog/technologic,ts-wdt.yaml#
+
+  supercaps:
+    type: object
+    additionalProperties: false
+    properties:
+      compatible:
+        enum:
+          - technologic,ts4100-silo
+          - technologic,ts7553v2-silo
+      power-fail-gpios:
+        maxItems: 1
+    required:
+      - compatible
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        supervisor@2a {
+            compatible = "technologic,ts-supervisor-gen0";
+            reg = <0x2a>;
+            adc {
+                compatible = "technologic,ts7680-supervisor-adc";
+                #io-channel-cells = <1>;
+            };
+            reset {
+                compatible = "technologic,ts-supervisor-gen0-reset";
+            };
+            watchdog {
+                compatible = "technologic,ts-wdt";
+                timeout-sec = <500>;
+                enable-early;
+            };
+            supercaps {
+                compatible = "technologic,ts7553v2-silo";
+                power-fail-gpios = <&gpio5 0 GPIO_ACTIVE_HIGH>;
+            };
+        };
+    };
