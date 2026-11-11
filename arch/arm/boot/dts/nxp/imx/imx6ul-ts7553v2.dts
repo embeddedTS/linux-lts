@@ -309,7 +309,7 @@
 	status = "okay";
 
 	microcontroller@2a {
-		compatible = "technologic,ts7553v2-supervisor";
+		compatible = "technologic,ts-supervisor-gen0";
 		reg = <0x2a>;
 
 		adc {
@@ -318,7 +318,7 @@
 		};
 
 		reset {
-			compatible = "technologic,ts7553v2-supervisor-reset";
+			compatible = "technologic,ts-supervisor-reset";
 		};
 
 		watchdog {

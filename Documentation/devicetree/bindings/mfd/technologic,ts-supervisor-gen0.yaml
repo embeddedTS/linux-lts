@@ -1,22 +1,23 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/mfd/technologic,ts7100-supervisor.yaml#
+$id: http://devicetree.org/schemas/mfd/technologic,ts-supervisor-gen0.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: embeddedTS TS-7100 supervisory microcontroller
+title: embeddedTS supervisor IP generation 0
 
 maintainers:
   - Mark Featherston <mark@embeddedts.com>
 
 description: |
-  The microcontroller provides ADC readings and supercapacitor charging
-  controls. The TS-7180 firmware exposes channels 0 through 3 as raw ADC
-  readings; the TS-7100 firmware returns these channels in millivolts.
+  Generation 0 supervisor IP is used by the TS-4100, TS-7400-V2,
+  TS-7553-V2, TS-7670 and TS-7680. Its watchdog and reset commands use
+  the legacy I2C protocol. Optional child functions are described by
+  their own compatible strings.
 
 properties:
   compatible:
-    const: technologic,ts7100-supervisor
+    const: technologic,ts-supervisor-gen0
 
   reg:
     maxItems: 1
@@ -26,9 +27,7 @@ properties:
     additionalProperties: false
     properties:
       compatible:
-        enum:
-          - technologic,ts7100-supervisor-adc
-          - technologic,ts7180-supervisor-adc
+        const: technologic,ts7553v2-supervisor-adc
       '#io-channel-cells':
         const: 1
     required:
@@ -40,8 +39,8 @@ properties:
     additionalProperties: false
     properties:
       compatible:
-        const: technologic,ts7100-supervisor-reset
-      ts,skip-micro-handler:
+        const: technologic,ts-supervisor-reset
+      technologic,skip-micro-handler:
         type: boolean
         description: Do not use the supervisor as a system restart handler.
     required:
@@ -55,32 +54,37 @@ properties:
     additionalProperties: false
     properties:
       compatible:
-        const: technologic,ts7100-silo
+        enum:
+          - technologic,ts4100-silo
+          - technologic,ts7553v2-silo
+      power-fail-gpios:
+        maxItems: 1
     required:
       - compatible
 
 required:
   - compatible
   - reg
-  - adc
-  - supercaps
 
 additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/gpio/gpio.h>
     i2c {
         #address-cells = <1>;
         #size-cells = <0>;
-        microcontroller@54 {
-            compatible = "technologic,ts7100-supervisor";
-            reg = <0x54>;
-            adc {
-                compatible = "technologic,ts7100-supervisor-adc";
-                #io-channel-cells = <1>;
+        supervisor@2a {
+            compatible = "technologic,ts-supervisor-gen0";
+            reg = <0x2a>;
+            watchdog {
+                compatible = "technologic,ts-wdt";
+                timeout-sec = <500>;
+                enable-early;
             };
             supercaps {
-                compatible = "technologic,ts7100-silo";
+                compatible = "technologic,ts7553v2-silo";
+                power-fail-gpios = <&gpio5 0 GPIO_ACTIVE_HIGH>;
             };
         };
     };

@@ -18,9 +18,9 @@ static int ts_supervisor_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	struct regmap *regmap;
 
-	/* Gen 0 uses an unaddressed I2C snapshot, not the register map. */
-	if (!of_device_is_compatible(dev->of_node, "technologic,ts4100-supervisor") &&
-	    !of_device_is_compatible(dev->of_node, "technologic,ts7553v2-supervisor")) {
+	/* Gen 0 controllers do not use the register map. */
+	if (of_device_is_compatible(dev->of_node,
+				    "technologic,ts-supervisor-gen1")) {
 		regmap = devm_regmap_init_i2c(client, &ts_supervisor_regmap_config);
 		if (IS_ERR(regmap))
 			return dev_err_probe(dev, PTR_ERR(regmap),
@@ -31,9 +31,8 @@ static int ts_supervisor_probe(struct i2c_client *client)
 }
 
 static const struct of_device_id ts_supervisor_of_match[] = {
-	{ .compatible = "technologic,ts4100-supervisor" },
-	{ .compatible = "technologic,ts7100-supervisor" },
-	{ .compatible = "technologic,ts7553v2-supervisor" },
+	{ .compatible = "technologic,ts-supervisor-gen0" },
+	{ .compatible = "technologic,ts-supervisor-gen1" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ts_supervisor_of_match);

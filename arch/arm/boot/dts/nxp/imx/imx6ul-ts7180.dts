@@ -330,7 +330,7 @@
 	};
 
 	ts_supervisor: supervisor@54 {
-		compatible = "technologic,ts7100-supervisor";
+		compatible = "technologic,ts-supervisor-gen1";
 		reg = <0x54>;
 
 		ts_supervisor_adc: adc {
@@ -339,7 +339,7 @@
 		};
 
 		reset {
-			compatible = "technologic,ts7100-supervisor-reset";
+			compatible = "technologic,ts-supervisor-reset";
 			/* Preserve the supervisor's USB console across reboot. */
 			technologic,skip-micro-handler;
 		};
