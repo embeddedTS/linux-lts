@@ -1814,7 +1814,8 @@ config TS_SUPERVISOR_ADC
 	depends on MFD_TS_SUPERVISOR
 	help
 	  Expose supervisory controller ADC channels through the IIO
-	  subsystem on TS-7100, TS-7180, TS-7553-V2 and TS-7680 boards.
+	  subsystem on TS-7100, TS-7180, TS-7553-V2, TS-7680, TS-7970 and
+	  TS-7990 boards.
 	  Some channels are reported as raw converter counts and others as
 	  firmware-converted millivolts, depending on the controller firmware.
 
