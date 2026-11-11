@@ -10,65 +10,85 @@
 #define TS_SUPERVISOR_MAX_GEN1_SECONDS (U32_MAX / 100)
 #define TS_SUPERVISOR_MAX_GEN0_SECONDS 0xffffff
 #define TS_SUPERVISOR_MAX_SLEEP_SECONDS 1847297
-
-enum ts_supervisor_reset_mode {
-	TS_SUPERVISOR_RESET,
-	TS_SUPERVISOR_SLEEP,
-	TS_SUPERVISOR_STANDBY,
-};
+#define TS_SUPERVISOR_GEN0_SLEEP_COMMAND 0x41
+#define TS_SUPERVISOR_GEN1_COMMAND_ADDR 0x0400
+#define TS_SUPERVISOR_GEN1_CMD_SLEEP BIT(1)
+#define TS_SUPERVISOR_GEN1_TICKS_PER_SECOND 100
 
 struct ts_supervisor_reset {
 	struct i2c_client *client;
-	bool gen1;
-	enum ts_supervisor_reset_mode mode;
+	int (*power_cycle)(struct ts_supervisor_reset *reset, u32 seconds);
 };
 
-static int ts_supervisor_power_cycle(struct ts_supervisor_reset *reset, u32 seconds)
+static int ts_supervisor_power_cycle_gen1(struct ts_supervisor_reset *reset,
+					  u32 seconds)
 {
-	u8 command[7];
-	int len, ret;
+	u32 ticks;
+	u8 command[7] = { TS_SUPERVISOR_GEN1_COMMAND_ADDR >> 8,
+			  TS_SUPERVISOR_GEN1_COMMAND_ADDR & 0xff };
+	int ret;
 
-	if (!seconds || (reset->gen1 &&
-			 seconds > TS_SUPERVISOR_MAX_GEN1_SECONDS) ||
-	    (!reset->gen1 && reset->mode == TS_SUPERVISOR_SLEEP &&
-	     seconds > TS_SUPERVISOR_MAX_SLEEP_SECONDS) ||
-	    (!reset->gen1 && reset->mode != TS_SUPERVISOR_SLEEP &&
-	     seconds > TS_SUPERVISOR_MAX_GEN0_SECONDS))
+	if (!seconds || seconds > TS_SUPERVISOR_MAX_GEN1_SECONDS)
 		return -ERANGE;
 
-	if (reset->gen1) {
-		u32 ticks = seconds * 100;
+	ticks = seconds * TS_SUPERVISOR_GEN1_TICKS_PER_SECOND;
+	command[2] = ticks;
+	command[3] = ticks >> 8;
+	command[4] = ticks >> 16;
+	command[5] = ticks >> 24;
+	command[6] = TS_SUPERVISOR_GEN1_CMD_SLEEP;
 
-		command[0] = 0x04;
-		command[1] = 0x00;
-		command[2] = ticks;
-		command[3] = ticks >> 8;
-		command[4] = ticks >> 16;
-		command[5] = ticks >> 24;
-		command[6] = BIT(1);
-		len = 7;
-	} else if (reset->mode == TS_SUPERVISOR_SLEEP) {
-		command[0] = 0x41;
-		command[1] = seconds >> 16;
-		command[2] = seconds >> 8;
-		command[3] = seconds;
-		len = 4;
-	} else if (reset->mode == TS_SUPERVISOR_STANDBY) {
-		command[0] = 0x10;
-		command[1] = seconds >> 16;
-		command[2] = seconds >> 8;
-		command[3] = seconds;
-		len = 4;
-	} else {
-		command[0] = 0;
-		command[1] = seconds >> 16;
-		command[2] = seconds >> 8;
-		command[3] = seconds;
-		len = 4;
-	}
+	ret = i2c_master_send(reset->client, command, sizeof(command));
+	if (ret < 0)
+		return ret;
+	if (ret != sizeof(command))
+		return -EIO;
 
-	ret = i2c_master_send(reset->client, command, len);
-	return ret < 0 ? ret : ret == len ? 0 : -EIO;
+	return 0;
+}
+
+static int ts_supervisor_power_cycle_gen0(struct ts_supervisor_reset *reset,
+					  u32 seconds)
+{
+	u8 command[4] = { 0, seconds >> 16, seconds >> 8, seconds };
+	int ret;
+
+	if (!seconds || seconds > TS_SUPERVISOR_MAX_GEN0_SECONDS)
+		return -ERANGE;
+
+	ret = i2c_master_send(reset->client, command, sizeof(command));
+	return ret < 0 ? ret : ret == sizeof(command) ? 0 : -EIO;
+}
+
+static int ts_supervisor_power_cycle_mxs_gen0(struct ts_supervisor_reset *reset,
+					      u32 seconds)
+{
+	u8 command[4] = { 0x41, seconds >> 16, seconds >> 8, seconds };
+	int ret;
+
+	if (!seconds || seconds > TS_SUPERVISOR_MAX_SLEEP_SECONDS)
+		return -ERANGE;
+
+	ret = i2c_master_send(reset->client, command, sizeof(command));
+	return ret < 0 ? ret : ret == sizeof(command) ? 0 : -EIO;
+}
+
+static int ts_supervisor_power_cycle_ts7680(struct ts_supervisor_reset *reset,
+					    u32 seconds)
+{
+	u8 command[4] = { 0x10, seconds >> 16, seconds >> 8, seconds };
+	int ret;
+
+	if (!seconds || seconds > TS_SUPERVISOR_MAX_GEN0_SECONDS)
+		return -ERANGE;
+
+	ret = i2c_master_send(reset->client, command, sizeof(command));
+	if (ret < 0)
+		return ret;
+	if (ret != sizeof(command))
+		return -EIO;
+
+	return 0;
 }
 
 static ssize_t power_cycle_seconds_store(struct device *dev,
@@ -82,7 +102,7 @@ static ssize_t power_cycle_seconds_store(struct device *dev,
 	ret = kstrtouint(buf, 10, &seconds);
 	if (ret)
 		return ret;
-	ret = ts_supervisor_power_cycle(reset, seconds);
+	ret = reset->power_cycle(reset, seconds);
 	return ret ? ret : count;
 }
 static DEVICE_ATTR_WO(power_cycle_seconds);
@@ -101,7 +121,7 @@ static int ts_supervisor_restart(struct sys_off_data *data)
 	int ret;
 
 	dev_info(data->dev, "requesting supervisor restart\n");
-	ret = ts_supervisor_power_cycle(reset, 1);
+	ret = reset->power_cycle(reset, 1);
 	if (ret)
 		dev_err(data->dev, "failed to request restart: %d\n", ret);
 	else
@@ -122,16 +142,17 @@ static int ts_supervisor_reset_probe(struct platform_device *pdev)
 	if (!reset)
 		return -ENOMEM;
 	reset->client = to_i2c_client(dev->parent);
-	reset->gen1 = of_device_is_compatible(dev->parent->of_node,
-					      "technologic,ts-supervisor-gen1");
 	if (of_device_is_compatible(dev->of_node,
-				    "technologic,ts-supervisor-sleep"))
-		reset->mode = TS_SUPERVISOR_SLEEP;
+				    "technologic,ts-supervisor-gen0-reset"))
+		reset->power_cycle = ts_supervisor_power_cycle_mxs_gen0;
 	else if (of_device_is_compatible(dev->of_node,
-					 "technologic,ts-supervisor-standby"))
-		reset->mode = TS_SUPERVISOR_STANDBY;
+					 "technologic,ts7680-supervisor-reset"))
+		reset->power_cycle = ts_supervisor_power_cycle_ts7680;
+	else if (of_device_is_compatible(dev->parent->of_node,
+					 "technologic,ts-supervisor-gen1"))
+		reset->power_cycle = ts_supervisor_power_cycle_gen1;
 	else
-		reset->mode = TS_SUPERVISOR_RESET;
+		reset->power_cycle = ts_supervisor_power_cycle_gen0;
 	platform_set_drvdata(pdev, reset);
 	ret = devm_device_add_group(dev, &ts_supervisor_reset_group);
 	if (ret)
@@ -147,8 +168,8 @@ static int ts_supervisor_reset_probe(struct platform_device *pdev)
 
 static const struct of_device_id ts_supervisor_reset_match[] = {
 	{ .compatible = "technologic,ts-supervisor-reset" },
-	{ .compatible = "technologic,ts-supervisor-sleep" },
-	{ .compatible = "technologic,ts-supervisor-standby" },
+	{ .compatible = "technologic,ts-supervisor-gen0-reset" },
+	{ .compatible = "technologic,ts7680-supervisor-reset" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ts_supervisor_reset_match);

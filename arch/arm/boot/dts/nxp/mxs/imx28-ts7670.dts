@@ -52,8 +52,8 @@
 			compatible = "technologic,ts-supervisor-gen0";
 			reg = <0x78>;
 
-			sleep {
-				compatible = "technologic,ts-supervisor-sleep";
+			reset {
+				compatible = "technologic,ts-supervisor-gen0-reset";
 			};
 
 			watchdog {
