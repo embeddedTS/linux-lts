@@ -46,6 +46,24 @@ properties:
     required:
       - compatible
 
+  sleep:
+    type: object
+    additionalProperties: false
+    properties:
+      compatible:
+        const: technologic,ts-supervisor-sleep
+    required:
+      - compatible
+
+  standby:
+    type: object
+    additionalProperties: false
+    properties:
+      compatible:
+        const: technologic,ts-supervisor-standby
+    required:
+      - compatible
+
   watchdog:
     $ref: /schemas/watchdog/technologic,ts-wdt.yaml#
 
@@ -77,6 +95,9 @@ examples:
         supervisor@2a {
             compatible = "technologic,ts-supervisor-gen0";
             reg = <0x2a>;
+            sleep {
+                compatible = "technologic,ts-supervisor-sleep";
+            };
             watchdog {
                 compatible = "technologic,ts-wdt";
                 timeout-sec = <500>;

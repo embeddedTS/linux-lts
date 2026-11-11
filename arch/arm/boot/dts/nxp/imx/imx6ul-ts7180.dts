@@ -346,7 +346,6 @@
 
 		watchdog {
 			compatible = "technologic,ts-wdt";
-			technologic,skip-micro-handler;
 			/* Use the i.MX CPU watchdog by default on these boards. */
 			status = "disabled";
 		};
