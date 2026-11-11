@@ -98,18 +98,6 @@ static int ts_wdt_stop(struct watchdog_device *wdd)
 	return ts_wdt_write(ts_wdt, ts_wdt->gen1 ? 0 : 3);
 }
 
-static int ts_wdt_restart(struct watchdog_device *wdd,
-			unsigned long a, void *b)
-{
-	struct ts_wdt *ts_wdt = watchdog_get_drvdata(wdd);
-
-	ts_wdt_write(ts_wdt, ts_wdt->gen1 ? 10 : 0);
-	while (1)
-		;
-
-	return 0;
-}
-
 static void ts_wdt_poweroff(void)
 {
 	struct ts_wdt *ts_wdt = ts_wdt_poweroff_data;
@@ -166,7 +154,6 @@ static struct watchdog_ops ts_wdt_ops = {
 	.start		= ts_wdt_start,
 	.stop		= ts_wdt_stop,
 	.set_timeout	= ts_set_timeout,
-	.restart	= ts_wdt_restart,
 };
 
 static int ts_wdt_probe(struct platform_device *pdev)
@@ -176,7 +163,6 @@ static int ts_wdt_probe(struct platform_device *pdev)
 	struct ts_wdt *ts_wdt;
 	bool enable_early = false;
 	struct watchdog_device *wdd;
-	bool skip_micro_handler;
 	int err;
 
 	ts_wdt = devm_kzalloc(dev, sizeof(*ts_wdt), GFP_KERNEL);
@@ -197,16 +183,8 @@ static int ts_wdt_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(dev->of_node, "enable-early"))
 		enable_early = true;
-	skip_micro_handler =
-		of_property_read_bool(dev->of_node,
-				      "technologic,skip-micro-handler");
-
 	watchdog_set_nowayout(wdd, nowayout);
 	watchdog_set_drvdata(wdd, ts_wdt);
-
-	/* We want this handler to be the first priority handler for reboots */
-	if (!skip_micro_handler)
-		watchdog_set_restart_priority(wdd, 255);
 
 	/*
 	 * On supported platforms either:

@@ -9,10 +9,18 @@
 
 #define TS_SUPERVISOR_MAX_GEN1_SECONDS (U32_MAX / 100)
 #define TS_SUPERVISOR_MAX_GEN0_SECONDS 0xffffff
+#define TS_SUPERVISOR_MAX_SLEEP_SECONDS 1847297
+
+enum ts_supervisor_reset_mode {
+	TS_SUPERVISOR_RESET,
+	TS_SUPERVISOR_SLEEP,
+	TS_SUPERVISOR_STANDBY,
+};
 
 struct ts_supervisor_reset {
 	struct i2c_client *client;
 	bool gen1;
+	enum ts_supervisor_reset_mode mode;
 };
 
 static int ts_supervisor_power_cycle(struct ts_supervisor_reset *reset, u32 seconds)
@@ -20,8 +28,12 @@ static int ts_supervisor_power_cycle(struct ts_supervisor_reset *reset, u32 seco
 	u8 command[7];
 	int len, ret;
 
-	if (!seconds || seconds > (reset->gen1 ? TS_SUPERVISOR_MAX_GEN1_SECONDS :
-						TS_SUPERVISOR_MAX_GEN0_SECONDS))
+	if (!seconds || (reset->gen1 &&
+			 seconds > TS_SUPERVISOR_MAX_GEN1_SECONDS) ||
+	    (!reset->gen1 && reset->mode == TS_SUPERVISOR_SLEEP &&
+	     seconds > TS_SUPERVISOR_MAX_SLEEP_SECONDS) ||
+	    (!reset->gen1 && reset->mode != TS_SUPERVISOR_SLEEP &&
+	     seconds > TS_SUPERVISOR_MAX_GEN0_SECONDS))
 		return -ERANGE;
 
 	if (reset->gen1) {
@@ -35,6 +47,18 @@ static int ts_supervisor_power_cycle(struct ts_supervisor_reset *reset, u32 seco
 		command[5] = ticks >> 24;
 		command[6] = BIT(1);
 		len = 7;
+	} else if (reset->mode == TS_SUPERVISOR_SLEEP) {
+		command[0] = 0x41;
+		command[1] = seconds >> 16;
+		command[2] = seconds >> 8;
+		command[3] = seconds;
+		len = 4;
+	} else if (reset->mode == TS_SUPERVISOR_STANDBY) {
+		command[0] = 0x10;
+		command[1] = seconds >> 16;
+		command[2] = seconds >> 8;
+		command[3] = seconds;
+		len = 4;
 	} else {
 		command[0] = 0;
 		command[1] = seconds >> 16;
@@ -100,6 +124,14 @@ static int ts_supervisor_reset_probe(struct platform_device *pdev)
 	reset->client = to_i2c_client(dev->parent);
 	reset->gen1 = of_device_is_compatible(dev->parent->of_node,
 					      "technologic,ts-supervisor-gen1");
+	if (of_device_is_compatible(dev->of_node,
+				    "technologic,ts-supervisor-sleep"))
+		reset->mode = TS_SUPERVISOR_SLEEP;
+	else if (of_device_is_compatible(dev->of_node,
+					 "technologic,ts-supervisor-standby"))
+		reset->mode = TS_SUPERVISOR_STANDBY;
+	else
+		reset->mode = TS_SUPERVISOR_RESET;
 	platform_set_drvdata(pdev, reset);
 	ret = devm_device_add_group(dev, &ts_supervisor_reset_group);
 	if (ret)
@@ -115,6 +147,8 @@ static int ts_supervisor_reset_probe(struct platform_device *pdev)
 
 static const struct of_device_id ts_supervisor_reset_match[] = {
 	{ .compatible = "technologic,ts-supervisor-reset" },
+	{ .compatible = "technologic,ts-supervisor-sleep" },
+	{ .compatible = "technologic,ts-supervisor-standby" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ts_supervisor_reset_match);

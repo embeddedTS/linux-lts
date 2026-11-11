@@ -217,7 +217,6 @@
 			compatible = "technologic,ts-wdt";
 			timeout-sec = <500>;
 			enable-early;
-			technologic,skip-micro-handler;
 			/* The CPU watchdog is used by default on the TS-4100. */
 			status = "disabled";
 		};

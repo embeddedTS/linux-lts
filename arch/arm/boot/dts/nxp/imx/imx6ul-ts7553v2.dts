@@ -323,7 +323,6 @@
 
 		watchdog {
 			compatible = "technologic,ts-wdt";
-			technologic,skip-micro-handler;
 		};
 
 		supercaps {

@@ -26,10 +26,6 @@ properties:
 
   status: true
 
-  technologic,skip-micro-handler:
-    type: boolean
-    description: Do not use the watchdog as a system restart handler.
-
 required:
   - compatible
 

@@ -62,6 +62,10 @@
 			compatible = "technologic,ts-supervisor-gen0";
 			reg = <0x78>;
 
+			standby {
+				compatible = "technologic,ts-supervisor-standby";
+			};
+
 			watchdog {
 				compatible = "technologic,ts-wdt";
 				timeout-sec = <500>;
