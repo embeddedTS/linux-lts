@@ -27,7 +27,9 @@ properties:
     additionalProperties: false
     properties:
       compatible:
-        const: technologic,ts7553v2-supervisor-adc
+        enum:
+          - technologic,ts7553v2-supervisor-adc
+          - technologic,ts7680-supervisor-adc
       '#io-channel-cells':
         const: 1
     required:
@@ -80,6 +82,10 @@ examples:
         supervisor@2a {
             compatible = "technologic,ts-supervisor-gen0";
             reg = <0x2a>;
+            adc {
+                compatible = "technologic,ts7680-supervisor-adc";
+                #io-channel-cells = <1>;
+            };
             reset {
                 compatible = "technologic,ts-supervisor-gen0-reset";
             };

@@ -62,6 +62,11 @@
 			compatible = "technologic,ts-supervisor-gen0";
 			reg = <0x78>;
 
+			adc {
+				compatible = "technologic,ts7680-supervisor-adc";
+				#io-channel-cells = <1>;
+			};
+
 			reset {
 				compatible = "technologic,ts7680-supervisor-reset";
 			};
