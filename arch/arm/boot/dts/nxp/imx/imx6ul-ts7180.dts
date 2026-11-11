@@ -340,7 +340,6 @@
 
 		reset {
 			compatible = "technologic,ts-supervisor-reset";
-			/* Preserve the supervisor's USB console across reboot. */
 			technologic,skip-micro-handler;
 		};
 
