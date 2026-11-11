@@ -63,8 +63,8 @@ static int ts_supervisor_power_cycle_mxs_gen0(struct ts_supervisor_reset *reset,
 	return ret < 0 ? ret : ret == sizeof(command) ? 0 : -EIO;
 }
 
-static int ts_supervisor_power_cycle_ts7680(struct ts_supervisor_reset *reset,
-					    u32 seconds)
+static int ts_supervisor_power_cycle_gen0_timed(struct ts_supervisor_reset *reset,
+						u32 seconds)
 {
 	u8 command[4] = { 0x10, seconds >> 16, seconds >> 8, seconds };
 	int ret;
@@ -96,6 +96,7 @@ static struct attribute *ts_supervisor_reset_attrs[] = {
 	&dev_attr_power_cycle_seconds.attr,
 	NULL,
 };
+
 static const struct attribute_group ts_supervisor_reset_group = {
 	.attrs = ts_supervisor_reset_attrs,
 };
@@ -131,8 +132,8 @@ static int ts_supervisor_reset_probe(struct platform_device *pdev)
 				    "technologic,ts-supervisor-gen0-reset"))
 		reset->power_cycle = ts_supervisor_power_cycle_mxs_gen0;
 	else if (of_device_is_compatible(dev->of_node,
-					 "technologic,ts7680-supervisor-reset"))
-		reset->power_cycle = ts_supervisor_power_cycle_ts7680;
+					 "technologic,ts-supervisor-reset-gen0-timed"))
+		reset->power_cycle = ts_supervisor_power_cycle_gen0_timed;
 	else if (of_device_is_compatible(dev->parent->of_node,
 					 "technologic,ts-supervisor-gen1"))
 		reset->power_cycle = ts_supervisor_power_cycle_gen1;
@@ -154,7 +155,7 @@ static int ts_supervisor_reset_probe(struct platform_device *pdev)
 static const struct of_device_id ts_supervisor_reset_match[] = {
 	{ .compatible = "technologic,ts-supervisor-reset" },
 	{ .compatible = "technologic,ts-supervisor-gen0-reset" },
-	{ .compatible = "technologic,ts7680-supervisor-reset" },
+	{ .compatible = "technologic,ts-supervisor-reset-gen0-timed" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ts_supervisor_reset_match);
