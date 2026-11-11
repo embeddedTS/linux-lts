@@ -248,6 +248,20 @@
 	sda-gpios = <&gpio3 28 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
 
+	supervisor@10 {
+		compatible = "technologic,ts-supervisor-gen0";
+		reg = <0x10>;
+
+		adc {
+			compatible = "technologic,ts7970-supervisor-adc";
+			#io-channel-cells = <1>;
+		};
+
+		reset {
+			compatible = "technologic,ts-supervisor-reset";
+		};
+	};
+
 	m41t00s: rtc@68 {
 		compatible = "st,m41t00";
 		reg = <0x68>;
