@@ -1813,10 +1813,10 @@ config TS_SUPERVISOR_ADC
 	tristate "embeddedTS supervisory controller ADC"
 	depends on MFD_TS_SUPERVISOR
 	help
-	  Expose the supervisory controller voltage channels on TS-7100
-	  and TS-7180 boards through the IIO subsystem. Some channels are
-	  reported as raw converter counts and others as firmware-converted
-	  millivolts, depending on the controller firmware.
+	  Expose supervisory controller ADC channels through the IIO
+	  subsystem on TS-7100, TS-7180, TS-7553-V2 and TS-7680 boards.
+	  Some channels are reported as raw converter counts and others as
+	  firmware-converted millivolts, depending on the controller firmware.
 
 
 
