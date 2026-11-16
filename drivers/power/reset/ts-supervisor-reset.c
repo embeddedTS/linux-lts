@@ -76,7 +76,8 @@ static int ts_supervisor_power_cycle_mxs_gen0(struct ts_supervisor_reset *reset,
 static int ts_supervisor_power_cycle_gen0_timed(struct ts_supervisor_reset *reset,
 						u32 seconds)
 {
-	u8 command[4] = { 0x10, seconds >> 16, seconds >> 8, seconds };
+	u8 command[4] = { TS_SUPERVISOR_GEN0_SLEEP_FLAGS,
+			  seconds >> 16, seconds >> 8, seconds };
 	int ret;
 
 	if (!seconds || seconds > TS_SUPERVISOR_MAX_GEN0_SECONDS)
