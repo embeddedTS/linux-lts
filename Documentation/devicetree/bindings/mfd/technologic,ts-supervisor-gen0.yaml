@@ -44,13 +44,16 @@ properties:
     additionalProperties: false
     properties:
       compatible:
-        enum:
-          - technologic,ts-supervisor-reset
-          - technologic,ts-supervisor-gen0-reset
-          - technologic,ts-supervisor-reset-gen0-timed
+        const: technologic,ts-supervisor-gen0-reset
       technologic,skip-micro-handler:
         type: boolean
         description: Do not use the supervisor as a system restart handler.
+      technologic,pushsw-wake-supported:
+        type: boolean
+        description: |
+          The supervisor firmware supports controlling whether the active-low
+          push switch wakes the system from a timed power cycle. When present,
+          the reset driver exposes the pushsw_wake_en sysfs attribute.
     required:
       - compatible
 

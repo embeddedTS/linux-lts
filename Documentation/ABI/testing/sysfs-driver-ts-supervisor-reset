@@ -9,3 +9,12 @@ Description:
 		seconds for generation 1 controllers and 16777215 seconds for
 		generation 0 controllers.
 		Actual off time depends on the controller's low-power clock.
+
+What: 		/sys/bus/platform/devices/.../pushsw_wake_en
+Date: 		November 2026
+Contact: 	Mark Featherston <mark@embeddedts.com>
+Description:
+		Read or write 1 to enable the active-low push switch to wake the
+		system during a timed power cycle, or 0 to disable it. The default
+		is 1. This file is present only on boards whose supervisor firmware
+		supports this setting. It affects the next reset or timed power cycle.
