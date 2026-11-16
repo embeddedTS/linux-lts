@@ -34,7 +34,7 @@ struct ts_supervisor_adc_chip {
 	bool gen0;
 	bool little_endian;
 	u16 sample_mask;
-	bool silabs_temperature;
+	bool micro_temperature;
 };
 
 #define TS_SUPERVISOR_CHAN(n) { \
@@ -206,7 +206,6 @@ static const struct ts_supervisor_adc_channel ts7970_channels[] = {
 	[9] = TS_SUPERVISOR_GEN0_CHAN("3.1V", 18),
 	[10] = TS_SUPERVISOR_GEN0_CHAN("DDR_1.5V", 20),
 	[11] = TS_SUPERVISOR_GEN0_CHAN("1.8V", 22),
-	[12] = TS_SUPERVISOR_GEN0_CHAN("FPGA_1.2V", 24),
 	[13] = TS_SUPERVISOR_GEN0_CHAN("RAM_VREF", 26),
 	[14] = TS_SUPERVISOR_GEN0_CHAN("3.3V", 28),
 };
@@ -258,7 +257,7 @@ static const struct iio_chan_spec ts7970_iio_channels[] = {
 	TS_SUPERVISOR_RAW_CURRENT_CHAN(6), TS_SUPERVISOR_CHAN(7),
 	TS_SUPERVISOR_CHAN(8), TS_SUPERVISOR_CHAN(9),
 	TS_SUPERVISOR_CHAN(10), TS_SUPERVISOR_CHAN(11),
-	TS_SUPERVISOR_CHAN(12), TS_SUPERVISOR_CHAN(13),
+	TS_SUPERVISOR_CHAN(13),
 	TS_SUPERVISOR_CHAN(14),
 };
 
@@ -288,7 +287,7 @@ static const struct ts_supervisor_adc_chip ts7800v2_chip = {
 	.num_channels = ARRAY_SIZE(ts7800v2_iio_channels),
 	.little_endian = true,
 	.sample_mask = GENMASK(9, 0),
-	.silabs_temperature = true,
+	.micro_temperature = true,
 };
 
 static const struct ts_supervisor_adc_chip ts7553v2_chip = {
@@ -405,7 +404,7 @@ static int ts_supervisor_adc_read(struct iio_dev *indio,
 		ret = ts_supervisor_adc_read_sample(adc, channel, &sample);
 		if (ret)
 			return ret;
-		if (adc->chip->silabs_temperature) {
+		if (adc->chip->micro_temperature) {
 			s64 temp = (s64)sample * 160156 - (764LL << 16);
 
 			*val = div_s64(temp * 1000, 188088);
@@ -450,9 +449,9 @@ static int ts_supervisor_adc_probe(struct platform_device *pdev)
 	adc->chip = device_get_match_data(dev);
 	if (!adc->chip)
 		return -EINVAL;
-	if (adc->chip->gen0) {
+	if (adc->chip->gen0)
 		adc->client = to_i2c_client(dev->parent);
-	} else {
+	else {
 		adc->regmap = dev_get_regmap(dev->parent, NULL);
 		if (!adc->regmap)
 			return -ENODEV;
