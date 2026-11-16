@@ -12,6 +12,63 @@
 	model = "embeddedTS i.MX6UL TS-7553-V2";
 	compatible = "technologic,ts7553v2", "fsl,imx6ul";
 
+	adc_supercap: voltage-divider-supercap {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 1>;
+		output-ohms = <1>;
+		full-ohms = <2>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_4v7: voltage-divider-4v7 {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 2>;
+		output-ohms = <1>;
+		full-ohms = <2>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_vin: voltage-divider-vin {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 3>;
+		output-ohms = <172>;
+		full-ohms = <2082>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_5v: voltage-divider-5v {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 4>;
+		output-ohms = <422>;
+		full-ohms = <958>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_3v3: voltage-divider-3v3 {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 5>;
+		output-ohms = <1>;
+		full-ohms = <2>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_charge: voltage-divider-charge {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 8>;
+		output-ohms = <1>;
+		full-ohms = <2>;
+		#io-channel-cells = <1>;
+	};
+
+	supervisor-adcs {
+		compatible = "iio-hwmon";
+		io-channels = <&ts_supervisor_adc 0>, <&adc_supercap 0>,
+			      <&adc_4v7 0>, <&adc_vin 0>, <&adc_5v 0>,
+			      <&adc_3v3 0>, <&ts_supervisor_adc 6>,
+			      <&ts_supervisor_adc 7>, <&adc_charge 0>,
+			      <&ts_supervisor_adc 9>, <&ts_supervisor_adc 10>;
+	};
+
 	chosen {
 		stdout-path = &uart1;
 	};
@@ -312,7 +369,7 @@
 		compatible = "technologic,ts-supervisor-gen0";
 		reg = <0x2a>;
 
-		adc {
+		ts_supervisor_adc: adc {
 			compatible = "technologic,ts7553v2-supervisor-adc";
 			#io-channel-cells = <1>;
 		};
