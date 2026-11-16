@@ -358,10 +358,23 @@
 	clock-frequency = <100000>;
 	status = "okay";
 
-	silabs_wdt: watchdog@54 {
-		compatible = "technologic,ts7100-wdt";
+	ts_supervisor: supervisor@54 {
+		compatible = "technologic,ts-supervisor-gen1";
 		reg = <0x54>;
-		enable-early;
+
+		adc {
+			compatible = "technologic,ts7800v2-supervisor-adc";
+			#io-channel-cells = <1>;
+		};
+
+		reset {
+			compatible = "technologic,ts-supervisor-reset";
+		};
+
+		watchdog {
+			compatible = "technologic,ts-wdt";
+			enable-early;
+		};
 	};
 
 	m41t00s: rtc@68 {
