@@ -10,8 +10,10 @@ maintainers:
   - Mark Featherston <mark@embeddedts.com>
 
 description: |
-  Generation 1 supervisor IP is used by the TS-7100 and TS-7180. It provides
-  ADC, supercapacitor, reset and watchdog functions over an I2C register map.
+  Generation 1 supervisor IP is used by the TS-7100, TS-7180 and TS-7800-V2.
+  It provides ADC, reset and watchdog functions over an I2C register map.
+  Supercapacitor support is present only on products that describe a supercaps
+  child node.
 
 properties:
   compatible:
@@ -28,6 +30,7 @@ properties:
         enum:
           - technologic,ts7100-supervisor-adc
           - technologic,ts7180-supervisor-adc
+          - technologic,ts7800v2-supervisor-adc
       '#io-channel-cells':
         const: 1
     required:
@@ -62,7 +65,6 @@ required:
   - compatible
   - reg
   - adc
-  - supercaps
 
 additionalProperties: false
 
