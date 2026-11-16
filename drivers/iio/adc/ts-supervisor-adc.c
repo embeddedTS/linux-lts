@@ -31,6 +31,7 @@ struct ts_supervisor_adc_chip {
 	unsigned int num_channels;
 	unsigned int snapshot_size;
 	bool gen0;
+	bool little_endian;
 };
 
 #define TS_SUPERVISOR_CHAN(n) { \
@@ -99,6 +100,36 @@ static const struct ts_supervisor_adc_channel ts7180_channels[] = {
 	[7] = TS_SUPERVISOR_MV_CHANNEL(7, "SUP_CAP_1"),
 	[8] = TS_SUPERVISOR_MV_CHANNEL(8, "SUP_CAP_2"),
 	[10] = TS_SUPERVISOR_TEMP_CHANNEL(10, "TEMP"),
+};
+
+#define TS7800V2_RAW_CHANNEL(n) { \
+	.label = "ADC_" #n, .reg = (n) * 2, .raw_format = IIO_VAL_INT, \
+}
+
+static const struct iio_chan_spec ts7800v2_iio_channels[] = {
+	TS_SUPERVISOR_RAW_ONLY_CHAN(0), TS_SUPERVISOR_RAW_ONLY_CHAN(1),
+	TS_SUPERVISOR_RAW_ONLY_CHAN(2), TS_SUPERVISOR_RAW_ONLY_CHAN(3),
+	TS_SUPERVISOR_RAW_ONLY_CHAN(4), TS_SUPERVISOR_RAW_ONLY_CHAN(5),
+	TS_SUPERVISOR_RAW_ONLY_CHAN(6), TS_SUPERVISOR_RAW_ONLY_CHAN(7),
+	TS_SUPERVISOR_RAW_ONLY_CHAN(8), TS_SUPERVISOR_RAW_ONLY_CHAN(9),
+	TS_SUPERVISOR_RAW_ONLY_CHAN(10), TS_SUPERVISOR_RAW_ONLY_CHAN(11),
+	TS_SUPERVISOR_RAW_ONLY_CHAN(12),
+};
+
+static const struct ts_supervisor_adc_channel ts7800v2_channels[] = {
+	[0] = TS7800V2_RAW_CHANNEL(0),
+	[1] = TS7800V2_RAW_CHANNEL(1),
+	[2] = TS7800V2_RAW_CHANNEL(2),
+	[3] = TS7800V2_RAW_CHANNEL(3),
+	[4] = TS7800V2_RAW_CHANNEL(4),
+	[5] = TS7800V2_RAW_CHANNEL(5),
+	[6] = TS7800V2_RAW_CHANNEL(6),
+	[7] = TS7800V2_RAW_CHANNEL(7),
+	[8] = TS7800V2_RAW_CHANNEL(8),
+	[9] = TS7800V2_RAW_CHANNEL(9),
+	[10] = TS7800V2_RAW_CHANNEL(10),
+	[11] = TS7800V2_RAW_CHANNEL(11),
+	[12] = TS7800V2_RAW_CHANNEL(12),
 };
 
 #define TS_SUPERVISOR_GEN0_CHAN(name, offset, factor) { \
@@ -231,6 +262,13 @@ static const struct ts_supervisor_adc_chip ts7180_chip = {
 	.num_channels = ARRAY_SIZE(ts_supervisor_channels),
 };
 
+static const struct ts_supervisor_adc_chip ts7800v2_chip = {
+	.channels = ts7800v2_channels,
+	.iio_channels = ts7800v2_iio_channels,
+	.num_channels = ARRAY_SIZE(ts7800v2_iio_channels),
+	.little_endian = true,
+};
+
 static const struct ts_supervisor_adc_chip ts7553v2_chip = {
 	.channels = ts7553v2_channels,
 	.iio_channels = ts7553v2_iio_channels,
@@ -309,8 +347,12 @@ static int ts_supervisor_adc_read_sample(struct ts_supervisor_adc *adc,
 	if (adc->chip->gen0)
 		*sample = (data[channel->reg] << 8) |
 			data[channel->reg + 1];
+	else if (adc->chip->little_endian)
+		*sample = (data[1] << 8) | data[0];
 	else
 		*sample = (data[0] << 8) | data[1];
+	if (adc->chip->little_endian && *sample == U16_MAX)
+		return -EAGAIN;
 	return 0;
 }
 
@@ -391,6 +433,7 @@ static const struct of_device_id ts_supervisor_adc_match[] = {
 	{ .compatible = "technologic,ts7180-supervisor-adc", .data = &ts7180_chip },
 	{ .compatible = "technologic,ts7553v2-supervisor-adc", .data = &ts7553v2_chip },
 	{ .compatible = "technologic,ts7680-supervisor-adc", .data = &ts7680_chip },
+	{ .compatible = "technologic,ts7800v2-supervisor-adc", .data = &ts7800v2_chip },
 	{ .compatible = "technologic,ts7970-supervisor-adc", .data = &ts7970_chip },
 	{ .compatible = "technologic,ts7990-supervisor-adc", .data = &ts7990_chip },
 	{ }
