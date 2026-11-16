@@ -319,7 +319,8 @@
 		};
 
 		reset {
-			compatible = "technologic,ts-supervisor-reset-gen0-timed";
+			compatible = "technologic,ts-supervisor-gen0-reset";
+			technologic,pushsw-wake-supported;
 		};
 	};
 
