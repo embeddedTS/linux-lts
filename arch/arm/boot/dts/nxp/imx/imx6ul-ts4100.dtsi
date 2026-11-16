@@ -8,6 +8,63 @@
 #include "imx6ul.dtsi"
 
 / {
+	adc_supercap2: voltage-divider-supercap2 {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 1>;
+		output-ohms = <1>;
+		full-ohms = <2>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_4v7: voltage-divider-4v7 {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 2>;
+		output-ohms = <1>;
+		full-ohms = <2>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_5v: voltage-divider-5v {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 3>;
+		output-ohms = <422>;
+		full-ohms = <958>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_usb5v: voltage-divider-usb5v {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 4>;
+		output-ohms = <422>;
+		full-ohms = <958>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_3v3: voltage-divider-3v3 {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 5>;
+		output-ohms = <1>;
+		full-ohms = <2>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_charge: voltage-divider-charge {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 10>;
+		output-ohms = <1>;
+		full-ohms = <2>;
+		#io-channel-cells = <1>;
+	};
+
+	supervisor-adcs {
+		compatible = "iio-hwmon";
+		io-channels = <&ts_supervisor_adc 0>, <&adc_supercap2 0>,
+			      <&adc_4v7 0>, <&adc_5v 0>, <&adc_usb5v 0>,
+			      <&adc_3v3 0>, <&ts_supervisor_adc 6>,
+			      <&ts_supervisor_adc 9>, <&adc_charge 0>,
+			      <&ts_supervisor_adc 11>, <&ts_supervisor_adc 12>;
+	};
+
 	aliases {
 		ethernet0 = &fec2;
 		ethernet1 = &fec1;
@@ -208,6 +265,11 @@
 	microcontroller@4a {
 		compatible = "technologic,ts-supervisor-gen0";
 		reg = <0x4a>;
+
+		ts_supervisor_adc: adc {
+			compatible = "technologic,ts4100-supervisor-adc";
+			#io-channel-cells = <1>;
+		};
 
 		reset {
 			compatible = "technologic,ts-supervisor-reset";
