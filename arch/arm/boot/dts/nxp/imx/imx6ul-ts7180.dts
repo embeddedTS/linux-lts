@@ -17,7 +17,7 @@
 		io-channels = <&ts_supervisor_adc 0>;
 		output-ohms = <42200>;
 		full-ohms = <95800>;
-		#io-channel-cells = <0>;
+		#io-channel-cells = <1>;
 	};
 
 	adc_charge: voltage-divider-charge {
@@ -25,7 +25,7 @@
 		io-channels = <&ts_supervisor_adc 1>;
 		output-ohms = <14700>;
 		full-ohms = <34700>;
-		#io-channel-cells = <0>;
+		#io-channel-cells = <1>;
 	};
 
 	adc_3v3: voltage-divider-3v3 {
@@ -33,7 +33,7 @@
 		io-channels = <&ts_supervisor_adc 2>;
 		output-ohms = <42200>;
 		full-ohms = <84400>;
-		#io-channel-cells = <0>;
+		#io-channel-cells = <1>;
 	};
 
 	adc_vin: voltage-divider-vin {
@@ -41,7 +41,14 @@
 		io-channels = <&ts_supervisor_adc 3>;
 		output-ohms = <10700>;
 		full-ohms = <201700>;
-		#io-channel-cells = <0>;
+		#io-channel-cells = <1>;
+	};
+
+	supervisor-adcs {
+		compatible = "iio-hwmon";
+		io-channels = <&adc_5v 0>, <&adc_charge 0>, <&adc_3v3 0>,
+			      <&adc_vin 0>, <&ts_supervisor_adc 7>,
+			      <&ts_supervisor_adc 8>;
 	};
 
 	aliases {
