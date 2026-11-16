@@ -365,8 +365,10 @@ static int ts_supervisor_adc_read_sample(struct ts_supervisor_adc *adc,
 	if (adc->chip->gen0) {
 		ret = i2c_master_recv(adc->client, data,
 				      adc->chip->snapshot_size);
+		if (ret < 0)
+			return ret;
 		if (ret != adc->chip->snapshot_size)
-			return ret < 0 ? ret : -EIO;
+			return -EIO;
 	} else {
 		ret = regmap_bulk_read(adc->regmap, channel->reg, data, 2);
 		if (ret)
@@ -451,8 +453,7 @@ static int ts_supervisor_adc_probe(struct platform_device *pdev)
 		return -EINVAL;
 	if (adc->chip->gen0)
 		adc->client = to_i2c_client(dev->parent);
-	else {
-		adc->regmap = dev_get_regmap(dev->parent, NULL);
+	else {		adc->regmap = dev_get_regmap(dev->parent, NULL);
 		if (!adc->regmap)
 			return -ENODEV;
 	}

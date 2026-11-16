@@ -243,8 +243,10 @@ static int gen0_get(struct power_supply *psy, enum power_supply_property prop,
 	if (prop == POWER_SUPPLY_PROP_CHARGE_BEHAVIOUR)
 		return -ENODATA;
 	ret = i2c_master_recv(s->client, data, sizeof(data));
+	if (ret < 0)
+		return ret;
 	if (ret != sizeof(data))
-		return ret < 0 ? ret : -EIO;
+		return -EIO;
 	raw = (data[2] << 8) | data[3];
 	if (raw > GEN0_SILO_ADC_MAX)
 		return -ERANGE;
@@ -276,8 +278,10 @@ static int gen0_set(struct power_supply *psy, enum power_supply_property prop,
 		return -EINVAL;
 	/* On TS-4100, either command also clears push-switch reset enable. */
 	ret = i2c_master_send(s->client, &command, 1);
+	if (ret < 0)
+		return ret;
 	if (ret != 1)
-		return ret < 0 ? ret : -EIO;
+		return -EIO;
 	power_supply_changed(psy);
 	return 0;
 }

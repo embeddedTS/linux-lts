@@ -57,8 +57,10 @@ static int ts_wdt_gen1_write(struct ts_wdt *ts_wdt, u32 ticks, u8 flags)
 	int ret;
 
 	ret = i2c_master_send(ts_wdt->client, out, sizeof(out));
+	if (ret < 0)
+		return ret;
 	if (ret != sizeof(out))
-		return ret < 0 ? ret : -EIO;
+		return -EIO;
 	return 0;
 }
 
@@ -79,7 +81,9 @@ static int ts_wdt_write(struct ts_wdt *ts_wdt, u16 deciseconds)
 	if (ret != sizeof(out)) {
 		dev_err(&client->dev, "%s: write error, ret=%d\n",
 			__func__, ret);
-		return ret < 0 ? ret : -EIO;
+		if (ret < 0)
+			return ret;
+		return -EIO;
 	}
 	return 0;
 }
