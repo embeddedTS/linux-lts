@@ -25,7 +25,6 @@
 	adc_5v: voltage-divider-5v {
 		compatible = "voltage-divider";
 		io-channels = <&ts7800_adc 5>;
-		/* TS-7800-V2 Rev A schematic R121/R30: 42.2k/36.5k. */
 		output-ohms = <36500>;
 		full-ohms = <78700>;
 		#io-channel-cells = <1>;
