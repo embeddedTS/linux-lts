@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/power_supply.h>
 #include <linux/regmap.h>
 #include <linux/workqueue.h>
@@ -354,23 +355,42 @@ static int gen0_probe(struct platform_device *pdev)
 	return 0;
 }
 
+struct ts_supervisor_silo_info {
+	int (*probe)(struct platform_device *pdev);
+};
+
+static const struct ts_supervisor_silo_info gen0_silo_info = {
+	.probe = gen0_probe,
+};
+
+static const struct ts_supervisor_silo_info gen1_silo_info = {
+	.probe = gen1_probe,
+};
+
 static int ts_supervisor_silo_probe(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
+	const struct ts_supervisor_silo_info *info =
+		device_get_match_data(&pdev->dev);
 
-	if (of_device_is_compatible(dev->of_node, "technologic,ts4100-silo") ||
-	    of_device_is_compatible(dev->of_node, "technologic,ts7553v2-silo"))
-		return gen0_probe(pdev);
-	if (of_device_is_compatible(dev->of_node, "technologic,ts7100-silo"))
-		return gen1_probe(pdev);
+	if (!info)
+		return -ENODEV;
 
-	return -ENODEV;
+	return info->probe(pdev);
 }
 
 static const struct of_device_id ts_supervisor_silo_of_match[] = {
-	{ .compatible = "technologic,ts7100-silo", },
-	{ .compatible = "technologic,ts4100-silo", },
-	{ .compatible = "technologic,ts7553v2-silo", },
+	{
+		.compatible = "technologic,ts7100-silo",
+		.data = &gen1_silo_info,
+	},
+	{
+		.compatible = "technologic,ts4100-silo",
+		.data = &gen0_silo_info,
+	},
+	{
+		.compatible = "technologic,ts7553v2-silo",
+		.data = &gen0_silo_info,
+	},
 	{}
 };
 MODULE_DEVICE_TABLE(of, ts_supervisor_silo_of_match);
