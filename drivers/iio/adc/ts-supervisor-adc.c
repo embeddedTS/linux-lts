@@ -2,6 +2,7 @@
 /* embeddedTS supervisory microcontroller ADC register interface. */
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -32,6 +33,8 @@ struct ts_supervisor_adc_chip {
 	unsigned int snapshot_size;
 	bool gen0;
 	bool little_endian;
+	u16 sample_mask;
+	bool silabs_temperature;
 };
 
 #define TS_SUPERVISOR_CHAN(n) { \
@@ -44,11 +47,6 @@ struct ts_supervisor_adc_chip {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED), \
 }
 
-#define TS_SUPERVISOR_RAW_ONLY_CHAN(n) { \
-	.type = IIO_VOLTAGE, .indexed = 1, .channel = (n), \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
-}
-
 #define TS_SUPERVISOR_RAW_TEMP_CHAN(n) { \
 	.type = IIO_TEMP, .indexed = 1, .channel = (n), \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
@@ -56,7 +54,7 @@ struct ts_supervisor_adc_chip {
 
 #define TS_SUPERVISOR_RAW_CURRENT_CHAN(n) { \
 	.type = IIO_CURRENT, .indexed = 1, .channel = (n), \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE), \
 }
 
 static const struct iio_chan_spec ts_supervisor_channels[] = {
@@ -82,100 +80,113 @@ static const struct iio_chan_spec ts_supervisor_channels[] = {
 
 static const struct ts_supervisor_adc_channel ts7100_channels[] = {
 	[0] = TS_SUPERVISOR_MV_CHANNEL(0, "5V_A"),
-	[1] = TS_SUPERVISOR_MV_CHANNEL(1, "CHARGE"),
-	[2] = TS_SUPERVISOR_MV_CHANNEL(2, "3V3"),
-	[3] = TS_SUPERVISOR_MV_CHANNEL(3, "VIN"),
+	[1] = TS_SUPERVISOR_MV_CHANNEL(1, "AN_SUP_CHRG"),
+	[2] = TS_SUPERVISOR_MV_CHANNEL(2, "3.3V"),
+	[3] = TS_SUPERVISOR_MV_CHANNEL(3, "8V_48V"),
 	[4] = TS_SUPERVISOR_TEMP_CHANNEL(4, "TEMP_INITIAL"),
-	[7] = TS_SUPERVISOR_MV_CHANNEL(7, "SUP_CAP_1"),
-	[8] = TS_SUPERVISOR_MV_CHANNEL(8, "SUP_CAP_2"),
+	[7] = TS_SUPERVISOR_MV_CHANNEL(7, "AN_SUP_CAP_1"),
+	[8] = TS_SUPERVISOR_MV_CHANNEL(8, "AN_SUP_CAP_2"),
 	[10] = TS_SUPERVISOR_TEMP_CHANNEL(10, "TEMP"),
 };
 
 static const struct ts_supervisor_adc_channel ts7180_channels[] = {
 	[0] = TS_SUPERVISOR_RAW_CHANNEL(0, "5V_A"),
-	[1] = TS_SUPERVISOR_RAW_CHANNEL(1, "CHARGE"),
-	[2] = TS_SUPERVISOR_RAW_CHANNEL(2, "3V3"),
+	[1] = TS_SUPERVISOR_RAW_CHANNEL(1, "AN_CHRG"),
+	[2] = TS_SUPERVISOR_RAW_CHANNEL(2, "3.3V"),
 	[3] = TS_SUPERVISOR_RAW_CHANNEL(3, "VIN"),
 	[4] = TS_SUPERVISOR_TEMP_CHANNEL(4, "TEMP_INITIAL"),
-	[7] = TS_SUPERVISOR_MV_CHANNEL(7, "SUP_CAP_1"),
-	[8] = TS_SUPERVISOR_MV_CHANNEL(8, "SUP_CAP_2"),
+	[7] = TS_SUPERVISOR_MV_CHANNEL(7, "AN_SUP_CAP_1"),
+	[8] = TS_SUPERVISOR_MV_CHANNEL(8, "AN_SUP_CAP_2"),
 	[10] = TS_SUPERVISOR_TEMP_CHANNEL(10, "TEMP"),
 };
 
-#define TS7800V2_RAW_CHANNEL(n) { \
-	.label = "ADC_" #n, .reg = (n) * 2, .raw_format = IIO_VAL_INT, \
-}
+#define TS7800V2_REG(n) (1280 + (n) * 2)
 
-static const struct iio_chan_spec ts7800v2_iio_channels[] = {
-	TS_SUPERVISOR_RAW_ONLY_CHAN(0), TS_SUPERVISOR_RAW_ONLY_CHAN(1),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(2), TS_SUPERVISOR_RAW_ONLY_CHAN(3),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(4), TS_SUPERVISOR_RAW_ONLY_CHAN(5),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(6), TS_SUPERVISOR_RAW_ONLY_CHAN(7),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(8), TS_SUPERVISOR_RAW_ONLY_CHAN(9),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(10), TS_SUPERVISOR_RAW_ONLY_CHAN(11),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(12),
-};
-
-static const struct ts_supervisor_adc_channel ts7800v2_channels[] = {
-	[0] = TS7800V2_RAW_CHANNEL(0),
-	[1] = TS7800V2_RAW_CHANNEL(1),
-	[2] = TS7800V2_RAW_CHANNEL(2),
-	[3] = TS7800V2_RAW_CHANNEL(3),
-	[4] = TS7800V2_RAW_CHANNEL(4),
-	[5] = TS7800V2_RAW_CHANNEL(5),
-	[6] = TS7800V2_RAW_CHANNEL(6),
-	[7] = TS7800V2_RAW_CHANNEL(7),
-	[8] = TS7800V2_RAW_CHANNEL(8),
-	[9] = TS7800V2_RAW_CHANNEL(9),
-	[10] = TS7800V2_RAW_CHANNEL(10),
-	[11] = TS7800V2_RAW_CHANNEL(11),
-	[12] = TS7800V2_RAW_CHANNEL(12),
-};
-
-#define TS_SUPERVISOR_GEN0_CHAN(name, offset, factor) { \
-	.label = (name), .reg = (offset), .raw_format = IIO_VAL_INT, \
-	.scale = 2500 * (factor), .scale2 = 1023, \
+#define TS7800V2_CHANNEL(name, n, scale_val) { \
+	.label = (name), .reg = TS7800V2_REG(n), .raw_format = IIO_VAL_INT, \
+	.scale = (scale_val), .scale2 = 1024, \
 	.scale_format = IIO_VAL_FRACTIONAL, \
 }
 
-#define TS_SUPERVISOR_GEN0_RAW_CHANNEL(name, offset) { \
+static const struct iio_chan_spec ts7800v2_iio_channels[] = {
+	TS_SUPERVISOR_CHAN(0), TS_SUPERVISOR_CHAN(1),
+	TS_SUPERVISOR_CHAN(2), TS_SUPERVISOR_CHAN(3),
+	TS_SUPERVISOR_CHAN(4), TS_SUPERVISOR_CHAN(5),
+	TS_SUPERVISOR_CHAN(6), TS_SUPERVISOR_CHAN(7),
+	TS_SUPERVISOR_CHAN(8), TS_SUPERVISOR_CHAN(9),
+	TS_SUPERVISOR_CHAN(10), TS_SUPERVISOR_CHAN(11),
+	TS_SUPERVISOR_TEMP_CHAN(12),
+};
+
+static const struct ts_supervisor_adc_channel ts7800v2_channels[] = {
+	[0] = TS7800V2_CHANNEL("CPU_CORE", 0, 2500),
+	[1] = TS7800V2_CHANNEL("RAM_1.35V", 1, 2500),
+	[2] = TS7800V2_CHANNEL("1.2V", 2, 2500),
+	[3] = TS7800V2_CHANNEL("1.8V", 3, 2500),
+	[4] = TS7800V2_CHANNEL("8V_30V", 4, 2500),
+	[5] = TS7800V2_CHANNEL("5V_A", 5, 2500),
+	[6] = TS7800V2_CHANNEL("AN_3.3V", 6, 2500),
+	[7] = TS7800V2_CHANNEL("ADC_4", 7, 2500),
+	[8] = TS7800V2_CHANNEL("ADC_3", 8, 2500),
+	[9] = TS7800V2_CHANNEL("ADC_2", 9, 2500),
+	[10] = TS7800V2_CHANNEL("ADC_1", 10, 2500),
+	[11] = TS7800V2_CHANNEL("ADC_0", 11, 2500),
+	[12] = { .label = "TEMP_SENS", .reg = TS7800V2_REG(12),
+		 .temperature = true, .raw_format = IIO_VAL_INT },
+};
+
+#define TS_SUPERVISOR_GEN0_CHAN(name, offset) { \
 	.label = (name), .reg = (offset), .raw_format = IIO_VAL_INT, \
+	.scale = 2500, .scale2 = 1023, \
+	.scale_format = IIO_VAL_FRACTIONAL, \
+}
+
+#define TS_SUPERVISOR_GEN0_CURRENT_CHANNEL(name, offset, shunt) { \
+	.label = (name), .reg = (offset), .raw_format = IIO_VAL_INT, \
+	.scale = 2500, .scale2 = 1023 * (shunt), \
+	.scale_format = IIO_VAL_FRACTIONAL, \
 }
 
 static const struct ts_supervisor_adc_channel ts7553v2_channels[] = {
-	[0] = TS_SUPERVISOR_GEN0_CHAN("SUP_CAP_1", 0, 1),
-	[1] = TS_SUPERVISOR_GEN0_CHAN("SUP_CAP", 2, 2),
-	[2] = TS_SUPERVISOR_GEN0_CHAN("4V7", 4, 2),
-	[3] = {
-		.label = "VIN", .reg = 6, .raw_format = IIO_VAL_INT,
-		.scale = 2500 * 2082, .scale2 = 1023 * 172,
-		.scale_format = IIO_VAL_FRACTIONAL,
-	},
-	[4] = {
-		.label = "5V_A", .reg = 8, .raw_format = IIO_VAL_INT,
-		.scale = 2500 * 958, .scale2 = 1023 * 422,
-		.scale_format = IIO_VAL_FRACTIONAL,
-	},
-	[5] = TS_SUPERVISOR_GEN0_CHAN("3V3", 10, 2),
-	[6] = TS_SUPERVISOR_GEN0_CHAN("RAM_V1P35", 12, 1),
-	[7] = TS_SUPERVISOR_GEN0_CHAN("VCORE", 14, 1),
-	[8] = TS_SUPERVISOR_GEN0_CHAN("CHARGE", 16, 2),
-	[9] = TS_SUPERVISOR_GEN0_CHAN("VSOC", 18, 1),
-	[10] = TS_SUPERVISOR_GEN0_CHAN("VARM", 20, 1),
+	[0] = TS_SUPERVISOR_GEN0_CHAN("AN_SUP_CAP_1", 0),
+	[1] = TS_SUPERVISOR_GEN0_CHAN("AN_SUP_CAP_2", 2),
+	[2] = TS_SUPERVISOR_GEN0_CHAN("AN_MAIN_4.7V", 4),
+	[3] = TS_SUPERVISOR_GEN0_CHAN("VIN", 6),
+	[4] = TS_SUPERVISOR_GEN0_CHAN("5V_A", 8),
+	[5] = TS_SUPERVISOR_GEN0_CHAN("3.3V", 10),
+	[6] = TS_SUPERVISOR_GEN0_CHAN("RAM_1.35V", 12),
+	[7] = TS_SUPERVISOR_GEN0_CHAN("VDD_6UL_CORE", 14),
+	[8] = TS_SUPERVISOR_GEN0_CHAN("AN_CHRG", 16),
+	[9] = TS_SUPERVISOR_GEN0_CHAN("VDD_SOC_CAP", 18),
+	[10] = TS_SUPERVISOR_GEN0_CHAN("VDD_ARM_CAP", 20),
+};
+
+static const struct ts_supervisor_adc_channel ts4100_channels[] = {
+	[0] = TS_SUPERVISOR_GEN0_CHAN("AN_SUP_CAP_1", 0),
+	[1] = TS_SUPERVISOR_GEN0_CHAN("AN_SUP_CAP_2", 2),
+	[2] = TS_SUPERVISOR_GEN0_CHAN("AN_MAIN_4.7V", 4),
+	[3] = TS_SUPERVISOR_GEN0_CHAN("MAIN_5V", 6),
+	[4] = TS_SUPERVISOR_GEN0_CHAN("USB_OTG_5V", 8),
+	[5] = TS_SUPERVISOR_GEN0_CHAN("3.3V", 10),
+	[6] = TS_SUPERVISOR_GEN0_CHAN("RAM_1.5V", 12),
+	[9] = TS_SUPERVISOR_GEN0_CHAN("VDD_6UL_CORE", 18),
+	[10] = TS_SUPERVISOR_GEN0_CHAN("AN_CHRG", 20),
+	[11] = TS_SUPERVISOR_GEN0_CHAN("VDD_SOC_CAP", 22),
+	[12] = TS_SUPERVISOR_GEN0_CHAN("VDD_ARM_CAP", 24),
 };
 
 static const struct ts_supervisor_adc_channel ts7680_channels[] = {
-	[0] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("SUP_CAP_LOWER", 0),
-	[1] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("SUP_CAP", 2),
-	[2] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P1_4", 4),
-	[3] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("VIN", 6),
-	[4] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("5V_A", 8),
-	[5] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P2_2", 10),
-	[6] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P2_3", 12),
-	[7] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P2_4", 18),
-	[8] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("CHARGE", 20),
-	[9] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P2_6", 22),
-	[10] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P2_7", 24),
+	[0] = TS_SUPERVISOR_GEN0_CHAN("AN_SCAP_1", 0),
+	[1] = TS_SUPERVISOR_GEN0_CHAN("AN_SCAP_2", 2),
+	[2] = TS_SUPERVISOR_GEN0_CHAN("AN_VINT", 4),
+	[3] = TS_SUPERVISOR_GEN0_CHAN("AN_VIN", 6),
+	[4] = TS_SUPERVISOR_GEN0_CHAN("5V_BOOST", 8),
+	[5] = TS_SUPERVISOR_GEN0_CHAN("AN_AUX_3.3V", 10),
+	[6] = TS_SUPERVISOR_GEN0_CHAN("CPU_1.8V", 12),
+	[7] = TS_SUPERVISOR_GEN0_CHAN("CPU_CORE", 18),
+	[8] = TS_SUPERVISOR_GEN0_CHAN("AN_CHRG_2", 20),
+	[9] = TS_SUPERVISOR_GEN0_CHAN("RAM_1.8V", 22),
+	[10] = TS_SUPERVISOR_GEN0_CHAN("AN_CPU_3.3V", 24),
 	[11] = {
 		.label = "TEMP_RAW", .reg = 26, .temperature = true,
 		.raw_temperature = true, .raw_format = IIO_VAL_INT,
@@ -183,34 +194,34 @@ static const struct ts_supervisor_adc_channel ts7680_channels[] = {
 };
 
 static const struct ts_supervisor_adc_channel ts7970_channels[] = {
-	[0] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("VDD_ARM_CAP", 0),
-	[1] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("VDD_HIGH_CAP", 2),
-	[2] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("VDD_SOC_CAP", 4),
-	[3] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("VDD_ARM", 6),
-	[4] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P10", 8),
-	[5] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P11", 10),
-	[6] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P12", 12),
-	[7] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("VIN", 14),
-	[8] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("5V_A", 16),
-	[9] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("V3P1", 18),
-	[10] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("DDR_1P5V", 20),
-	[11] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("V1P8", 22),
-	[12] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("V1P2", 24),
-	[13] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("RAM_VREF", 26),
-	[14] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("V3P3", 28),
+	[0] = TS_SUPERVISOR_GEN0_CHAN("VDD_ARM_CAP", 0),
+	[1] = TS_SUPERVISOR_GEN0_CHAN("VDD_HIGH_CAP", 2),
+	[2] = TS_SUPERVISOR_GEN0_CHAN("VDD_SOC_CAP", 4),
+	[3] = TS_SUPERVISOR_GEN0_CHAN("VDD_ARM", 6),
+	[4] = TS_SUPERVISOR_GEN0_CURRENT_CHANNEL("AD_P10", 8, 110),
+	[5] = TS_SUPERVISOR_GEN0_CURRENT_CHANNEL("AD_P11", 10, 110),
+	[6] = TS_SUPERVISOR_GEN0_CURRENT_CHANNEL("AD_P12", 12, 110),
+	[7] = TS_SUPERVISOR_GEN0_CHAN("VIN", 14),
+	[8] = TS_SUPERVISOR_GEN0_CHAN("5V_A", 16),
+	[9] = TS_SUPERVISOR_GEN0_CHAN("3.1V", 18),
+	[10] = TS_SUPERVISOR_GEN0_CHAN("DDR_1.5V", 20),
+	[11] = TS_SUPERVISOR_GEN0_CHAN("1.8V", 22),
+	[12] = TS_SUPERVISOR_GEN0_CHAN("FPGA_1.2V", 24),
+	[13] = TS_SUPERVISOR_GEN0_CHAN("RAM_VREF", 26),
+	[14] = TS_SUPERVISOR_GEN0_CHAN("3.3V", 28),
 };
 
 static const struct ts_supervisor_adc_channel ts7990_channels[] = {
-	[0] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("VIN", 0),
-	[1] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("5V_A", 2),
-	[2] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P2_2", 4),
-	[3] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P2_3", 6),
-	[4] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P2_4", 8),
-	[5] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("SUP_CAP_MUX", 10),
-	[6] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P2_6", 12),
-	[7] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P2_7", 14),
-	[8] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P0_1", 16),
-	[9] = TS_SUPERVISOR_GEN0_RAW_CHANNEL("P0_5", 18),
+	[0] = TS_SUPERVISOR_GEN0_CHAN("VIN", 0),
+	[1] = TS_SUPERVISOR_GEN0_CHAN("5V_A", 2),
+	[2] = TS_SUPERVISOR_GEN0_CHAN("AN_LCD_20V", 4),
+	[3] = TS_SUPERVISOR_GEN0_CHAN("DDR_1.5V", 6),
+	[4] = TS_SUPERVISOR_GEN0_CHAN("1.8V", 8),
+	[5] = TS_SUPERVISOR_GEN0_CHAN("SUP_CAP_ANALOG", 10),
+	[6] = TS_SUPERVISOR_GEN0_CHAN("BACK_LT-", 12),
+	[7] = TS_SUPERVISOR_GEN0_CHAN("3.3V", 14),
+	[8] = TS_SUPERVISOR_GEN0_CHAN("VDD_ARM_CAP", 16),
+	[9] = TS_SUPERVISOR_GEN0_CHAN("VDD_SOC_CAP", 18),
 };
 
 static const struct iio_chan_spec ts7553v2_iio_channels[] = {
@@ -222,32 +233,41 @@ static const struct iio_chan_spec ts7553v2_iio_channels[] = {
 	TS_SUPERVISOR_CHAN(10),
 };
 
+static const struct iio_chan_spec ts4100_iio_channels[] = {
+	TS_SUPERVISOR_CHAN(0), TS_SUPERVISOR_CHAN(1),
+	TS_SUPERVISOR_CHAN(2), TS_SUPERVISOR_CHAN(3),
+	TS_SUPERVISOR_CHAN(4), TS_SUPERVISOR_CHAN(5),
+	TS_SUPERVISOR_CHAN(6), TS_SUPERVISOR_CHAN(9),
+	TS_SUPERVISOR_CHAN(10), TS_SUPERVISOR_CHAN(11),
+	TS_SUPERVISOR_CHAN(12),
+};
+
 static const struct iio_chan_spec ts7680_iio_channels[] = {
-	TS_SUPERVISOR_RAW_ONLY_CHAN(0), TS_SUPERVISOR_RAW_ONLY_CHAN(1),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(2), TS_SUPERVISOR_RAW_ONLY_CHAN(3),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(4), TS_SUPERVISOR_RAW_ONLY_CHAN(5),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(6), TS_SUPERVISOR_RAW_ONLY_CHAN(7),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(8), TS_SUPERVISOR_RAW_ONLY_CHAN(9),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(10), TS_SUPERVISOR_RAW_TEMP_CHAN(11),
+	TS_SUPERVISOR_CHAN(0), TS_SUPERVISOR_CHAN(1),
+	TS_SUPERVISOR_CHAN(2), TS_SUPERVISOR_CHAN(3),
+	TS_SUPERVISOR_CHAN(4), TS_SUPERVISOR_CHAN(5),
+	TS_SUPERVISOR_CHAN(6), TS_SUPERVISOR_CHAN(7),
+	TS_SUPERVISOR_CHAN(8), TS_SUPERVISOR_CHAN(9),
+	TS_SUPERVISOR_CHAN(10), TS_SUPERVISOR_RAW_TEMP_CHAN(11),
 };
 
 static const struct iio_chan_spec ts7970_iio_channels[] = {
-	TS_SUPERVISOR_RAW_ONLY_CHAN(0), TS_SUPERVISOR_RAW_ONLY_CHAN(1),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(2), TS_SUPERVISOR_RAW_ONLY_CHAN(3),
+	TS_SUPERVISOR_CHAN(0), TS_SUPERVISOR_CHAN(1),
+	TS_SUPERVISOR_CHAN(2), TS_SUPERVISOR_CHAN(3),
 	TS_SUPERVISOR_RAW_CURRENT_CHAN(4), TS_SUPERVISOR_RAW_CURRENT_CHAN(5),
-	TS_SUPERVISOR_RAW_CURRENT_CHAN(6), TS_SUPERVISOR_RAW_ONLY_CHAN(7),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(8), TS_SUPERVISOR_RAW_ONLY_CHAN(9),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(10), TS_SUPERVISOR_RAW_ONLY_CHAN(11),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(12), TS_SUPERVISOR_RAW_ONLY_CHAN(13),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(14),
+	TS_SUPERVISOR_RAW_CURRENT_CHAN(6), TS_SUPERVISOR_CHAN(7),
+	TS_SUPERVISOR_CHAN(8), TS_SUPERVISOR_CHAN(9),
+	TS_SUPERVISOR_CHAN(10), TS_SUPERVISOR_CHAN(11),
+	TS_SUPERVISOR_CHAN(12), TS_SUPERVISOR_CHAN(13),
+	TS_SUPERVISOR_CHAN(14),
 };
 
 static const struct iio_chan_spec ts7990_iio_channels[] = {
-	TS_SUPERVISOR_RAW_ONLY_CHAN(0), TS_SUPERVISOR_RAW_ONLY_CHAN(1),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(2), TS_SUPERVISOR_RAW_ONLY_CHAN(3),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(4), TS_SUPERVISOR_RAW_ONLY_CHAN(5),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(6), TS_SUPERVISOR_RAW_ONLY_CHAN(7),
-	TS_SUPERVISOR_RAW_ONLY_CHAN(8), TS_SUPERVISOR_RAW_ONLY_CHAN(9),
+	TS_SUPERVISOR_CHAN(0), TS_SUPERVISOR_CHAN(1),
+	TS_SUPERVISOR_CHAN(2), TS_SUPERVISOR_CHAN(3),
+	TS_SUPERVISOR_CHAN(4), TS_SUPERVISOR_CHAN(5),
+	TS_SUPERVISOR_CHAN(6), TS_SUPERVISOR_CHAN(7),
+	TS_SUPERVISOR_CHAN(8), TS_SUPERVISOR_CHAN(9),
 };
 
 static const struct ts_supervisor_adc_chip ts7100_chip = {
@@ -267,6 +287,8 @@ static const struct ts_supervisor_adc_chip ts7800v2_chip = {
 	.iio_channels = ts7800v2_iio_channels,
 	.num_channels = ARRAY_SIZE(ts7800v2_iio_channels),
 	.little_endian = true,
+	.sample_mask = GENMASK(9, 0),
+	.silabs_temperature = true,
 };
 
 static const struct ts_supervisor_adc_chip ts7553v2_chip = {
@@ -274,6 +296,14 @@ static const struct ts_supervisor_adc_chip ts7553v2_chip = {
 	.iio_channels = ts7553v2_iio_channels,
 	.num_channels = ARRAY_SIZE(ts7553v2_iio_channels),
 	.snapshot_size = 32,
+	.gen0 = true,
+};
+
+static const struct ts_supervisor_adc_chip ts4100_chip = {
+	.channels = ts4100_channels,
+	.iio_channels = ts4100_iio_channels,
+	.num_channels = ARRAY_SIZE(ts4100_iio_channels),
+	.snapshot_size = 28,
 	.gen0 = true,
 };
 
@@ -353,6 +383,8 @@ static int ts_supervisor_adc_read_sample(struct ts_supervisor_adc *adc,
 		*sample = (data[0] << 8) | data[1];
 	if (adc->chip->little_endian && *sample == U16_MAX)
 		return -EAGAIN;
+	if (adc->chip->sample_mask)
+		*sample &= adc->chip->sample_mask;
 	return 0;
 }
 
@@ -373,6 +405,12 @@ static int ts_supervisor_adc_read(struct iio_dev *indio,
 		ret = ts_supervisor_adc_read_sample(adc, channel, &sample);
 		if (ret)
 			return ret;
+		if (adc->chip->silabs_temperature) {
+			s64 temp = (s64)sample * 160156 - (764LL << 16);
+
+			*val = div_s64(temp * 1000, 188088);
+			return IIO_VAL_INT;
+		}
 		*val = sample * 1000;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_RAW:
@@ -432,6 +470,7 @@ static const struct of_device_id ts_supervisor_adc_match[] = {
 	{ .compatible = "technologic,ts7100-supervisor-adc", .data = &ts7100_chip },
 	{ .compatible = "technologic,ts7180-supervisor-adc", .data = &ts7180_chip },
 	{ .compatible = "technologic,ts7553v2-supervisor-adc", .data = &ts7553v2_chip },
+	{ .compatible = "technologic,ts4100-supervisor-adc", .data = &ts4100_chip },
 	{ .compatible = "technologic,ts7680-supervisor-adc", .data = &ts7680_chip },
 	{ .compatible = "technologic,ts7800v2-supervisor-adc", .data = &ts7800v2_chip },
 	{ .compatible = "technologic,ts7970-supervisor-adc", .data = &ts7970_chip },

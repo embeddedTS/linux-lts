@@ -28,6 +28,7 @@ properties:
     properties:
       compatible:
         enum:
+          - technologic,ts4100-supervisor-adc
           - technologic,ts7553v2-supervisor-adc
           - technologic,ts7680-supervisor-adc
           - technologic,ts7970-supervisor-adc
