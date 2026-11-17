@@ -9,6 +9,49 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
+	adc_vin: voltage-divider-vin {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 7>;
+		output-ohms = <147>;
+		full-ohms = <3017>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_5v: voltage-divider-5v {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 8>;
+		output-ohms = <107>;
+		full-ohms = <254>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_3v1: voltage-divider-3v1 {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 9>;
+		output-ohms = <499>;
+		full-ohms = <998>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_3v3: voltage-divider-3v3 {
+		compatible = "voltage-divider";
+		io-channels = <&ts_supervisor_adc 14>;
+		output-ohms = <499>;
+		full-ohms = <998>;
+		#io-channel-cells = <1>;
+	};
+
+	supervisor-adcs {
+		compatible = "iio-hwmon";
+		io-channels = <&ts_supervisor_adc 0>, <&ts_supervisor_adc 1>,
+			      <&ts_supervisor_adc 2>, <&ts_supervisor_adc 3>,
+			      <&ts_supervisor_adc 4>, <&ts_supervisor_adc 5>,
+			      <&ts_supervisor_adc 6>, <&adc_vin 0>, <&adc_5v 0>,
+			      <&adc_3v1 0>, <&ts_supervisor_adc 10>,
+			      <&ts_supervisor_adc 11>, <&ts_supervisor_adc 12>,
+			      <&ts_supervisor_adc 13>, <&adc_3v3 0>;
+	};
+
 	chosen {
 		stdout-path = &uart1;
 	};
@@ -247,6 +290,21 @@
 	scl-gpios = <&gpio3 21 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio3 28 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
+
+	supervisor@10 {
+		compatible = "technologic,ts-supervisor-gen0";
+		reg = <0x10>;
+
+		ts_supervisor_adc: adc {
+			compatible = "technologic,ts7970-supervisor-adc";
+			#io-channel-cells = <1>;
+		};
+
+		reset {
+			compatible = "technologic,ts-supervisor-gen0-reset";
+			technologic,pushsw-wake-supported;
+		};
+	};
 
 	m41t00s: rtc@68 {
 		compatible = "st,m41t00";

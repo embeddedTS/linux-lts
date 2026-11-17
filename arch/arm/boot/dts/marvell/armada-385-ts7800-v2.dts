@@ -14,6 +14,80 @@
 	model = "embeddedTS TS-7800-V2";
 	compatible = "technologic,a385-ts7800-v2", "marvell,armada385", "marvell,armada380";
 
+	adc_v8_30: voltage-divider-v8-30 {
+		compatible = "voltage-divider";
+		io-channels = <&ts7800_adc 4>;
+		output-ohms = <14700>;
+		full-ohms = <301700>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_5v: voltage-divider-5v {
+		compatible = "voltage-divider";
+		io-channels = <&ts7800_adc 5>;
+		output-ohms = <36500>;
+		full-ohms = <78700>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_an3v3: voltage-divider-an-3v3 {
+		compatible = "voltage-divider";
+		io-channels = <&ts7800_adc 6>;
+		output-ohms = <10700>;
+		full-ohms = <21400>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_4: voltage-divider-adc-4 {
+		compatible = "voltage-divider";
+		io-channels = <&ts7800_adc 7>;
+		output-ohms = <10700>;
+		full-ohms = <21400>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_3: voltage-divider-adc-3 {
+		compatible = "voltage-divider";
+		io-channels = <&ts7800_adc 8>;
+		output-ohms = <10700>;
+		full-ohms = <21400>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_2: voltage-divider-adc-2 {
+		compatible = "voltage-divider";
+		io-channels = <&ts7800_adc 9>;
+		output-ohms = <10700>;
+		full-ohms = <21400>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_1: voltage-divider-adc-1 {
+		compatible = "voltage-divider";
+		io-channels = <&ts7800_adc 10>;
+		output-ohms = <10700>;
+		full-ohms = <21400>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_0: voltage-divider-adc-0 {
+		compatible = "voltage-divider";
+		io-channels = <&ts7800_adc 11>;
+		output-ohms = <10700>;
+		full-ohms = <21400>;
+		#io-channel-cells = <1>;
+	};
+
+	supervisor-adcs {
+		compatible = "iio-hwmon";
+		io-channels = <&ts7800_adc 0>, <&ts7800_adc 1>,
+			      <&ts7800_adc 2>, <&ts7800_adc 3>,
+			      <&adc_v8_30 0>, <&adc_5v 0>,
+			      <&adc_an3v3 0>, <&adc_4 0>, <&adc_3 0>,
+			      <&adc_2 0>, <&adc_1 0>, <&adc_0 0>,
+			      <&ts7800_adc 12>;
+	};
+
 	aliases {
 		ethernet0 = &eth0;
 		spi0 = &spi0;
@@ -358,10 +432,23 @@
 	clock-frequency = <100000>;
 	status = "okay";
 
-	silabs_wdt: watchdog@54 {
-		compatible = "technologic,ts7100-wdt";
+	ts_supervisor: supervisor@54 {
+		compatible = "technologic,ts-supervisor-gen1";
 		reg = <0x54>;
-		enable-early;
+
+		ts7800_adc: adc {
+			compatible = "technologic,ts7800v2-supervisor-adc";
+			#io-channel-cells = <1>;
+		};
+
+		reset {
+			compatible = "technologic,ts-supervisor-reset";
+		};
+
+		watchdog {
+			compatible = "technologic,ts-wdt";
+			enable-early;
+		};
 	};
 
 	m41t00s: rtc@68 {

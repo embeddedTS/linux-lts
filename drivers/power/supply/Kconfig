@@ -1097,4 +1097,19 @@ config FUEL_GAUGE_MM8013
 	  the state of charge, temperature, cycle count, actual and design
 	  capacity, etc.
 
+config TSSILO_SUPERCAPS
+	tristate "embeddedTS SILO supercapacitor support"
+	depends on MFD_TS_WIZARD
+	help
+	  Say Y here to monitor and control SILO supercapacitors on embeddedTS
+	  Wizard boards such as the TS-9370 and TS-4300. The driver reports
+	  charge status and supports charging control.
+
+config TS_SUPERVISOR_SILO
+	tristate "embeddedTS legacy supervisor SILO support"
+	depends on MFD_TS_SUPERVISOR
+	help
+	  Say Y here to monitor and control SILO supercapacitors on embeddedTS
+	  TS-4100, TS-7100, TS-7180 and TS-7553-V2 boards.
+
 endif # POWER_SUPPLY

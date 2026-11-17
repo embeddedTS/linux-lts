@@ -15,6 +15,72 @@
 	model = "embeddedTS i.MX28 TS-7680 (Default Device Tree)";
 	compatible = "fsl,imx28-ts7680", "fsl,imx28";
 
+	adc_scap2: voltage-divider-an-scap-2 {
+		compatible = "voltage-divider";
+		io-channels = <&ts7680_adc 1>;
+		output-ohms = <2000>;
+		full-ohms = <4000>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_vint: voltage-divider-vint {
+		compatible = "voltage-divider";
+		io-channels = <&ts7680_adc 2>;
+		output-ohms = <20500>;
+		full-ohms = <46000>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_vin: voltage-divider-vin {
+		compatible = "voltage-divider";
+		io-channels = <&ts7680_adc 3>;
+		output-ohms = <28000>;
+		full-ohms = <503000>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_5v: voltage-divider-5v-boost {
+		compatible = "voltage-divider";
+		io-channels = <&ts7680_adc 4>;
+		output-ohms = <20500>;
+		full-ohms = <46000>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_aux3v3: voltage-divider-aux-3v3 {
+		compatible = "voltage-divider";
+		io-channels = <&ts7680_adc 5>;
+		output-ohms = <9100>;
+		full-ohms = <18200>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_charge: voltage-divider-charge {
+		compatible = "voltage-divider";
+		io-channels = <&ts7680_adc 8>;
+		output-ohms = <20500>;
+		full-ohms = <41000>;
+		#io-channel-cells = <1>;
+	};
+
+	adc_cpu3v3: voltage-divider-cpu-3v3 {
+		compatible = "voltage-divider";
+		io-channels = <&ts7680_adc 10>;
+		output-ohms = <9100>;
+		full-ohms = <18200>;
+		#io-channel-cells = <1>;
+	};
+
+	supervisor-adcs {
+		compatible = "iio-hwmon";
+		io-channels = <&ts7680_adc 0>, <&adc_scap2 0>,
+			      <&adc_vint 0>, <&adc_vin 0>,
+			      <&adc_5v 0>, <&adc_aux3v3 0>,
+			      <&ts7680_adc 6>,
+			      <&ts7680_adc 7>, <&adc_charge 0>,
+			      <&ts7680_adc 9>, <&adc_cpu3v3 0>;
+	};
+
 	memory@40000000 {
 		device_type = "memory";
 		reg = <0x40000000 0x0>; // Filled in by U-Boot
@@ -58,11 +124,25 @@
 				"AD23_CL", "EN_DC_5V";
 		};
 
-		silabs: watchdog@78 {
-			compatible = "ts-wdt";
+		microcontroller@78 {
+			compatible = "technologic,ts-supervisor-gen0";
 			reg = <0x78>;
-			timeout-sec = <500>;
-			enable-early;
+
+			ts7680_adc: adc {
+				compatible = "technologic,ts7680-supervisor-adc";
+				#io-channel-cells = <1>;
+			};
+
+			reset {
+				compatible = "technologic,ts-supervisor-gen0-reset";
+				technologic,pushsw-wake-supported;
+			};
+
+			watchdog {
+				compatible = "technologic,ts-wdt";
+				timeout-sec = <500>;
+				enable-early;
+			};
 		};
 
 		mma8451: accelerometer@1c {
