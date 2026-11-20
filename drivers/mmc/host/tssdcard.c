@@ -1,617 +1,794 @@
 // SPDX-License-Identifier: GPL-2.0
-
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-#include <linux/module.h>
-#include <linux/kallsyms.h>
-#include <linux/init.h>
-#include <linux/ioport.h>
-#include <linux/platform_device.h>
-#include <linux/interrupt.h>
-#include <linux/irq.h>
-#include <linux/blkdev.h>
-#include <linux/dma-mapping.h>
-#include <linux/mmc/host.h>
-#include <linux/mmc/card.h>
-#include <linux/of.h>
-#include <linux/of_device.h>
-#include <linux/of_dma.h>
-#include <linux/of_gpio.h>
+/* Host driver for the TS-7800-V2 FPGA SD core. */
+#include <linux/crc-itu-t.h>
+#include <linux/crc7.h>
 #include <linux/delay.h>
-#include <linux/kthread.h>
-#include <linux/hdreg.h>
-#include <linux/proc_fs.h>
-#include <linux/reboot.h>
-#include <linux/pci.h>
+#include <linux/io.h>
+#include <linux/iopoll.h>
+#include <linux/ktime.h>
+#include <linux/mmc/host.h>
+#include <linux/mmc/mmc.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/overflow.h>
+#include <linux/platform_device.h>
+#include <linux/scatterlist.h>
+#include <linux/slab.h>
+#include <linux/unaligned.h>
 
-static int poll_rate = 1;
-module_param(poll_rate, int, 0644);
-MODULE_PARM_DESC(poll_rate,
-		 "Rate in seconds to poll for SD card.  Defaults to 1\n");
+#define R_GPIO 0x00
+#define R_STATUS 0x01
+#define R_CLKSEL 0x02
+#define R_DATA 0x04
+#define R_WRITE_BUSY 0x0c
+#define R_FPGA_IRQ_STATUS 0x108
 
-static int disable_poll;
-module_param(disable_poll, int, 0644);
-MODULE_PARM_DESC(disable_poll,
-		 "Set to non-zero to only check for SD once on startup\n");
+#define GPIO_DAT GENMASK(3, 0)
+#define GPIO_CMD BIT(4)
+#define GPIO_CLK BIT(5)
+#define GPIO_OE_DAT0 BIT(6)
+#define GPIO_OE_CMD BIT(7)
+#define GPIO_OE_INPUT GENMASK(7, 6)
+#define GPIO_IDLE (GPIO_OE_INPUT | GPIO_CMD | GPIO_DAT)
+#define GPIO_DAT_INPUT (GPIO_OE_CMD | GPIO_CMD | GPIO_DAT)
+#define GPIO_WRITE_START GPIO_CMD
 
-#define DRIVER_NAME "tssdcard"
+#define TSSD_BURST_FREQ 25000000
+#define TSSD_GPIO_MAX_FREQ 400000
+#define TSSD_IDLE_TIMEOUT_US USEC_PER_SEC
+#define TSSD_BLOCK_SIZE 512
+#define TSSD_CMD_RESPONSE_CLOCKS 64
+#define TSSD_INITIAL_CLOCKS 80
+#define S_CRCERR BIT(2)
+#define S_TIMEOUT BIT(6)
+#define S_MULTIRD BIT(3)
+#define S_MULTIWR BIT(4)
 
-/*
- * Current use of this driver only includes TS-7800-V2
- * but TS-7250-V2 could use up to 3
- */
-#define MAX_SDS	3
-
-#define SDPEEK8(sd, x) readb((uint32_t *)((sd)->sd_regstart + (x)))
-#define SDPOKE8(sd, x, y) writeb(y, (uint32_t *)((sd)->sd_regstart + (x)))
-#define SDPEEK16(sd, x) readw((uint32_t *)((sd)->sd_regstart + (x)))
-#define SDPOKE16(sd, x, y) writew(y, (uint32_t *)((sd)->sd_regstart + (x)))
-#define SDPEEK32(sd, x) readl((uint32_t *)((sd)->sd_regstart + (x)))
-#define SDPOKE32(sd, x, y) writel(y, (uint32_t *)((sd)->sd_regstart + (x)))
-
-/* Disable probing for eMMC, we only connect this core here to SD */
-#define SD_NOMMC
-#define SD_NOAUTOMMC
-
-/* Layer includes low level hardware support */
-#include "tssdcore2.c"
-
-static DEFINE_MUTEX(tssdcore_lock);
-static struct semaphore sem;
-static atomic_t busy;
-
-struct tssdcard_dev {
-	struct device *dev;
-	struct sdcore tssdcore;
-	char *devname;
-	sector_t sectors;
-	struct gendisk *gd;
-	struct bio *bio;
-	struct bio *biotail;
-	spinlock_t lock;
-	atomic_t users;    /* How many users */
-	struct task_struct *thread;
-	wait_queue_head_t event;
-	struct work_struct diskpoll_work;
-	struct workqueue_struct *diskpoll_queue;
-	struct timer_list cd_timer;
-	unsigned long timeout;
-	unsigned long lasttimeout;
-	int cardpresent;
-	int lasterr;
-};
-
-struct tssdcard_host {
-	struct platform_device *pdev;
-	struct resource *mem_res;
+struct tssd_host {
 	void __iomem *base;
-	int numluns;
-	struct tssdcard_dev luns[MAX_SDS];
+	struct mmc_host *mmc;
+	struct mutex lock;
+	bool bus_width_4;
+	bool burst;
+	u8 power_mode;
+	unsigned int clock_delay_ns;
 };
 
-static void tssdcard_debug(void *arg,
-		    unsigned int code,
-		    const char *func,
-		    unsigned int line, ...)
+struct tssd_read_prefix {
+	u8 samples[48];
+	unsigned int count;
+	unsigned int next;
+	bool started;
+};
+
+static inline u8 rd(struct tssd_host *h, unsigned int r)
 {
-	struct tssdcard_dev *dev = (struct tssdcard_dev *)arg;
-	va_list ap;
-	unsigned int s, x, y, z;
-
-	/* Only print each message once */
-	if (dev->lasterr == code)
-		return;
-	dev->lasterr = code;
-
-	va_start(ap, line);
-	switch (code) {
-	case SD_HW_TMOUT:
-		s = va_arg(ap, unsigned int); /* sector */
-		x = va_arg(ap, unsigned int); /* reg val */
-		pr_info("SD hardware timeout, sect=%u (0x%x)\n", s, x);
-		break;
-	case SD_DAT_BAD_CRC:
-		s = va_arg(ap, unsigned int); /* sector */
-		x = va_arg(ap, unsigned int); /* reg val */
-		pr_info("SD hw detected bad CRC16, sect=%u (0x%x)\n", s, x);
-		break;
-	case READ_FAIL:
-		s = va_arg(ap, unsigned int); /* sector */
-		pr_info("SD read failed, sect=%u\n", s);
-		break;
-	case WRITE_FAIL:
-		s = va_arg(ap, unsigned int); /* sector */
-		x = va_arg(ap, unsigned int); /* sdcmd() ret status */
-		pr_info("SD write failed, sect=%u (0x%x)\n", s, x);
-		break;
-	case SD_STOP_FAIL:
-		x = va_arg(ap, unsigned int); /* sdcmd() ret status */
-		pr_info("SD stop transmission failed (0x%x)\n", x);
-		break;
-	case SD_RESP_FAIL:
-		x = va_arg(ap, unsigned int); /* SD cmd */
-		y = va_arg(ap, unsigned int); /* response status */
-		pr_info("SD cmd 0x%x resp code has err bits 0x%x\n", x, y);
-		break;
-	case SD_RESP_BAD_CRC:
-		x = va_arg(ap, unsigned int); /* SD cmd */
-		y = va_arg(ap, unsigned int); /* calculated */
-		z = va_arg(ap, unsigned int); /* rx'ed */
-		pr_info("SD cmd 0x%x resp bad crc (0x%x != 0x%x)\n", x, y, z);
-		break;
-	case SD_RESP_WRONG_REQ:
-		x = va_arg(ap, unsigned int); /* SD cmd */
-		y = va_arg(ap, unsigned int); /* cmd in response */
-		pr_info("SD response for wrong cmd. (0x%x != 0x%x)\n", x, y);
-		break;
-	case SD_SW_TMOUT:
-		if (dev->cardpresent)
-			pr_info("SD soft timeout(%pS)\n",
-				__builtin_return_address(0));
-		break;
-	}
-	va_end(ap);
+	return readb(h->base + r);
 }
 
-static void tssdcard_add_bio(struct tssdcard_dev *dev, struct bio *bio)
+static inline void wr(struct tssd_host *h, unsigned int r, u8 v)
 {
-	spin_lock(&dev->lock);
-	if (dev->biotail) {
-		dev->biotail->bi_next = bio;
-		dev->biotail = bio;
-	} else {
-		dev->bio = dev->biotail = bio;
-	}
-	spin_unlock(&dev->lock);
+	writeb(v, h->base + r);
+	/* GPIO clock transitions are software paced; stream mode runs at 25 MHz. */
+	if (r == R_GPIO && h->clock_delay_ns)
+		ndelay(h->clock_delay_ns);
 }
 
-static struct bio *tssdcard_get_bio(struct tssdcard_dev *dev)
+static int wait_idle(struct tssd_host *h, u64 timeout_us)
 {
-	struct bio *bio;
+	u32 status;
 
-	spin_lock(&dev->lock);
-	bio = dev->bio;
-	if (bio) {
-		if (bio == dev->biotail)
-			dev->biotail = NULL;
-		dev->bio = bio->bi_next;
-		bio->bi_next = NULL;
-	}
-	spin_unlock(&dev->lock);
-	return bio;
+	/* The FPGA routes this window to the IRQ controller's SD idle bit. */
+	return readl_poll_timeout(h->base + R_FPGA_IRQ_STATUS, status, status & BIT(2),
+			  1, timeout_us);
 }
 
-static void tssdcard_reset_timeout(void *data)
+static void gpio_delay(struct tssd_host *h)
 {
-	struct sdcore *sd = (struct sdcore *)data;
-	struct tssdcard_dev *dev = (struct tssdcard_dev *)sd->os_arg;
-
-	/* SD Spec allows 1 second for cards to answer */
-	dev->timeout = jiffies + HZ;
+	rd(h, R_GPIO);
+	rd(h, R_GPIO);
 }
 
-static int tssdcard_transfer(struct tssdcard_dev *dev, unsigned long sector,
-			      unsigned long nsect, char *buffer, int rw)
+/* Drive the given pin values for one rising clock edge. */
+static void clock_out(struct tssd_host *h, u8 value)
 {
-	int ret = 0;
-
-	dev_dbg(dev->dev, "%s size:%lld sector:%lu nsect:%lu rw:%d\n",
-		__func__, (long long)dev->sectors, sector, nsect, rw);
-
-	tssdcard_reset_timeout(&dev->tssdcore);
-	switch (rw) {
-	case WRITE:
-		ret = sdwrite(&dev->tssdcore, sector, buffer, nsect);
-		if (ret && !dev->tssdcore.sd_wprot) {
-			if (sdreset(&dev->tssdcore) != 0) {
-				tssdcard_reset_timeout(&dev->tssdcore);
-				ret = sdwrite(&dev->tssdcore, sector,
-					      buffer, nsect);
-			}
-		}
-		break;
-
-	case READ:
-	//case READA:
-		ret = sdread(&dev->tssdcore, sector, buffer, nsect);
-		if (ret) {
-			if (sdreset(&dev->tssdcore) != 0) {
-				tssdcard_reset_timeout(&dev->tssdcore);
-				ret = sdread(&dev->tssdcore, sector,
-					     buffer, nsect);
-			}
-		}
-	}
-
-	return ret;
+	wr(h, R_GPIO, value);
+	gpio_delay(h);
+	wr(h, R_GPIO, value | GPIO_CLK);
+	gpio_delay(h);
 }
 
-static void tssdcard_handle_bio(struct tssdcard_dev *dev, struct bio *bio)
+static void clock_idle(struct tssd_host *h, unsigned int clocks)
 {
-	struct bio_vec bvec;
-	struct bvec_iter iter;
-	sector_t sector, end_sector, n_sectors;
-	char *buffer;
-	int ret = 0;
-
-	sector = bio->bi_iter.bi_sector;
-	end_sector = (bio->bi_iter.bi_sector) + (bio->bi_iter.bi_size >> 9) - 1;
-
-	if ((bio->bi_iter.bi_size % 512) != 0)
-		panic("Invalid transfer, bi_size 512 != 0\n");
-
-	bio_for_each_segment(bvec, bio, iter) {
-		if ((sector + (bvec.bv_len >> 9)) > end_sector)
-			n_sectors = end_sector - sector + 1;
-		else
-			n_sectors = bvec.bv_len >> 9;
-		if (n_sectors == 0)
-			continue;
-
-		buffer = kmap(bvec.bv_page) + bvec.bv_offset;
-		ret = tssdcard_transfer(dev, sector, n_sectors, buffer,
-					bio_data_dir(bio));
-		sector += n_sectors;
-		kunmap(bvec.bv_page);
-	}
-
-	bio_endio(bio);
-
-	if (ret) {
-		dev->cardpresent = 0;
-		queue_work(dev->diskpoll_queue,
-			   &dev->diskpoll_work);
-	}
+	while (clocks--)
+		clock_out(h, GPIO_IDLE);
 }
 
-static void tssdcard_delay(void *data, unsigned int us)
+static u8 clock_sample_data(struct tssd_host *h)
 {
-	if (us > 50000)
-		msleep_interruptible(us/1000);
-	else
-		udelay(us);
+	wr(h, R_GPIO, GPIO_IDLE);
+	rd(h, R_GPIO);
+	wr(h, R_GPIO, GPIO_IDLE | GPIO_CLK);
+	rd(h, R_GPIO);
+	return rd(h, R_GPIO) & GPIO_DAT;
 }
 
-static int tssdcard_timeout_relaxed(void *data)
+static u8 read_data_sample(struct tssd_host *h, struct tssd_read_prefix *prefix)
 {
-	struct sdcore *sd = (struct sdcore *)data;
-	struct tssdcard_dev *dev = (struct tssdcard_dev *)sd->os_arg;
-	int ret;
+	if (prefix->next < prefix->count)
+		return prefix->samples[prefix->next++];
 
-	dev->lasttimeout = jiffies;
-
-	if (jiffies_to_msecs(dev->timeout - jiffies) > 50)
-		msleep_interruptible(10);
-
-	ret = time_is_before_jiffies(dev->timeout);
-
-	return ret;
+	return clock_sample_data(h);
 }
 
-static int tssdcard_timeout(void *data)
+static u64 data_timeout_ns(struct tssd_host *h, const struct mmc_data *data)
 {
-	struct sdcore *sd = (struct sdcore *)data;
-	struct tssdcard_dev *dev = (struct tssdcard_dev *)sd->os_arg;
-	int ret;
+	unsigned int clock = min(h->mmc->ios.clock, TSSD_GPIO_MAX_FREQ);
+	u64 timeout = data->timeout_ns;
 
-	dev->lasttimeout = jiffies;
-	ret = time_is_before_jiffies(dev->timeout);
+	/* Data framing and software busy polling use the GPIO clock. */
+	if (data->timeout_clks)
+		timeout += DIV_ROUND_UP_ULL((u64)data->timeout_clks * NSEC_PER_SEC,
+					    clock ?: h->mmc->f_min);
 
-	return ret;
+	if (timeout)
+		return timeout;
+
+	return data->flags & MMC_DATA_WRITE ? NSEC_PER_SEC : 100 * NSEC_PER_MSEC;
 }
 
-static void tssdcard_irqwait(void *data, unsigned int x)
+static int wait_data_start(struct tssd_host *h, u8 mask, u64 timeout_ns)
 {
-	struct tssdcard_dev *dev = (struct tssdcard_dev *)data;
-	uint32_t reg;
+	ktime_t deadline = ktime_add_ns(ktime_get(), timeout_ns);
 
 	do {
-#ifdef CONFIG_PREEMPT_NONE
-		/* Default marvell kernel config has no preempt, so
-		 * to support that:
-		 */
-		cond_resched();
-#endif
-		reg = readl((uint32_t *)(dev->tssdcore.sd_regstart + 0x108));
-	} while ((reg & 4) == 0);
+		if (!(clock_sample_data(h) & mask))
+			return 0;
+	} while (ktime_before(ktime_get(), deadline));
+
+	return -ETIMEDOUT;
 }
 
-static void tssdcard_release(struct gendisk *disk)
+static u16 data_crc16_bit(u16 crc, u8 bit)
 {
-	struct tssdcard_dev *dev = disk->private_data;
+	bool feedback = ((crc >> 15) ^ bit) & 1;
 
-	atomic_dec(&dev->users);
-	if (atomic_read(&dev->users) == 0) {
-		if (dev->thread != NULL) {
-			char buffer[512];
-			int ret;
+	crc <<= 1;
+	if (feedback)
+		crc ^= 0x1021;
+	return crc;
+}
 
-			kthread_stop(dev->thread);
-			dev->thread = NULL;
-			if (dev->sectors) {
-				tssdcard_reset_timeout(&dev->tssdcore);
-				ret = sdread(&dev->tssdcore, 0, buffer, 1);
-			}
+static int read_1bit_data(struct tssd_host *h, u8 *buf, unsigned int blksz,
+			  unsigned int blocks, bool stop_pending,
+			  struct tssd_read_prefix *prefix, u64 timeout_ns)
+{
+	unsigned int b, i, bit;
+	u16 crc, card_crc;
+	u8 value, end;
+
+	for (b = 0; b < blocks; b++) {
+		if ((b || !prefix->started) && wait_data_start(h, BIT(0), timeout_ns))
+			return -ETIMEDOUT;
+
+		for (i = 0; i < blksz; i++) {
+			value = 0;
+			for (bit = 0; bit < 8; bit++)
+				value = (value << 1) | (read_data_sample(h, prefix) & BIT(0));
+			buf[b * blksz + i] = value;
+		}
+		crc = crc_itu_t(0, buf + b * blksz, blksz);
+		card_crc = 0;
+		for (bit = 0; bit < 16; bit++) {
+			card_crc = (card_crc << 1) | (read_data_sample(h, prefix) & BIT(0));
+		}
+		end = (read_data_sample(h, prefix) & BIT(0));
+		if (!stop_pending)
+			clock_idle(h, 8);
+		if (end != BIT(0) || crc != card_crc) {
+			dev_err_ratelimited(mmc_dev(h->mmc),
+					    "1-bit read block %u end %u CRC %04x/%04x\n",
+					    b, !!end, crc, card_crc);
+			return -EILSEQ;
+		}
+	}
+	return 0;
+}
+
+static void data_crc16_4bit(const u8 *buf, unsigned int len, u16 crc[4])
+{
+	unsigned int i, lane;
+
+	memset(crc, 0, sizeof(u16) * 4);
+	for (i = 0; i < len; i++) {
+		for (lane = 0; lane < 4; lane++) {
+			crc[lane] = data_crc16_bit(crc[lane],
+						  (buf[i] >> (lane + 4)) & 1);
+			crc[lane] = data_crc16_bit(crc[lane], (buf[i] >> lane) & 1);
 		}
 	}
 }
 
-static int tssdcard_peek_bio(struct tssdcard_dev *dev)
+static void write_gpio_block(struct tssd_host *h, const u8 *buf,
+			     unsigned int blksz)
 {
-	int ret = 0;
+	unsigned int i, bit, lane;
+	u16 crc[4];
+	u8 sample;
 
-	spin_lock(&dev->lock);
-	if (dev->bio != NULL)
-		ret = 1;
-	spin_unlock(&dev->lock);
-
-	return ret;
-}
-
-static int tssdcard_thread(void *data)
-{
-	struct tssdcard_dev *dev = data;
-	struct bio *bio;
-
-	while (!kthread_should_stop()) {
-		wait_event_interruptible(dev->event,
-					 tssdcard_peek_bio(dev) ||
-					 kthread_should_stop());
-
-		if (down_interruptible(&sem))
-			continue;
-
-		atomic_inc(&busy);
-		if (atomic_read(&busy) > 1)
-			panic("recursive make_request!\n");
-
-		bio = tssdcard_get_bio(dev);
-		if (bio)
-			tssdcard_handle_bio(dev, bio);
-
-		atomic_dec(&busy);
-		up(&sem);
-	}
-
-	return 0;
-}
-
-static int tssdcard_open(struct gendisk *gd, fmode_t mode)
-{
-	struct tssdcard_dev *dev = gd->private_data;
-
-	if (!atomic_read(&dev->users))
-		disk_check_media_change(gd);
-	atomic_inc(&dev->users);
-	if (dev->thread == NULL && atomic_read(&dev->users)) {
-		dev->thread = kthread_create(tssdcard_thread,
-					     dev, dev->devname);
-		if (IS_ERR(dev->thread))
-			dev->thread = NULL;
-		else
-			wake_up_process(dev->thread);
-	}
-
-	return 0;
-}
-
-static void tssdcard_make_request(struct bio *bio)
-{
-	struct tssdcard_dev *dev = bio->bi_bdev->bd_disk->private_data;
-
-	tssdcard_add_bio(dev, bio);
-	wake_up(&dev->event);
-}
-
-static int tssdcard_getgeo(struct gendisk *disk, struct hd_geometry *geo)
-{
-	struct tssdcard_dev *dev = disk->private_data;
-
-	geo->cylinders = dev->sectors >> 9 / (4 * 16);
-	geo->heads = 4;
-	geo->sectors = 16;
-	return 0;
-}
-
-static const struct block_device_operations tssdcard_ops = {
-	.owner		= THIS_MODULE,
-	.open		= tssdcard_open,
-	.release	= tssdcard_release,
-	.getgeo		= tssdcard_getgeo,
-	.submit_bio	= tssdcard_make_request,
-};
-
-static void tssdcard_alloc_disk(struct tssdcard_dev *dev)
-{
-	dev->bio = dev->biotail = NULL;
-
-	dev->gd = blk_alloc_disk(NULL, NUMA_NO_NODE);
-	if (dev->gd == NULL) {
-		pr_err(DRIVER_NAME ": Failed to alloc_disk");
-		return;
-	}
-
-	strcpy(dev->gd->disk_name, dev->devname);
-
-	set_capacity(dev->gd, dev->sectors);
-	dev->gd->flags = 0;
-	dev->gd->fops = &tssdcard_ops;
-	dev->gd->private_data = dev;
-
-	/* Check disk WP */
-	set_disk_ro(dev->gd, dev->tssdcore.sd_wprot);
-
-	/* FIXME: This return should be checked, generates warning right now. */
-	add_disk(dev->gd);
-}
-static void tssdcard_cleanup_disk(struct tssdcard_dev *dev)
-{
-	pr_info("SD card was removed!\n");
-	del_gendisk(dev->gd);
-	put_disk(dev->gd);
-	dev->sectors = 0;
-}
-
-static void diskpoll_thread(struct work_struct *work)
-{
-	struct tssdcard_dev *dev = container_of(work, struct tssdcard_dev,
-		diskpoll_work);
-
-	if (!dev->cardpresent && dev->sectors != 0)
-		tssdcard_cleanup_disk(dev);
-	else
-		dev->sectors = sdreset(&dev->tssdcore);
-
-	if (dev->sectors == 0) {
-		dev->tssdcore.os_timeout = tssdcard_timeout_relaxed;
-		if (!disable_poll)
-			mod_timer(&dev->cd_timer, jiffies + (HZ * poll_rate));
+	if (h->bus_width_4) {
+		data_crc16_4bit(buf, blksz, crc);
+		clock_out(h, GPIO_WRITE_START);
+		for (i = 0; i < blksz; i++) {
+			clock_out(h, GPIO_CMD | (buf[i] >> 4));
+			clock_out(h, GPIO_CMD | (buf[i] & GPIO_DAT));
+		}
+		for (bit = 0; bit < 16; bit++) {
+			sample = GPIO_CMD;
+			for (lane = 0; lane < 4; lane++)
+				sample |= ((crc[lane] >> (15 - bit)) & 1) << lane;
+			clock_out(h, sample);
+		}
+		clock_out(h, GPIO_CMD | GPIO_DAT);
 	} else {
-		dev->cardpresent = 1;
-		dev->tssdcore.os_timeout = tssdcard_timeout;
-		tssdcard_alloc_disk(dev);
+		/* In one-bit mode, leave DAT1-DAT3 as inputs. */
+		u8 pins = GPIO_OE_DAT0 | GPIO_CMD | (GPIO_DAT & ~BIT(0));
+
+		crc[0] = crc_itu_t(0, buf, blksz);
+		clock_out(h, pins);
+		for (i = 0; i < blksz; i++)
+			for (bit = 0; bit < 8; bit++)
+				clock_out(h, pins | ((buf[i] >> (7 - bit)) & 1));
+		for (bit = 0; bit < 16; bit++)
+			clock_out(h, pins | ((crc[0] >> (15 - bit)) & 1));
+		clock_out(h, pins | BIT(0));
 	}
 }
 
-static void tssdcard_card_poll(struct timer_list *t)
+static int write_gpio_data(struct tssd_host *h, const u8 *buf,
+			   unsigned int blksz, unsigned int blocks,
+			   bool stop_pending, u64 timeout_ns)
 {
-	struct tssdcard_dev *dev = timer_container_of(dev, t, cd_timer);
+	unsigned int block, bit;
+	u8 response, value;
+	ktime_t deadline;
 
-	queue_work(dev->diskpoll_queue, &dev->diskpoll_work);
+	/* Allow the card's two nWR clocks after the command response. */
+	clock_idle(h, 2);
+	for (block = 0; block < blocks; block++, buf += blksz) {
+		write_gpio_block(h, buf, blksz);
+
+		/* Native SD returns an 8-clock CRC status; 010 means accepted. */
+		response = 0;
+		for (bit = 0; bit < 8; bit++) {
+			wr(h, R_GPIO, GPIO_DAT_INPUT);
+			gpio_delay(h);
+			response = (response << 1) |
+				   !!(rd(h, R_GPIO) & BIT(0));
+			wr(h, R_GPIO, GPIO_DAT_INPUT | GPIO_CLK);
+			gpio_delay(h);
+		}
+		if ((response & 0x07) != 0x02) {
+			dev_err_ratelimited(mmc_dev(h->mmc),
+					    "GPIO write CRC status %02x, expected ..02\n",
+					    response);
+			return -EILSEQ;
+		}
+		/* The card holds DAT0 low while programming the block. */
+		deadline = ktime_add_ns(ktime_get(), timeout_ns);
+		response = 0;
+		while (response < 3 && ktime_before(ktime_get(), deadline)) {
+			wr(h, R_GPIO, GPIO_DAT_INPUT);
+			gpio_delay(h);
+			value = rd(h, R_GPIO);
+			wr(h, R_GPIO, GPIO_DAT_INPUT | GPIO_CLK);
+			gpio_delay(h);
+			if (value & BIT(0))
+				response++;
+			else {
+				response = 0;
+			}
+		}
+		if (response < 3)
+			return -ETIMEDOUT;
+	}
+
+	if (!stop_pending)
+		clock_idle(h, 8);
+	return 0;
 }
 
-static int setup_device(struct tssdcard_host *host, int lun)
+static u8 read_4bit_byte(struct tssd_host *h, struct tssd_read_prefix *prefix)
 {
-	int ret = 0;
-	struct tssdcard_dev *dev = &host->luns[lun];
+	u8 hi = read_data_sample(h, prefix);
 
-	dev->dev = &host->pdev->dev;
-	/* IO Remapping (use the same virtual address for all LUNs) */
-	dev->tssdcore.sd_regstart = (unsigned int)host->base;
-	dev->tssdcore.sd_lun = lun;
-	dev->tssdcore.os_timeout = tssdcard_timeout;
-	dev->tssdcore.os_reset_timeout = tssdcard_reset_timeout;
-	dev->tssdcore.os_arg = dev;
-	dev->tssdcore.os_delay = tssdcard_delay;
-	dev->tssdcore.os_irqwait = tssdcard_irqwait;
-	dev->tssdcore.sd_writeparking = 1;
-	dev->tssdcore.debug = tssdcard_debug;
-	dev->tssdcore.debug_arg = dev;
+	return (hi << 4) | read_data_sample(h, prefix);
+}
 
-	dev->devname = kmalloc(32, GFP_KERNEL);
-	if (!dev->devname)
-		return -ENOMEM;
-	snprintf(dev->devname, 32, "%s%c", DRIVER_NAME, lun + 'a');
+static int read_4bit_data(struct tssd_host *h, u8 *buf, unsigned int blksz,
+			 unsigned int blocks, bool stop_pending,
+			 struct tssd_read_prefix *prefix, u64 timeout_ns)
+{
+	unsigned int b, i, bit, lane;
+	u16 crc[4], card_crc[4];
+	u8 sample;
 
-	init_waitqueue_head(&dev->event);
-	sema_init(&sem, 1);
-	atomic_set(&busy, 0);
-	spin_lock_init(&dev->lock);
+	for (b = 0; b < blocks; b++, buf += blksz) {
+		if ((b || !prefix->started) && wait_data_start(h, GPIO_DAT, timeout_ns))
+			return -ETIMEDOUT;
 
-	/* sdreset sleeps so we need our own workqueue */
-	dev->diskpoll_queue = alloc_ordered_workqueue(dev->devname, 0);
-	if (!dev->diskpoll_queue)
-		return -ENOMEM;
+		/*
+		 * Capture the response overlap in GPIO mode, then stream whole
+		 * words. Leave at least one word to GPIO mode so the FPGA's
+		 * 1024-nibble counter cannot roll over into its CRC state.
+		 */
+		i = 0;
+		if (h->burst) {
+			unsigned int prefix_bytes = DIV_ROUND_UP(prefix->count - prefix->next, 2);
+			unsigned int gpio_bytes = min(blksz, max(4U, ALIGN(prefix_bytes, 4)));
 
-	INIT_WORK(&dev->diskpoll_work, diskpoll_thread);
+			for (; i < gpio_bytes; i++)
+				buf[i] = read_4bit_byte(h, prefix);
+			if (blksz - i >= sizeof(u32)) {
+				wr(h, R_GPIO, GPIO_IDLE);
+				gpio_delay(h);
+				for (; blksz - i >= sizeof(u32); i += sizeof(u32))
+					put_unaligned_le32(readl(h->base + R_DATA), buf + i);
+			}
+		}
+		for (; i < blksz; i++)
+			buf[i] = read_4bit_byte(h, prefix);
 
-	timer_setup(&dev->cd_timer, tssdcard_card_poll, 0);
+		data_crc16_4bit(buf, blksz, crc);
+		memset(card_crc, 0, sizeof(card_crc));
+		for (bit = 0; bit < 16; bit++) {
+			sample = read_data_sample(h, prefix);
+			for (lane = 0; lane < 4; lane++)
+				card_crc[lane] = (card_crc[lane] << 1) |
+						 ((sample >> lane) & 1);
+		}
+		if (read_data_sample(h, prefix) != GPIO_DAT ||
+		    memcmp(crc, card_crc, sizeof(crc))) {
+			dev_err_ratelimited(mmc_dev(h->mmc),
+					    "4-bit read block %u CRC %4ph/%4ph\n",
+					    b, crc, card_crc);
+			return -EILSEQ;
+		}
+	}
 
-	/* Start polling for the card */
-	queue_work(dev->diskpoll_queue,
-	   &dev->diskpoll_work);
+	if (!stop_pending)
+		clock_idle(h, 8);
+	return 0;
+}
+
+static int send_cmd(struct tssd_host *h, struct mmc_command *cmd,
+		    struct mmc_data *data, u8 *resp,
+		    struct tssd_read_prefix *prefix, u64 busy_timeout_ns)
+{
+	unsigned int i, n;
+	u8 v, crc, data_mask = h->bus_width_4 ? GPIO_DAT : BIT(0);
+
+	v = S_MULTIRD | S_MULTIWR;
+	if (data && (data->flags & MMC_DATA_READ))
+		v &= ~S_MULTIRD;
+	if (data && (data->flags & MMC_DATA_WRITE) && !h->burst)
+		v &= ~S_MULTIWR;
+	wr(h, R_STATUS, v);
+
+	{
+		u8 frame[6];
+
+		frame[0] = 0x40 | cmd->opcode;
+		put_unaligned_be32(cmd->arg, frame + 1);
+		frame[5] = crc7_be(0, frame, 5) | 1;
+		for (i = 0; i < sizeof(frame); i++) {
+			u8 b = frame[i];
+			int bit;
+
+			for (bit = 0; bit < 8; bit++) {
+				v = GPIO_OE_CMD | GPIO_DAT;
+				if (b & BIT(7))
+					v |= GPIO_CMD;
+				clock_out(h, v);
+				b <<= 1;
+			}
+		}
+	}
+	if (!(cmd->flags & MMC_RSP_PRESENT)) {
+		if (!data)
+			clock_idle(h, 8);
+		return 0;
+	}
+
+	n = (cmd->flags & MMC_RSP_136) ? 17 : 6;
+	for (i = 0; i < TSSD_CMD_RESPONSE_CLOCKS; i++) {
+		wr(h, R_GPIO, GPIO_IDLE);
+		v = rd(h, R_GPIO);
+		if (!(v & GPIO_CMD))
+			break;
+		wr(h, R_GPIO, GPIO_IDLE | GPIO_CLK);
+	}
+	if (i == TSSD_CMD_RESPONSE_CLOCKS)
+		return -ETIMEDOUT;
+	for (i = 0; i < n; i++) {
+		unsigned int bit;
+
+		v = 0;
+		for (bit = 0; bit < 8; bit++) {
+			u8 sample;
+
+			wr(h, R_GPIO, GPIO_IDLE);
+			rd(h, R_GPIO);
+			sample = rd(h, R_GPIO);
+			v = (v << 1) | !!(sample & GPIO_CMD);
+			/* Data can start while CMD is still returning its response. */
+			if (prefix && n == 6) {
+				if (prefix->started) {
+					prefix->samples[prefix->count++] = sample & data_mask;
+				} else if (!(sample & data_mask)) {
+					prefix->started = true;
+				}
+			}
+			wr(h, R_GPIO, GPIO_IDLE | GPIO_CLK);
+			gpio_delay(h);
+		}
+		resp[i] = v;
+	}
+	crc = crc7_be(0, resp + !!(cmd->flags & MMC_RSP_136),
+		       n - 1 - !!(cmd->flags & MMC_RSP_136)) | 1;
+	if ((cmd->flags & MMC_RSP_CRC) && crc != resp[n - 1]) {
+		dev_err_ratelimited(mmc_dev(h->mmc),
+				    "CMD%u response CRC mismatch: got %02x expected %02x, bytes %*ph\n",
+				    cmd->opcode, resp[n - 1], crc, (int)n, resp);
+		return -EILSEQ;
+	}
+	if (cmd->flags & MMC_RSP_136) {
+		/* R2 carries 120 payload bits followed by CRC/end bits. */
+		resp[16] = 0;
+		for (i = 0; i < 4; i++)
+			cmd->resp[i] = get_unaligned_be32(resp + 1 + i * 4);
+	} else {
+		if ((cmd->flags & MMC_RSP_OPCODE) &&
+		    (resp[0] & 0x3f) != cmd->opcode)
+			return -EILSEQ;
+		cmd->resp[0] = get_unaligned_be32(resp + 1);
+		cmd->resp[1] = cmd->resp[2] = cmd->resp[3] = 0;
+	}
+	if (cmd->flags & MMC_RSP_BUSY) {
+		unsigned int released = 0;
+		ktime_t deadline;
+
+		if (cmd->busy_timeout)
+			busy_timeout_ns = (u64)cmd->busy_timeout * NSEC_PER_MSEC;
+		deadline = ktime_add_ns(ktime_get(), busy_timeout_ns ?: NSEC_PER_SEC);
+
+		while (released < 3 && ktime_before(ktime_get(), deadline)) {
+			wr(h, R_GPIO, GPIO_DAT_INPUT);
+			if (rd(h, R_GPIO) & BIT(0))
+				released++;
+			else
+				released = 0;
+			wr(h, R_GPIO, GPIO_DAT_INPUT | GPIO_CLK);
+		}
+		if (released < 3)
+			return -ETIMEDOUT;
+	}
+	if (!data)
+		clock_idle(h, 8);
+	return 0;
+}
+
+static int fpga_status(struct tssd_host *h)
+{
+	/* Reading status acknowledges the latched FPGA errors. */
+	u8 status = rd(h, R_STATUS);
+
+	if (!(status & (S_CRCERR | S_TIMEOUT)))
+		return 0;
+
+	dev_err_ratelimited(mmc_dev(h->mmc),
+			    "data engine status error %02x\n", status);
+	return status & S_TIMEOUT ? -ETIMEDOUT : -EILSEQ;
+}
+
+static int write_4bit_data(struct tssd_host *h, const u8 *buf,
+			   unsigned int blocks, bool stop_pending,
+			   bool *finish_write, u64 timeout_ns)
+{
+	unsigned int block, i;
+	u8 status;
+	int ret;
+
+	clock_idle(h, 2);
+	clock_out(h, GPIO_WRITE_START);
+	status = rd(h, R_STATUS);
+
+	for (block = 0; block < blocks; block++, buf += TSSD_BLOCK_SIZE) {
+		if (block + 1 == blocks)
+			wr(h, R_STATUS, status & ~S_MULTIWR);
+		for (i = 0; i < TSSD_BLOCK_SIZE; i += sizeof(u32))
+			writel(get_unaligned_le32(buf + i), h->base + R_DATA);
+	}
+	wr(h, R_GPIO, GPIO_IDLE | GPIO_CLK);
+
+	if (stop_pending && (status & S_MULTIWR)) {
+		*finish_write = true;
+		return 0;
+	}
+
+	wr(h, R_WRITE_BUSY, 0);
+	ret = wait_idle(h, DIV_ROUND_UP_ULL(timeout_ns, NSEC_PER_USEC));
+	if (!ret && (status & S_MULTIWR))
+		wr(h, R_STATUS, status | S_MULTIWR);
 
 	return ret;
 }
 
-static int tssdcard_probe(struct platform_device *pdev)
+static int do_data(struct tssd_host *h, struct mmc_data *data,
+		   unsigned int bytes, bool stop_pending,
+		   struct tssd_read_prefix *prefix, bool *finish_write,
+		   u64 timeout_ns)
 {
-	int i, ret = 0;
-	struct tssdcard_host *host;
-	struct resource *res = 0;
+	u8 *buf;
+	int ret;
 
-	host = kzalloc(sizeof(struct tssdcard_host), GFP_KERNEL);
-	if (host == NULL) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	host->numluns = 1;
-
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!devm_request_mem_region(&pdev->dev, res->start,
-	    resource_size(res), pdev->name)) {
-		ret = -EBUSY;
-		goto out;
-	}
-
-	host->base = devm_ioremap(&pdev->dev, res->start,
-				  resource_size(res));
-	if (!host->base) {
-		ret = -EFAULT;
-		goto out;
-	}
-
-	for (i = 0; i < host->numluns; i++) {
-		ret = setup_device(host, i);
+	buf = kmalloc(bytes, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+	if (data->flags & MMC_DATA_READ) {
+		ret = wait_idle(h, TSSD_IDLE_TIMEOUT_US);
+		if (ret)
+			goto out;
+		if (h->bus_width_4)
+			ret = read_4bit_data(h, buf, data->blksz,
+					     data->blocks, stop_pending, prefix, timeout_ns);
+		else
+			ret = read_1bit_data(h, buf, data->blksz,
+					     data->blocks, stop_pending, prefix, timeout_ns);
+		if (ret)
+			goto out;
+	} else {
+		if (sg_copy_to_buffer(data->sg, data->sg_len, buf, bytes) != bytes) {
+			ret = -EINVAL;
+			goto out;
+		}
+		if (h->burst)
+			ret = write_4bit_data(h, buf, data->blocks, stop_pending,
+					      finish_write, timeout_ns);
+		else
+			ret = write_gpio_data(h, buf, data->blksz, data->blocks,
+					      stop_pending, timeout_ns);
 		if (ret)
 			goto out;
 	}
-
-	platform_set_drvdata(pdev, host);
-
-	return 0;
-
+	ret = fpga_status(h);
+	if (ret)
+		goto out;
+	if ((data->flags & MMC_DATA_READ) &&
+	    sg_copy_from_buffer(data->sg, data->sg_len, buf, bytes) != bytes) {
+		ret = -EINVAL;
+		goto out;
+	}
 out:
+	kfree(buf);
 	return ret;
 }
 
-static void tssdcard_remove(struct platform_device *pdev)
+static void tssd_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
-	struct tssdcard_host *host = (struct tssdcard_host *)pdev->dev.p;
-	int i;
+	struct tssd_host *h = mmc_priv(mmc);
+	struct tssd_read_prefix prefix = {};
+	struct mmc_data *data = mrq->data;
+	unsigned int bytes = 0;
+	u64 timeout_ns;
+	bool finish_write = false;
+	u8 resp[17];
+	int ret;
 
-	for (i = 0; i < host->numluns; i++) {
-		struct tssdcard_dev *dev = &host->luns[i];
-
-		dev_dbg(dev->dev, "dev[%d] ...\n", i);
-
-		if (dev->sectors == 0)
-			continue;
-
-		if (dev->gd)
-			put_disk(dev->gd);
-
-		kfree(dev->devname);
+	mutex_lock(&h->lock);
+	if (data &&
+	    (!data->blksz || data->blksz > mmc->max_blk_size || !data->blocks ||
+	     check_mul_overflow(data->blksz, data->blocks, &bytes) ||
+	     bytes > mmc->max_req_size ||
+	     (h->burst && (data->flags & MMC_DATA_WRITE) &&
+	      data->blksz != TSSD_BLOCK_SIZE))) {
+		data->error = -EINVAL;
+		goto done;
 	}
+	ret = wait_idle(h, TSSD_IDLE_TIMEOUT_US);
+	if (ret) {
+		mrq->cmd->error = ret;
+		goto done;
+	}
+
+	/* Clear latched FPGA CRC/timeout status from the previous request. */
+	rd(h, R_STATUS);
+	if (mrq->sbc) {
+		ret = send_cmd(h, mrq->sbc, NULL, resp, NULL, 0);
+		if (ret) {
+			mrq->sbc->error = ret;
+			goto done;
+		}
+	}
+
+	ret = send_cmd(h, mrq->cmd, data, resp,
+		       data && (data->flags & MMC_DATA_READ) ? &prefix : NULL, 0);
+	if (ret) {
+		mrq->cmd->error = ret;
+		dev_err_ratelimited(mmc_dev(mmc), "CMD%u failed: %d\n",
+				    mrq->cmd->opcode, ret);
+		goto done;
+	}
+	if (!data)
+		goto done;
+
+	timeout_ns = data_timeout_ns(h, data);
+	data->error = do_data(h, data, bytes, mrq->stop != NULL,
+			      &prefix, &finish_write, timeout_ns);
+	if (data->error)
+		dev_err_ratelimited(mmc_dev(mmc),
+				    "CMD%u arg %08x blocks %u data phase failed: %d\n",
+				    mrq->cmd->opcode, mrq->cmd->arg,
+				    data->blocks, data->error);
+
+	if (mrq->stop) {
+		/* A write stop can wait for the card to finish programming. */
+		ret = send_cmd(h, mrq->stop, NULL, resp, NULL,
+			       data->flags & MMC_DATA_WRITE ? timeout_ns : 0);
+		mrq->stop->error = ret;
+		if (ret)
+			dev_err_ratelimited(mmc_dev(mmc), "CMD%u stop failed: %d\n",
+					    mrq->stop->opcode, ret);
+	}
+	if (finish_write) {
+		wr(h, R_WRITE_BUSY, 0);
+		ret = wait_idle(h, DIV_ROUND_UP_ULL(timeout_ns, NSEC_PER_USEC));
+		if (!ret)
+			ret = fpga_status(h);
+		if (ret && !data->error)
+			data->error = ret;
+		wr(h, R_STATUS, S_MULTIRD | S_MULTIWR);
+	}
+	if (!data->error && (!mrq->stop || !mrq->stop->error))
+		data->bytes_xfered = bytes;
+done:
+	mutex_unlock(&h->lock);
+	mmc_request_done(mmc, mrq);
 }
 
-static const struct platform_device_id tssdcard_devtype[] = {
-	{
-		.name = "tssdcard-mmc",
-	}, {
-		/* sentinel */
+static void tssd_power_up(struct tssd_host *h)
+{
+	unsigned int i;
+
+	if (wait_idle(h, TSSD_IDLE_TIMEOUT_US))
+		dev_warn(mmc_dev(h->mmc), "FPGA stream engine did not idle before reset\n");
+
+	/* The FPGA turns off card power when the host drives all pins low. */
+	writew(0, h->base + R_CLKSEL);
+	wr(h, R_STATUS, S_MULTIRD | S_MULTIWR);
+	wr(h, R_GPIO, 0);
+	for (i = 0; i < 8; i++)
+		writew(i, h->base + R_CLKSEL);
+	msleep(100);
+
+	writew(0, h->base + R_CLKSEL);
+	wr(h, R_GPIO, GPIO_IDLE | GPIO_CLK);
+	usleep_range(5000, 6000);
+	rd(h, R_STATUS);
+}
+
+static void tssd_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+{
+	struct tssd_host *h = mmc_priv(mmc);
+	u8 old_power_mode = h->power_mode;
+	unsigned int gpio_clock = min(ios->clock, TSSD_GPIO_MAX_FREQ);
+
+	h->power_mode = ios->power_mode;
+	if (ios->power_mode == MMC_POWER_OFF) {
+		h->clock_delay_ns = 0;
+		wr(h, R_GPIO, 0);
+		return;
 	}
-};
-MODULE_DEVICE_TABLE(platform, tssdcard_devtype);
 
-static const struct of_device_id tssdcard_of_match[] = {
-	{
-		.compatible = "technologic,tssdcard",
+	/* Keep the GPIO phases at or below the tested software rate. */
+	h->clock_delay_ns = gpio_clock ? DIV_ROUND_UP(500000000U, gpio_clock) : 0;
+	if (old_power_mode == MMC_POWER_OFF)
+		tssd_power_up(h);
+
+	/* The MMC core supplies the identification rate at MMC_POWER_ON. */
+	if (ios->power_mode == MMC_POWER_ON && old_power_mode != MMC_POWER_ON)
+		clock_idle(h, TSSD_INITIAL_CLOCKS);
+
+	h->bus_width_4 = ios->bus_width == MMC_BUS_WIDTH_4;
+	h->burst = h->bus_width_4 && ios->clock >= TSSD_BURST_FREQ;
+	wr(h, R_STATUS, S_MULTIRD | S_MULTIWR);
+	if (!ios->clock)
+		wr(h, R_GPIO, GPIO_IDLE);
+}
+
+static int tssd_card_busy(struct mmc_host *mmc)
+{
+	struct tssd_host *h = mmc_priv(mmc);
+	int busy;
+
+	mutex_lock(&h->lock);
+	if (h->power_mode != MMC_POWER_ON) {
+		busy = 0;
+	} else {
+		/* Clock DAT0 once so cards that need clocks while busy can progress. */
+		wr(h, R_GPIO, GPIO_IDLE);
+		busy = !(rd(h, R_GPIO) & BIT(0));
+		wr(h, R_GPIO, GPIO_IDLE | GPIO_CLK);
 	}
+	mutex_unlock(&h->lock);
+
+	return busy;
+}
+
+static const struct mmc_host_ops tssd_ops = {
+	.request = tssd_request,
+	.set_ios = tssd_set_ios,
+	.card_busy = tssd_card_busy,
 };
 
-static struct platform_driver tssdcard_driver = {
-	.probe =  tssdcard_probe,
-	.remove = tssdcard_remove,
-	.driver = {
-		.name = DRIVER_NAME,
-		.of_match_table = tssdcard_of_match,
-	}
+static int tssd_probe(struct platform_device *pdev)
+{
+	struct mmc_host *mmc;
+	struct tssd_host *h;
+	int ret;
+
+	mmc = devm_mmc_alloc_host(&pdev->dev, sizeof(*h));
+	if (!mmc)
+		return -ENOMEM;
+	h = mmc_priv(mmc);
+	h->mmc = mmc;
+	h->base = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(h->base))
+		return PTR_ERR(h->base);
+	mutex_init(&h->lock);
+	mmc->ops = &tssd_ops;
+	mmc->f_min = 100000;
+	mmc->f_max = TSSD_BURST_FREQ;
+	/* Longer busy periods are polled by the MMC core through card_busy(). */
+	mmc->max_busy_timeout = 1000;
+	mmc->ocr_avail = MMC_VDD_32_33 | MMC_VDD_33_34;
+	mmc->caps2 = MMC_CAP2_NO_MMC | MMC_CAP2_NO_SDIO;
+	ret = mmc_of_parse(mmc);
+	if (ret)
+		return ret;
+	mmc->f_max = min(mmc->f_max, TSSD_BURST_FREQ);
+	mmc->max_blk_size = TSSD_BLOCK_SIZE;
+	mmc->max_req_size = 4096;
+	mmc->max_blk_count = mmc->max_req_size / mmc->max_blk_size;
+	mmc->max_seg_size = mmc->max_req_size;
+	mmc->max_segs = 1;
+	platform_set_drvdata(pdev, mmc);
+	ret = mmc_add_host(mmc);
+	if (ret)
+		return ret;
+	dev_info(&pdev->dev, "TS SD core registered with MMC\n");
+	return 0;
+}
+
+static void tssd_remove(struct platform_device *pdev)
+{
+	struct mmc_host *mmc = platform_get_drvdata(pdev);
+
+	mmc_remove_host(mmc);
+}
+
+static const struct of_device_id tssd_of_match[] = {
+	{ .compatible = "technologic,tssdcard" }, { }
 };
+MODULE_DEVICE_TABLE(of, tssd_of_match);
 
-module_platform_driver(tssdcard_driver);
+static struct platform_driver tssd_driver = {
+	.probe = tssd_probe,
+	.remove = tssd_remove,
+	.driver = { .name = "tssdcard", .of_match_table = tssd_of_match },
+};
+module_platform_driver(tssd_driver);
 
-MODULE_DESCRIPTION("TS-7800-V2 SDHC Driver");
-MODULE_AUTHOR("Ian Coughlan, Technologic Systems");
+MODULE_DESCRIPTION("TS-7800-V2 FPGA SD/MMC host controller");
+MODULE_AUTHOR("Technologic Systems");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("platform:tssdcard");

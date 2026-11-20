@@ -105,9 +105,13 @@
 			reg = <2 0x44 4>;
 		};
 
-		tssdcore@2,100 {
+		mmc@2,100 {
 			compatible = "technologic,tssdcard";
 			reg = <2 0x100 0x200>;
+			bus-width = <4>;
+			max-frequency = <25000000>;
+			broken-cd;
+			disable-wp;
 		};
 
 		/*

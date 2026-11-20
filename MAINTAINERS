@@ -3151,6 +3151,13 @@ S:	Maintained
 W:	http://www.digriz.org.uk/ts78xx/kernel
 F:	arch/arm/mach-orion5x/ts78xx-*
 
+TECHNOLOGIC SYSTEMS TS-7800-V2 SD CARD CONTROLLER
+M:	Mark Featherston <mark@embeddedts.com>
+L:	linux-mmc@vger.kernel.org
+S:	Maintained
+F:	Documentation/devicetree/bindings/mmc/technologic,tssdcard.yaml
+F:	drivers/mmc/host/tssdcard.c
+
 ARM/QUALCOMM CHROMEBOOK SUPPORT
 R:	cros-qcom-dts-watchers@chromium.org
 F:	arch/arm64/boot/dts/qcom/sc7180*
