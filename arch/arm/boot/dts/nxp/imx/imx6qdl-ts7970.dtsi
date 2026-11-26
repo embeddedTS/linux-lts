@@ -229,9 +229,9 @@
 
 &gpio5 {
 	gpio-line-names = "BUS_WAIT#", "", "", "", "DIO_20", "LCD_D11", "", "",
-		"", "JTAG_FPGA_TMS", "", "", "JTAG_FPGA_TCK", "JTAG_FPGA_TDO",
-		"", "GYRO_INT", "", "", "SEL_DC_USB#", "", "", "", "", "", "",
-		"", "", "", "", "", "", "", "";
+		"JTAG_FPGA_TMS", "", "", "JTAG_FPGA_TCK", "JTAG_FPGA_TDO", "",
+		"GYRO_INT", "", "JTAG_FPGA_TDI", "SEL_DC_USB#", "", "",
+		"FPGA_RESET", "", "", "", "", "", "", "", "", "", "", "";
 };
 
 &hdmi {
